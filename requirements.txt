@@ -1,0 +1,5 @@
+Flask
+flask_jwt_extended
+pyodbc
+python-dotenv
+requests
