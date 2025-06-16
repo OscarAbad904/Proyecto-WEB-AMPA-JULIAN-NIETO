@@ -1,14 +1,477 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="scroll-smooth">
 <head>
-  <meta charset="UTF-8">
-  <title>Previsualización AMPA</title>
-  <style>
-    body { margin: 0; }
-    iframe { width: 100vw; height: 100vh; border: none; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMPA Julian Nieto Tapia</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../static/css/AMPA.css">
+    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+    <script src="../static/js/AMPA.js" defer></script>
 </head>
 <body>
-  <iframe src="templates/AMPA.html"></iframe>
+    <!-- Header -->
+    <header class="header-fixed">
+        <nav class="container-nav">
+            <div class="header-flex">
+                <div class="header-logo-group">
+                    <div class="logo-bg">
+                        <img src="../static/Images/Logo_AMPA.png" alt="Logo AMPA Julian Nieto Tapia" class="logo-img" />
+                    </div>
+                    <span class="header-title-group">
+                        <span class="header-title-ampa">AMPA</span>
+                        <span class="header-title-colegio">Julian Nieto Tapia</span>
+                    </span>
+                </div>
+                <!-- Buscador interno -->
+                <div class="buscador-desktop">
+                    <input type="text" placeholder="Buscar..." class="buscador-input" id="buscadorAMPA" oninput="buscarEnPagina()" />
+                </div>
+                <div class="nav-desktop">
+                    <a href="#inicio" class="nav-link">Inicio</a>
+                    <a href="#quienes-somos" class="nav-link">Quiénes Somos</a>
+                    <a href="#noticias" class="nav-link">Noticias</a>
+                    <a href="#eventos" class="nav-link">Eventos</a>
+                    <a href="#documentos" class="nav-link">Documentos</a>
+                    <a href="#contacto" class="nav-link">Contacto</a>
+                    <a href="#area-privada" class="nav-link">Área Privada</a>
+                    <a href="#faq" class="nav-link">FAQ</a>
+                </div>
+                <button class="menu-mobile-btn" onclick="toggleMobileMenu()">
+                    <svg class="menu-mobile-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+            </div>
+            <!-- Mobile Menu -->
+            <div id="mobile-menu" class="mobile-menu">
+                <div class="mobile-menu-links">
+                    <a href="#inicio" class="nav-link" onclick="toggleMobileMenu()">Inicio</a>
+                    <a href="#quienes-somos" class="nav-link" onclick="toggleMobileMenu()">Quiénes Somos</a>
+                    <a href="#noticias" class="nav-link" onclick="toggleMobileMenu()">Noticias</a>
+                    <a href="#eventos" class="nav-link" onclick="toggleMobileMenu()">Eventos</a>
+                    <a href="#documentos" class="nav-link" onclick="toggleMobileMenu()">Documentos</a>
+                    <a href="#contacto" class="nav-link" onclick="toggleMobileMenu()">Contacto</a>
+                    <a href="#area-privada" class="nav-link" onclick="toggleMobileMenu()">Área Privada</a>
+                    <a href="#faq" class="nav-link" onclick="toggleMobileMenu()">FAQ</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="inicio" class="hero-section">
+        <div class="hero-overlay"></div>
+        <div class="hero-container">
+            <div class="hero-logo-floating">
+                <div class="hero-logo-bg">
+                    <img src="../static/Images/Logo_AMPA.png" alt="Logo AMPA Julian Nieto Tapia" class="hero-logo-img" />
+                </div>
+            </div>
+            <h1 class="hero-title fade-in">
+                <span class="text-gradient">AMPA</span> Julian Nieto Tapia
+            </h1>
+            <p class="hero-desc fade-in">
+                Conectando familias, fortaleciendo la educación de nuestros hijos
+            </p>
+            <div class="hero-btns fade-in">
+                <a href="#quienes-somos" class="btn-primary">Conoce más</a>
+                <a href="#eventos" class="btn-outline">Próximos Eventos</a>
+            </div>
+        </div>
+        <!-- Floating geometric shapes -->
+        <div class="hero-shape-blue"></div>
+        <div class="hero-shape-orange"></div>
+        <div class="hero-shape-green" style="top: 8rem; right: 4rem; width: 2.5rem; height: 2.5rem; animation-delay: -1.5s;"></div>
+        <div class="hero-shape-purple" style="bottom: 7rem; left: 6rem; width: 3.5rem; height: 3.5rem; animation-delay: -3s;"></div>
+        <div class="hero-shape-yellow" style="top: 3rem; right: 10rem; width: 2rem; height: 2rem; animation-delay: -2.2s;"></div>
+        <div class="hero-shape-pink" style="bottom: 3rem; left: 12rem; width: 2.8rem; height: 2.8rem; animation-delay: -2.7s;"></div>
+    </section>
+
+    <!-- Latest News Section -->
+    <section class="news-section">
+        <div class="container">
+            <h2 class="news-title fade-in">Últimas Noticias</h2>
+            <div class="news-grid">
+                <div class="news-card fade-in">
+                    <div class="news-card-icon">📚</div>
+                    <h3 class="news-card-title">Nueva biblioteca escolar</h3>
+                    <p class="news-card-desc">Inauguramos la nueva biblioteca con más de 2000 libros gracias a las gestiones del AMPA.</p>
+                    <span class="news-card-date">15 de Junio, 2025</span>
+                </div>
+                <div class="news-card fade-in" style="transition-delay: 0.2s;">
+                    <div class="news-card-icon orange">🎉</div>
+                    <h3 class="news-card-title">Fiesta de Fin de Curso</h3>
+                    <p class="news-card-desc">¡No te pierdas la fiesta de fin de curso el próximo 28 de junio! Habrá actividades para toda la familia.</p>
+                    <span class="news-card-date orange">10 de Junio, 2025</span>
+                </div>
+                <div class="news-card fade-in" style="transition-delay: 0.4s;">
+                    <div class="news-card-icon green">👥</div>
+                    <h3 class="news-card-title">Nueva Junta Directiva</h3>
+                    <p class="news-card-desc">Presentamos los nuevos miembros de la junta directiva elegidos en la última asamblea.</p>
+                    <span class="news-card-date green">5 de Junio, 2025</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="quienes-somos" class="about-section">
+        <div class="container">
+            <div class="about-grid">
+                <div class="fade-in">
+                    <h2 class="about-title">Quiénes Somos</h2>
+                    <p class="about-desc">
+                        El AMPA del Colegio San Miguel es una asociación de madres y padres comprometidos con la mejora continua de la educación de nuestros hijos. Trabajamos en estrecha colaboración con el centro educativo para crear un ambiente de aprendizaje enriquecedor.
+                    </p>
+                    <div class="about-list">
+                        <div class="about-list-item">
+                            <div class="about-list-icon blue">✓</div>
+                            <span>Representamos los intereses de las familias</span>
+                        </div>
+                        <div class="about-list-item">
+                            <div class="about-list-icon orange">✓</div>
+                            <span>Organizamos actividades complementarias</span>
+                        </div>
+                        <div class="about-list-item">
+                            <div class="about-list-icon green">✓</div>
+                            <span>Facilitamos la comunicación con el centro</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="about-stats-grid fade-in">
+                    <div class="about-stat-card">
+                        <div class="about-stat-number blue">200+</div>
+                        <div class="about-stat-label">Familias asociadas</div>
+                    </div>
+                    <div class="about-stat-card">
+                        <div class="about-stat-number orange">15</div>
+                        <div class="about-stat-label">Años de historia</div>
+                    </div>
+                    <div class="about-stat-card">
+                        <div class="about-stat-number green">50+</div>
+                        <div class="about-stat-label">Eventos anuales</div>
+                    </div>
+                    <div class="about-stat-card">
+                        <div class="about-stat-number purple">8</div>
+                        <div class="about-stat-label">Miembros junta</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- News Section -->
+    <section id="noticias" class="news-section">
+        <div class="container">
+            <h2 class="news-title fade-in">Noticias y Novedades</h2>
+            <div class="news-articles">
+                <div class="news-filter fade-in">
+                    <button class="news-filter-btn active" onclick="filterNews('all')">Todas</button>
+                    <button class="news-filter-btn" onclick="filterNews('actividades')">Actividades</button>
+                    <button class="news-filter-btn" onclick="filterNews('comunicados')">Comunicados</button>
+                    <button class="news-filter-btn" onclick="filterNews('reuniones')">Reuniones</button>
+                </div>
+                <article class="news-article fade-in news-item" data-category="actividades">
+                    <div class="news-article-header">
+                        <div>
+                            <h3 class="news-article-title">Taller de robótica para padres e hijos</h3>
+                            <span class="news-article-category">Actividades • 12 de Junio, 2025</span>
+                        </div>
+                        <div class="news-article-icon">🤖</div>
+                    </div>
+                    <p class="news-article-desc">El próximo sábado organizamos un taller de robótica donde padres e hijos podrán aprender juntos los fundamentos de la programación y la robótica educativa.</p>
+                </article>
+                <article class="news-article fade-in news-item" data-category="comunicados">
+                    <div class="news-article-header">
+                        <div>
+                            <h3 class="news-article-title">Nuevas medidas de seguridad en el centro</h3>
+                            <span class="news-article-category orange">Comunicados • 8 de Junio, 2025</span>
+                        </div>
+                        <div class="news-article-icon">🛡️</div>
+                    </div>
+                    <p class="news-article-desc">Informamos sobre las nuevas medidas de seguridad implementadas en el centro escolar tras las reuniones mantenidas entre el AMPA y la dirección del colegio.</p>
+                </article>
+                <article class="news-article fade-in news-item" data-category="reuniones">
+                    <div class="news-article-header">
+                        <div>
+                            <h3 class="news-article-title">Asamblea general ordinaria</h3>
+                            <span class="news-article-category green">Reuniones • 1 de Junio, 2025</span>
+                        </div>
+                        <div class="news-article-icon">📋</div>
+                    </div>
+                    <p class="news-article-desc">Convocamos a todas las familias a la asamblea general ordinaria que se celebrará el próximo 20 de junio a las 18:00 en el salón de actos del colegio.</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- Events Section -->
+    <section id="eventos" class="events-section">
+        <div class="container">
+            <h2 class="events-title fade-in">Próximos Eventos</h2>
+            <div class="events-grid">
+                <!-- Calendario de eventos -->
+                <div class="event-calendar fade-in">
+                    <h3 class="event-calendar-title">Calendario de Eventos</h3>
+                    <div class="event-list">
+                        <div class="event-item">
+                            <div class="event-date">
+                                <div class="event-date-day blue">20</div>
+                                <div class="event-date-month">JUN</div>
+                            </div>
+                            <div class="event-info">
+                                <div class="event-info-title">Asamblea General</div>
+                                <div class="event-info-desc">18:00 - Salón de Actos</div>
+                            </div>
+                        </div>
+                        <div class="event-item">
+                            <div class="event-date">
+                                <div class="event-date-day orange">28</div>
+                                <div class="event-date-month">JUN</div>
+                            </div>
+                            <div class="event-info">
+                                <div class="event-info-title">Fiesta Fin de Curso</div>
+                                <div class="event-info-desc">16:00 - Patio del Colegio</div>
+                            </div>
+                        </div>
+                        <div class="event-item">
+                            <div class="event-date">
+                                <div class="event-date-day green">15</div>
+                                <div class="event-date-month">SEP</div>
+                            </div>
+                            <div class="event-info">
+                                <div class="event-info-title">Reunión de Inicio de Curso</div>
+                                <div class="event-info-desc">19:00 - Salón de Actos</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Integración visual con Google Calendar (opcional) -->
+                    <div style="margin-top:1.5rem;">
+                        <iframe src="https://calendar.google.com/calendar/embed?src=TU_CALENDARIO_PUBLICO&ctz=Europe%2FMadrid"
+                                style="border: 0; width: 100%; height: 400px;" frameborder="0" scrolling="no"></iframe>
+                    </div>
+                </div>
+                <!-- Formulario de inscripción a eventos -->
+                <div class="event-form fade-in">
+                    <h3 class="event-form-title">Inscripción a Eventos</h3>
+                    <form onsubmit="handleEventForm(event)">
+                        <label>Evento</label>
+                        <select required>
+                            <option>Fiesta Fin de Curso</option>
+                            <option>Taller de Robótica</option>
+                            <option>Asamblea General</option>
+                        </select>
+                        <label>Nombre completo</label>
+                        <input type="text" required>
+                        <label>Email</label>
+                        <input type="email" required>
+                        <label>Número de asistentes</label>
+                        <input type="number" min="1" required>
+                        <button type="submit">Inscribirse</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contacto" class="contact-section">
+        <div class="container">
+            <h2 class="contact-title fade-in">Contacto</h2>
+            <div class="contact-grid">
+                <div class="fade-in">
+                    <h3 class="contact-info-title">Información de Contacto</h3>
+                    <div class="contact-info-list">
+                        <div class="contact-info-item">
+                            <div class="contact-info-icon blue">📧</div>
+                            <div>
+                                <div class="contact-info-label">Email</div>
+                                <div class="contact-info-value">ampa.juliannietotapia@email.com</div>
+                            </div>
+                        </div>
+                        <div class="contact-info-item">
+                            <div class="contact-info-icon orange">📱</div>
+                            <div>
+                                <div class="contact-info-label">Teléfono</div>
+                                <div class="contact-info-value">+34 123 456 789</div>
+                            </div>
+                        </div>
+                        <div class="contact-info-item">
+                            <div class="contact-info-icon green">📍</div>
+                            <div>
+                                <div class="contact-info-label">Dirección</div>
+                                <div class="contact-info-value">Colegio Julian Nieto Tapia<br>Calle de la Educación, 123<br>28001 Madrid</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="contact-social">
+                        <div class="contact-social-title">Síguenos en Redes Sociales</div>
+                        <div class="contact-social-links">
+                            <a href="#" class="contact-social-link">f</a>
+                            <a href="#" class="contact-social-link" style="background:#db2777;">📷</a>
+                            <a href="#" class="contact-social-link" style="background:#38bdf8;">🐦</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="contact-form fade-in">
+                    <h3 class="contact-form-title">Envíanos un Mensaje</h3>
+                    <form onsubmit="handleContactForm(event)">
+                        <label>Nombre completo</label>
+                        <input type="text" required>
+                        <label>Email</label>
+                        <input type="email" required>
+                        <label>Asunto</label>
+                        <select>
+                            <option>Consulta general</option>
+                            <option>Propuesta de actividad</option>
+                            <option>Sugerencia</option>
+                            <option>Queja o incidencia</option>
+                            <option>Voluntariado</option>
+                        </select>
+                        <label>Mensaje</label>
+                        <textarea rows="5" required></textarea>
+                        <button type="submit">Enviar Mensaje</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Área Privada (futuro) -->
+    <section id="area-privada" class="private-section">
+        <div class="private-container fade-in">
+            <div class="private-icon">🔒</div>
+            <h2 class="private-title">Área Privada</h2>
+            <p class="private-desc">
+                Acceso exclusivo para miembros de la junta del AMPA.<br>
+                Aquí podrás consultar documentos internos y comunicaciones.<br>
+                <strong class="private-soon">(Próximamente...)</strong>
+            </p>
+            <form class="private-form" style="display: none;">
+                <label>Usuario</label>
+                <input type="text" disabled>
+                <label>Contraseña</label>
+                <input type="password" disabled>
+                <button disabled>Entrar</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="faq-section">
+        <h2 class="faq-title">Preguntas Frecuentes</h2>
+        <div class="faq-list">
+            <div class="faq-item">
+                <div class="faq-question"><span class="faq-icon">❓</span>¿Qué es el AMPA?</div>
+                <div class="faq-answer">La Asociación de Madres y Padres de Alumnos/as que representa a las familias ante el colegio y organiza actividades.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question"><span class="faq-icon">📝</span>¿Cómo puedo asociarme?</div>
+                <div class="faq-answer">Puedes hacerte socio/a a través del formulario de "Hazte Socio" en la sección Colabora.</div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question"><span class="faq-icon">🤝</span>¿Es obligatorio participar en actividades?</div>
+                <div class="faq-answer">No, pero tu colaboración siempre es bienvenida y suma para mejorar la experiencia de los alumnos.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Documentos Section -->
+    <section id="documentos" class="news-section">
+        <div class="container">
+            <h2 class="news-title fade-in">Documentos</h2>
+            <div class="news-articles">
+                <div class="news-card fade-in">
+                    <div class="news-card-icon">📄</div>
+                    <h3 class="news-card-title">Estatutos del AMPA</h3>
+                    <p class="news-card-desc">Consulta los estatutos que rigen la asociación y los derechos y deberes de los socios.</p>
+                    <a href="#" class="btn-outline" onclick="downloadDocument('estatutos')">Descargar PDF</a>
+                </div>
+                <div class="news-card fade-in">
+                    <div class="news-card-icon orange">📝</div>
+                    <h3 class="news-card-title">Actas de Reuniones</h3>
+                    <p class="news-card-desc">Accede a las actas de las últimas reuniones celebradas por la junta directiva y la asamblea.</p>
+                    <a href="#" class="btn-outline" onclick="downloadDocument('actas')">Descargar PDF</a>
+                </div>
+                <div class="news-card fade-in">
+                    <div class="news-card-icon green">💶</div>
+                    <h3 class="news-card-title">Presupuesto Anual</h3>
+                    <p class="news-card-desc">Consulta el presupuesto anual aprobado y el desglose de gastos e ingresos.</p>
+                    <a href="#" class="btn-outline" onclick="downloadDocument('presupuesto')">Descargar PDF</a>
+                </div>
+                <div class="news-card fade-in">
+                    <div class="news-card-icon purple">📋</div>
+                    <h3 class="news-card-title">Formularios</h3>
+                    <p class="news-card-desc">Descarga los formularios necesarios para inscribirte, proponer actividades o comunicar incidencias.</p>
+                    <a href="#" class="btn-outline" onclick="downloadDocument('formularios')">Descargar PDF</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Modal for forms -->
+    <div id="modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-xl p-8 max-w-md w-full max-h-screen overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 id="modal-title" class="text-2xl font-semibold"></h3>
+                <button id="close-modal-btn" onclick="closeModal()" class="text-gray-400 hover:text-white text-2xl" style="display:none;">&times;</button>
+            </div>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div>
+                    <div class="footer-logo-group">
+                        <div class="footer-logo-bg">
+                            <img src="../static/Images/Logo_AMPA.png" alt="Logo AMPA Julian Nieto Tapia" class="footer-logo-img" />
+                        </div>
+                        <span class="footer-logo-title-group">
+                            <span class="footer-logo-title-ampa">AMPA</span>
+                            <span class="footer-logo-title-colegio">Julian Nieto Tapia</span>
+                        </span>
+                    </div>
+                    <p class="footer-contact-list">
+                        Asociación de Madres y Padres del Colegio Julian Nieto Tapia.<br>
+                        Trabajando juntos por la educación de nuestros hijos.
+                    </p>
+                </div>
+                <div>
+                    <div class="footer-section-title">Enlaces Rápidos</div>
+                    <div class="footer-links">
+                        <a href="#inicio" class="footer-link">Inicio</a>
+                        <a href="#quienes-somos" class="footer-link">Quiénes Somos</a>
+                        <a href="#noticias" class="footer-link">Noticias</a>
+                        <a href="#eventos" class="footer-link">Eventos</a>
+                    </div>
+                </div>
+                <div>
+                    <div class="footer-section-title">Recursos</div>
+                    <div class="footer-links">
+                        <a href="#documentos" class="footer-link">Documentos</a>
+                        <a href="#contacto" class="footer-link">Contacto</a>
+                        <a href="#area-privada" class="footer-link">Área Privada</a>
+                        <a href="#faq" class="footer-link">FAQ</a>
+                    </div>
+                </div>
+                <div>
+                    <div class="footer-section-title">Contacto</div>
+                    <div class="footer-contact-list">
+                        <p>📧 ampa.juliannietotapia@email.com</p>
+                        <p>📱 +34 123 456 789</p>
+                        <p>📍 Calle de la Educación, 123</p>
+                        <p>28001 Madrid</p>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 AMPA Colegio San Miguel. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </footer>    
 </body>
 </html>
