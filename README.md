@@ -36,3 +36,8 @@ Este repositorio contiene el código del portal de la Asociación de Madres y Pa
 ## Licencia
 
 El código se publica bajo los términos de la licencia MIT incluida en el archivo `LICENSE`.
+
+## Información ampliada
+
+Para conocer con más detalle las actividades recientes, la junta directiva y otras
+iniciativas de la asociación, consulta el documento [AMPA_INFO.md](AMPA_INFO.md).
