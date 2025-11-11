@@ -28,8 +28,8 @@ Este repositorio contiene el código del portal de la Asociación de Madres y Pa
 ## Estructura
 
 - **app.py** – Servidor Flask con rutas para la página principal y modales de inicio de sesión y registro.
-- **templates/** – Plantillas HTML (actualmente `AMPA.html`).
-- **static/** – Recursos estáticos: hojas de estilo, JavaScript e imágenes.
+- **templates/** – Plantillas HTML (actualmente `index.html`).
+- **assets/** – Recursos estáticos: hojas de estilo, JavaScript e imágenes.
 - **updater.py** – Script opcional para actualizar la versión empaquetada (`app.exe`) en entornos Windows.
 - **config.py** – Carga de variables de entorno definidas en `.env`.
 

@@ -328,4 +328,4 @@ window.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// No requiere cambios, las rutas ya están correctas en static/js/AMPA.js
+// Nota: los recursos estáticos se sirven ahora desde assets/js/AMPA.js

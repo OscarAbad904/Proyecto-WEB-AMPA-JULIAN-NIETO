@@ -1147,4 +1147,4 @@ section {
   white-space: nowrap;
 }
 
-/* No requiere cambios, las rutas ya están correctas en static/css/AMPA.css */
+/* Nota: las rutas a recursos se gestionan ahora desde assets/css/AMPA.css */
