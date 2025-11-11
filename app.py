@@ -91,10 +91,15 @@ else:
     # En modo desarrollo
     base_dir = os.path.abspath(os.path.dirname(__file__))
 
-template_dir = os.path.join(base_dir, 'templates')
-static_dir = os.path.join(base_dir, 'static')
+carpeta_plantillas = os.path.join(base_dir, 'templates')
+carpeta_recursos_estaticos = os.path.join(base_dir, 'assets')
 
-app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
+app = Flask(
+    __name__,
+    template_folder=carpeta_plantillas,
+    static_folder=carpeta_recursos_estaticos,
+    static_url_path='/assets'
+)
 app.secret_key = SECRET_KEY  # Clave secreta necesaria para sesiones seguras
 # Duración por defecto del access token
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=30)
@@ -207,18 +212,18 @@ def Roles():
 # Ruta raiz (redirecion a /main)
 # ====================================================================================
 @app.route('/')
-def home():
-    return redirect(url_for('AMPA'))
+def redirigir_inicio():
+    return redirect(url_for('vista_principal'))
 
 # ====================================================================================
 # Ruta principal (main)
 # ====================================================================================
 @app.route('/AMPA')
-def AMPA():
-    username = session.get('username')
-    role = session.get('role')
+def vista_principal():
+    nombre_usuario = session.get('username')
+    rol_usuario = session.get('role')
 
-    return render_template('AMPA.html', username=username, role=role)
+    return render_template('index.html', nombre_usuario=nombre_usuario, rol_usuario=rol_usuario)
 
 # ====================================================================================
 # Endpoint para limpiar el mensaje del modal

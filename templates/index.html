@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AMPA Julian Nieto Tapia</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../static/css/AMPA.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/AMPA.css') }}">
     <!-- <script src="https://cdn.tailwindcss.com"></script> -->
-    <script src="../static/js/AMPA.js" defer></script>
+    <script src="{{ url_for('static', filename='js/AMPA.js') }}" defer></script>
 </head>
 <body>
     <!-- Header -->
@@ -16,7 +16,7 @@
             <div class="header-flex">
                 <div class="header-logo-group">
                     <div class="logo-bg">
-                        <img src="../static/Images/Logo_AMPA.png" alt="Logo AMPA Julian Nieto Tapia" class="logo-img" />
+                        <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Logo AMPA Julian Nieto Tapia" class="logo-img" />
                     </div>
                     <span class="header-title-group">
                         <span class="header-title-ampa">AMPA</span>
@@ -65,7 +65,7 @@
         <div class="hero-container">
             <div class="hero-logo-floating">
                 <div class="hero-logo-bg">
-                    <img src="../static/Images/Logo_AMPA.png" alt="Logo AMPA Julian Nieto Tapia" class="hero-logo-img" />
+                    <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Logo AMPA Julian Nieto Tapia" class="hero-logo-img" />
                 </div>
             </div>
             <h1 class="hero-title fade-in">
@@ -428,7 +428,7 @@
                 <div>
                     <div class="footer-logo-group">
                         <div class="footer-logo-bg">
-                            <img src="../static/Images/Logo_AMPA.png" alt="Logo AMPA Julian Nieto Tapia" class="footer-logo-img" />
+                            <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Logo AMPA Julian Nieto Tapia" class="footer-logo-img" />
                         </div>
                         <span class="footer-logo-title-group">
                             <span class="footer-logo-title-ampa">AMPA</span>
