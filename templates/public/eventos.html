@@ -1,0 +1,22 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Eventos · AMPA Julián Nieto{% endblock %}
+
+{% block content %}
+  <section class="container">
+    <header class="section-header">
+      <h1>Eventos</h1>
+      <p>Calendario mensual y actividades destacadas.</p>
+    </header>
+    <div class="calendar-preview">
+      <p>Mini calendario con enfoque accesible.</p>
+    </div>
+    <div class="card-grid">
+      <article class="card">
+        <h3>Jornada familiar</h3>
+        <p>Capacidad limitada, inscripción abierta.</p>
+        <a href="{{ url_for('public.evento_detalle', slug='jornada-familiar') }}">Ver detalle</a>
+      </article>
+    </div>
+  </section>
+{% endblock %}

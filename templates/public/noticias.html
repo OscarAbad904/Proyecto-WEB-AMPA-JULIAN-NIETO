@@ -1,0 +1,21 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Noticias · AMPA Julián Nieto{% endblock %}
+
+{% block content %}
+  <section class="container">
+    <header class="section-header">
+      <h1>Noticias</h1>
+      <p>Buscador: {{ query or "todas las noticias" }}</p>
+    </header>
+    <div class="card-grid">
+      {% for _ in range(3) %}
+      <article class="card">
+        <h3>Noticia destacada</h3>
+        <p>Resumen accesible y optimizado para SEO.</p>
+        <a href="{{ url_for('public.noticia_detalle', slug='noticia-social') }}">Leer</a>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

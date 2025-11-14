@@ -5,7 +5,6 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from flask_jwt_extended  import (JWTManager, create_access_token,jwt_required, get_jwt_identity)
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta
-import sqlite3
 import pyodbc
 from functools import wraps
 import os, sys

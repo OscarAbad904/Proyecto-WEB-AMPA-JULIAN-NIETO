@@ -1,0 +1,14 @@
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="{{ url_for('public.home') }}">AMPA Julián Nieto Tapia</a>
+    <nav class="site-nav">
+      <a href="{{ url_for('public.home') }}">Inicio</a>
+      <a href="{{ url_for('public.noticias') }}">Noticias</a>
+      <a href="{{ url_for('public.eventos') }}">Eventos</a>
+      <a href="{{ url_for('public.documentos') }}">Documentos</a>
+      <a href="{{ url_for('public.contacto') }}">Contacto</a>
+      <a href="{{ url_for('members.login') }}">Área de socios</a>
+    </nav>
+    <button class="btn-ghost" id="theme-toggle">Modo oscuro</button>
+  </div>
+</header>
