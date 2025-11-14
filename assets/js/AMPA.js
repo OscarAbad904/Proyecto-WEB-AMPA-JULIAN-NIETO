@@ -1,4 +1,4 @@
-// AMPA.js: Funciones principales para la web del AMPA Julian Nieto Tapia
+// AMPA.js: Funciones principales para la web del AMPA Julián Nieto Tapia
 
 // Intersection Observer para animaciones
 const observerOptions = {

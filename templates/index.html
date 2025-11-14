@@ -1,75 +1,17 @@
-<!DOCTYPE html>
-<html lang="es" class="scroll-smooth">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AMPA Julian Nieto Tapia</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/AMPA.css') }}">
-    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
-    <script src="{{ url_for('static', filename='js/AMPA.js') }}" defer></script>
-</head>
-<body>
-    <!-- Header -->
-    <header class="header-fixed">
-        <nav class="container-nav">
-            <div class="header-flex">
-                <div class="header-logo-group">
-                    <div class="logo-bg">
-                        <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Logo AMPA Julian Nieto Tapia" class="logo-img" />
-                    </div>
-                    <span class="header-title-group">
-                        <span class="header-title-ampa">AMPA</span>
-                        <span class="header-title-colegio">Julian Nieto Tapia</span>
-                    </span>
-                </div>
-                <!-- Buscador interno -->
-                <div class="buscador-desktop">
-                    <input type="text" placeholder="Buscar..." class="buscador-input" id="buscadorAMPA" oninput="buscarEnPagina()" />
-                </div>
-                <div class="nav-desktop">
-                    <a href="#inicio" class="nav-link">Inicio</a>
-                    <a href="#quienes-somos" class="nav-link">Quiénes Somos</a>
-                    <a href="#noticias" class="nav-link">Noticias</a>
-                    <a href="#eventos" class="nav-link">Eventos</a>
-                    <a href="#documentos" class="nav-link">Documentos</a>
-                    <a href="#contacto" class="nav-link">Contacto</a>
-                    <a href="#area-privada" class="nav-link">Área Privada</a>
-                    <a href="#faq" class="nav-link">FAQ</a>
-                </div>
-                <button class="menu-mobile-btn" onclick="toggleMobileMenu()">
-                    <svg class="menu-mobile-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                    </svg>
-                </button>
-            </div>
-            <!-- Mobile Menu -->
-            <div id="mobile-menu" class="mobile-menu">
-                <div class="mobile-menu-links">
-                    <a href="#inicio" class="nav-link" onclick="toggleMobileMenu()">Inicio</a>
-                    <a href="#quienes-somos" class="nav-link" onclick="toggleMobileMenu()">Quiénes Somos</a>
-                    <a href="#noticias" class="nav-link" onclick="toggleMobileMenu()">Noticias</a>
-                    <a href="#eventos" class="nav-link" onclick="toggleMobileMenu()">Eventos</a>
-                    <a href="#documentos" class="nav-link" onclick="toggleMobileMenu()">Documentos</a>
-                    <a href="#contacto" class="nav-link" onclick="toggleMobileMenu()">Contacto</a>
-                    <a href="#area-privada" class="nav-link" onclick="toggleMobileMenu()">Área Privada</a>
-                    <a href="#faq" class="nav-link" onclick="toggleMobileMenu()">FAQ</a>
-                </div>
-            </div>
-        </nav>
-    </header>
+{% extends "public/layout.html" %}
 
+{% block content %}
     <!-- Hero Section -->
     <section id="inicio" class="hero-section">
         <div class="hero-overlay"></div>
         <div class="hero-container">
             <div class="hero-logo-floating">
                 <div class="hero-logo-bg">
-                    <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Logo AMPA Julian Nieto Tapia" class="hero-logo-img" />
+                    <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Logo AMPA Julián Nieto Tapia" class="hero-logo-img" />
                 </div>
             </div>
             <h1 class="hero-title fade-in">
-                <span class="text-gradient">AMPA</span> Julian Nieto Tapia
+                <span class="text-gradient">AMPA</span> Julián Nieto Tapia
             </h1>
             <p class="hero-desc fade-in">
                 Conectando familias, fortaleciendo la educación de nuestros hijos
@@ -422,56 +364,6 @@
     </div>
 
     <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-grid">
-                <div>
-                    <div class="footer-logo-group">
-                        <div class="footer-logo-bg">
-                            <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Logo AMPA Julian Nieto Tapia" class="footer-logo-img" />
-                        </div>
-                        <span class="footer-logo-title-group">
-                            <span class="footer-logo-title-ampa">AMPA</span>
-                            <span class="footer-logo-title-colegio">Julian Nieto Tapia</span>
-                        </span>
-                    </div>
-                    <p class="footer-contact-list">
-                        Asociación de Madres y Padres del CEIP Julián Nieto Tapia.<br>
-                        Trabajando juntos por la educación de nuestros hijos.
-                    </p>
-                </div>
-                <div>
-                    <div class="footer-section-title">Enlaces Rápidos</div>
-                    <div class="footer-links">
-                        <a href="#inicio" class="footer-link">Inicio</a>
-                        <a href="#quienes-somos" class="footer-link">Quiénes Somos</a>
-                        <a href="#noticias" class="footer-link">Noticias</a>
-                        <a href="#eventos" class="footer-link">Eventos</a>
-                    </div>
-                </div>
-                <div>
-                    <div class="footer-section-title">Recursos</div>
-                    <div class="footer-links">
-                        <a href="#documentos" class="footer-link">Documentos</a>
-                        <a href="#contacto" class="footer-link">Contacto</a>
-                        <a href="#area-privada" class="footer-link">Área Privada</a>
-                        <a href="#faq" class="footer-link">FAQ</a>
-                    </div>
-                </div>
-                <div>
-                    <div class="footer-section-title">Contacto</div>
-                    <div class="footer-contact-list">
-                        <p>📧 ampa.juliannietotapia@email.com</p>
-                        <p>📱 976 340 620</p>
-                        <p>📍 Camino del Pilón 150</p>
-                        <p>50011 Zaragoza (Miralbueno)</p>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>&copy; 2025 AMPA CEIP Julián Nieto Tapia. Todos los derechos reservados.</p>
-            </div>
-        </div>
-    </footer>    
-</body>
-</html>
+    
+{% endblock %}
+

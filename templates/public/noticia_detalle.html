@@ -1,0 +1,15 @@
+{% extends "public/layout.html" %}
+
+{% block title %}{{ slug }} · Noticias{% endblock %}
+
+{% block content %}
+  <section class="container">
+    <article class="article">
+      <h1>{{ slug.replace('-', ' ').title() }}</h1>
+      <p class="meta">Publicado por AMPA • Hoy</p>
+      <div class="rich-text">
+        <p>Texto de noticia con imágenes optimizadas y cargado perezosamente.</p>
+      </div>
+    </article>
+  </section>
+{% endblock %}

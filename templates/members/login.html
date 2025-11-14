@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Acceso socios · AMPA Julián Nieto{% endblock %}
+
+{% block content %}
+  <section class="container auth">
+    <header>
+      <h1>Entrar</h1>
+      <p>Introduce tus credenciales para acceder al área privada.</p>
+    </header>
+    <form method="post">
+      {{ form.hidden_tag() }}
+      {{ form.email.label }}{{ form.email() }}
+      {{ form.password.label }}{{ form.password() }}
+      <label class="checkbox">{{ form.remember_me() }} {{ form.remember_me.label }}</label>
+      {{ form.submit(class="btn full") }}
+    </form>
+    <p class="muted">¿Olvidaste la contraseña? <a href="{{ url_for('members.recuperar') }}">Recuperarla</a></p>
+  </section>
+{% endblock %}

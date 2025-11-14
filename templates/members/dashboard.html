@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Panel socios · AMPA Julián Nieto{% endblock %}
+
+{% block content %}
+  <section class="container">
+    <h1>Panel de socios</h1>
+    <div class="card-grid">
+      <a class="card" href="{{ url_for('members.sugerencias') }}">
+        <h3>Foro de sugerencias</h3>
+        <p>Participa, comenta y vota.</p>
+      </a>
+      <a class="card" href="{{ url_for('members.nueva_sugerencia') }}">
+        <h3>Crear sugerencia</h3>
+        <p>Propon ideas o dudas con soporte de archivos.</p>
+      </a>
+      <a class="card" href="#">
+        <h3>Documentos privados</h3>
+        <p>Accede a actas y información para socios.</p>
+      </a>
+    </div>
+  </section>
+{% endblock %}

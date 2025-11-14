@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Recupera tu cuenta · AMPA Julián Nieto{% endblock %}
+
+{% block content %}
+  <section class="container auth">
+    <h1>Recuperar contraseña</h1>
+    <form method="post">
+      {{ form.hidden_tag() }}
+      {{ form.email.label }}{{ form.email() }}
+      {{ form.submit(class="btn full") }}
+    </form>
+  </section>
+{% endblock %}

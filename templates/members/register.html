@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Registro socios · AMPA Julián Nieto{% endblock %}
+
+{% block content %}
+  <section class="container auth">
+    <h1>Registrarse</h1>
+    <form method="post">
+      {{ form.hidden_tag() }}
+      {{ form.username.label }}{{ form.username() }}
+      {{ form.email.label }}{{ form.email() }}
+      {{ form.password.label }}{{ form.password() }}
+      {{ form.password_confirm.label }}{{ form.password_confirm() }}
+      {{ form.submit(class="btn full") }}
+    </form>
+  </section>
+{% endblock %}

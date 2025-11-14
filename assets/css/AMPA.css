@@ -1,4 +1,4 @@
-/* AMPA.css: Estilos principales para la web del AMPA Julian Nieto Tapia */
+/* AMPA.css: Estilos principales para la web del AMPA Julián Nieto Tapia */
 body {
   background: #0f172a;
   color: #f1f5f9;
@@ -436,7 +436,9 @@ section[id] {
 }
 @media (min-width: 1024px) {
   .about-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    width: 80%;
+    margin-inline: auto;
   }
 }
 .about-title {
@@ -1148,3 +1150,10 @@ section {
 }
 
 /* Nota: las rutas a recursos se gestionan ahora desde assets/css/AMPA.css */
+
+.section-cta {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Sugerencias · AMPA Julián Nieto{% endblock %}
+
+{% block content %}
+  <section class="container">
+    <header class="section-header">
+      <h1>Sugerencias y dudas</h1>
+      <p>Estado: {{ status }}</p>
+    </header>
+    <div class="card-grid">
+      {% for suggestion in suggestions.items %}
+      <article class="card compact">
+        <h3>{{ suggestion.title }}</h3>
+        <p>Status: {{ suggestion.status }}</p>
+        <a href="{{ url_for('members.detalle_sugerencia', suggestion_id=suggestion.id) }}">Ver hilo</a>
+      </article>
+      {% else %}
+      <p>No hay sugerencias en esta categoría.</p>
+      {% endfor %}
+    </div>
+    <div class="pagination">
+      {% if suggestions.has_prev %}
+      <a href="?page={{ suggestions.prev_num }}&status={{ status }}">Anterior</a>
+      {% endif %}
+      {% if suggestions.has_next %}
+      <a href="?page={{ suggestions.next_num }}&status={{ status }}">Siguiente</a>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

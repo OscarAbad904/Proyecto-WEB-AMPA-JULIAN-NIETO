@@ -1,43 +1,28 @@
-# Web AMPA Julián Nieto Tapia
+# Proyecto Web AMPA Julián Nieto Tapia
 
-Este repositorio contiene el código del portal de la Asociación de Madres y Padres de Alumnos del colegio **Julián Nieto Tapia**. La aplicación se ejecuta con [Flask](https://flask.palletsprojects.com/) y sirve una página principal con HTML, CSS y JavaScript.
+Aplicación Flask preparada para registrar socios, publicar noticias y eventos, moderar un foro de sugerencias y gestionar documentos privados.
 
-## Requisitos
+## Pasos iniciales
 
-- Python 3.10 o superior
-- `pip` para instalar las dependencias del archivo `requirements.txt`
+1. Copia `.env.example` a `.env` y ajusta credenciales (SQL Server ODBC, SMTP, SECRET_KEY).
+2. Instala dependencias: `pip install -r requirements.txt`.
+3. Ejecuta `flask db upgrade` para aplicar migraciones iniciales.
+4. Crea administrador: `flask create-admin`.
+5. Inicia el servidor con `flask run --host 0.0.0.0`.
 
-## Puesta en marcha
+## Arquitectura
 
-1. Crea un entorno virtual opcional y actívalo:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # En Windows `venv\Scripts\activate`
-   ```
-2. Instala las dependencias:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Copia `.env.example` a `.env` y ajusta las variables `SECRET_KEY`, `SHUTDOWN_SECRET_KEY`, `DB_USER` y `DB_PASSWORD` si se utiliza la base de datos externa.
-4. Ejecuta la aplicación con:
-   ```bash
-   python app.py
-   ```
-5. Abre `http://localhost:5000/` en tu navegador.
+- Base de datos: SQLAlchemy + Flask-Migrate + SQL Server (pyodbc).
+- Blueprints: `public`, `members`, `admin`, `api`.
+- Servicios: Email, ICS, uploads y búsqueda.
+- Frontend: plantillas con `base.html`, componentes, tema claro/oscuro con `theme.js`.
+- Pruebas: `tests/` con fixtures y rutas públicas.
 
-## Estructura
+## Contenedores
 
-- **app.py** – Servidor Flask con rutas para la página principal y modales de inicio de sesión y registro.
-- **templates/** – Plantillas HTML (actualmente `index.html`).
-- **assets/** – Recursos estáticos: hojas de estilo, JavaScript e imágenes.
-- **updater.py** – Script opcional para actualizar la versión empaquetada (`app.exe`) en entornos Windows.
-- **config.py** – Carga de variables de entorno definidas en `.env`.
+- `Dockerfile`: imagen Python 3.12 que instala dependencias y expone `gunicorn`.
+- `docker-compose.yml`: arranca Flask y SQL Server (vía imagen `mcr.microsoft.com/mssql/server`).
 
-## Licencia
+## Datos de ejemplo
 
-El código se publica bajo los términos de la licencia MIT incluida en el archivo `LICENSE`.
-
-## Información ampliada
-
-Para conocer con más detalle las actividades recientes, la junta directiva y otras
-iniciativas de la asociación, consulta el documento [AMPA_INFO.md](AMPA_INFO.md).
+`data/fixtures.json` contiene roles, usuarios y contenidos básicos para cargar con scripts propios.
