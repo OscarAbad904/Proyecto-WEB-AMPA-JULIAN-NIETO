@@ -6,7 +6,6 @@
     <title>AMPA Julián Nieto Tapia</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/AMPA.css') }}">
-    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
     <script src="{{ url_for('static', filename='js/AMPA.js') }}" defer></script>
 </head>
 <body>
@@ -34,7 +33,8 @@
                     <a href="#eventos" class="nav-link">Eventos</a>
                     <a href="#documentos" class="nav-link">Documentos</a>
                     <a href="#contacto" class="nav-link">Contacto</a>
-                    <a href="#area-privada" class="nav-link">Área Privada</a>
+                    <a href="{{ url_for('members.login') }}" class="nav-link">Área Privada</a>
+                    <a href="{{ url_for('members.register') }}" class="nav-link">Crear cuenta</a>
                     <a href="#faq" class="nav-link">FAQ</a>
                 </div>
                 <button class="menu-mobile-btn" onclick="toggleMobileMenu()">
@@ -52,7 +52,8 @@
                     <a href="#eventos" class="nav-link" onclick="toggleMobileMenu()">Eventos</a>
                     <a href="#documentos" class="nav-link" onclick="toggleMobileMenu()">Documentos</a>
                     <a href="#contacto" class="nav-link" onclick="toggleMobileMenu()">Contacto</a>
-                    <a href="#area-privada" class="nav-link" onclick="toggleMobileMenu()">Área Privada</a>
+                    <a href="{{ url_for('members.login') }}" class="nav-link" onclick="toggleMobileMenu()">Área Privada</a>
+                    <a href="{{ url_for('members.register') }}" class="nav-link" onclick="toggleMobileMenu()">Crear cuenta</a>
                     <a href="#faq" class="nav-link" onclick="toggleMobileMenu()">FAQ</a>
                 </div>
             </div>
@@ -95,16 +96,16 @@
                     <div class="footer-links">
                         <a href="#documentos" class="footer-link">Documentos</a>
                         <a href="#contacto" class="footer-link">Contacto</a>
-                        <a href="#area-privada" class="footer-link">Área Privada</a>
+                        <a href="{{ url_for('members.login') }}" class="footer-link">Área Privada</a>
                         <a href="#faq" class="footer-link">FAQ</a>
                     </div>
                 </div>
                 <div>
                     <div class="footer-section-title">Contacto</div>
                     <div class="footer-contact-list">
-                        <p>📧 ampa.Juliánnietotapia@email.com</p>
-                        <p>📱 976 340 620</p>
-                        <p>📍 Camino del Pilón 150</p>
+                        <p>ampa.Juliannietotapia@email.com</p>
+                        <p>976 340 620</p>
+                        <p>Camino del Pilón 150</p>
                         <p>50011 Zaragoza (Miralbueno)</p>
                     </div>
                 </div>

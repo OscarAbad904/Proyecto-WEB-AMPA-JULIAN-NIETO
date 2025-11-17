@@ -1,4 +1,13 @@
-from .auth import LoginForm, RegisterForm, RecoverForm
+from .auth import LoginForm, RegisterForm, RecoverForm, ResetPasswordForm, NewMemberForm
 from .suggestions import CommentForm, SuggestionForm, VoteForm
 
-__all__ = ["LoginForm", "RegisterForm", "RecoverForm", "SuggestionForm", "CommentForm", "VoteForm"]
+__all__ = [
+    "LoginForm",
+    "RegisterForm",
+    "RecoverForm",
+    "ResetPasswordForm",
+    "NewMemberForm",
+    "SuggestionForm",
+    "CommentForm",
+    "VoteForm",
+]

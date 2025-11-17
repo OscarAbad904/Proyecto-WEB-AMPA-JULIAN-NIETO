@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -9,17 +10,21 @@ from sqlalchemy import engine_from_config, pool
 from app import create_app
 from app.extensions import db
 
+
 config = context.config
-fileConfig(config.config_file_name)
+if config.config_file_name and os.path.exists(config.config_file_name):
+    fileConfig(config.config_file_name)
 app = create_app()
-config.set_main_option("sqlalchemy.url", app.config["SQLALCHEMY_DATABASE_URI"])
+database_uri = app.config["SQLALCHEMY_DATABASE_URI"]
+# Alembic usa configparser y se rompe con los '%' de la cadena URL-encoded.
+config.set_main_option("sqlalchemy.url", database_uri.replace("%", "%%"))
 
 target_metadata = db.metadata
 
 
 def run_migrations_offline():
     context.configure(
-        url=app.config["SQLALCHEMY_DATABASE_URI"],
+        url=database_uri,
         target_metadata=target_metadata,
         literal_binds=True,
     )

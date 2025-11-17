@@ -1,9 +1,21 @@
-/* AMPA.css: Estilos principales para la web del AMPA Julián Nieto Tapia */
+﻿:root {
+  --header-height: 6rem;      /* altura aproximada del header sticky */
+  --footer-min-height: 18rem; /* altura minima del footer */
+}
+/* AMPA.css: Estilos principales para la web del AMPA Julian Nieto Tapia */
 body {
   background: #0f172a;
   color: #f1f5f9;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   font-family: 'Inter', sans-serif;
+}
+main.page-content {
+  flex: 1 0 auto; /* fill available height without hiding footer */
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--header-height) - var(--footer-min-height));
 }
 .gradient-bg { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); }
 .card-hover { transition: all 0.3s ease; }
@@ -16,7 +28,7 @@ body {
 .fade-in { opacity: 0; transform: translateY(30px); transition: all 0.8s ease; }
 .fade-in.visible { opacity: 1; transform: translateY(0); }
 
-/* Header y navegación principal */
+/* Header y navegacion principal */
 .header-fixed {
   position: sticky;
   top: 0;
@@ -33,7 +45,7 @@ body {
   box-shadow: 0 8px 32px 0 rgba(59,130,246,0.15);
 }
 .container-nav {
-  max-width: 1200px;
+  max-width: max-content;
   margin: 0 auto;
   padding: 1rem 1rem;
 }
@@ -162,7 +174,7 @@ body {
   box-shadow: 0 0 0 2px #3b82f6;
 }
 
-/* Ajuste para que el logotipo en el hero tenga más margen superior en móvil y no se corte con el menú */
+/* Ajuste para que el logotipo en el hero tenga mas margen superior en movil y no se corte con el menu */
 @media (max-width: 768px) {
   #inicio .floating.mb-8 {
     margin-top: 7rem;
@@ -195,15 +207,15 @@ section[id] {
   }
 }
 
-/* Mostrar menú móvil cuando está activo */
+/* Mostrar menu movil cuando esta activo */
 #mobile-menu:not(.hidden) {
   display: block;
 }
 
 /* HERO SECTION */
 .hero-section {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-  min-height: 100vh;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 60%, #111827 100%);
+  min-height: calc(100vh - var(--header-height) - var(--footer-min-height));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -323,7 +335,7 @@ section[id] {
   animation: float 6s ease-in-out infinite;
   animation-delay: -4s;
 }
-/* Figuras geométricas decorativas adicionales en hero */
+/* Figuras geometricas decorativas adicionales en hero */
 .hero-shape-green {
   position: absolute;
   background: rgba(34,197,94,0.15);
@@ -357,7 +369,7 @@ section[id] {
   .hero-logo-bg { margin-top: 9rem; }
 }
 
-/* SECCIÓN NOTICIAS */
+/* SECCION NOTICIAS */
 .news-section {
   padding: 5rem 0;
   background: #1e293b;
@@ -423,7 +435,7 @@ section[id] {
 .news-card-date.orange { color: #fb923c; }
 .news-card-date.green { color: #22c55e; }
 
-/* SECCIÓN QUIÉNES SOMOS */
+/* SECCION QUIENES SOMOS */
 .about-section {
   padding: 5rem 0;
   background: #0f172a;
@@ -504,7 +516,7 @@ section[id] {
   color: #d1d5db;
 }
 
-/* SECCIÓN FILTRO Y ARTÍCULOS DE NOTICIAS */
+/* SECCION FILTRO Y ARTICULOS DE NOTICIAS */
 .news-filter {
   display: flex;
   flex-wrap: wrap;
@@ -563,7 +575,7 @@ section[id] {
   color: #d1d5db;
 }
 
-/* SECCIÓN EVENTOS */
+/* SECCION EVENTOS */
 .events-section {
   padding: 5rem 0;
   background: #0f172a;
@@ -660,7 +672,7 @@ section[id] {
   background: #1d4ed8;
 }
 
-/* SECCIÓN CONTACTO */
+/* SECCION CONTACTO */
 .contact-section {
   padding: 5rem 0;
   background: #0f172a;
@@ -786,7 +798,7 @@ section[id] {
   background: #1d4ed8;
 }
 
-/* SECCIÓN FOOTER */
+/* SECCION FOOTER */
 .footer {
   background: #0f172a;
   border-top: 1px solid #334155;
@@ -855,7 +867,7 @@ section[id] {
   color: #94a3b8;
 }
 
-/* --- MEJORAS DINÁMICAS Y MODERNAS PARA EL MENÚ --- */
+/* --- MEJORAS DINAMICAS Y MODERNAS PARA EL MENU --- */
 .header-fixed {
   box-shadow: 0 4px 24px 0 rgba(59,130,246,0.08);
   transition: background 0.3s, box-shadow 0.3s;
@@ -932,7 +944,7 @@ section[id] {
   box-shadow: 0 6px 24px 0 rgba(59,130,246,0.18);
 }
 
-/* Animación de entrada para el header */
+/* Animacion de entrada para el header */
 .header-flex {
   animation: fadeDown 0.7s cubic-bezier(.4,0,.2,1);
 }
@@ -943,14 +955,14 @@ section[id] {
   box-shadow: 0 0 0 2px #3b82f6;
 }
 
-/* Responsive: mejora el padding del nav en móvil */
+/* Responsive: mejora el padding del nav en movil */
 @media (max-width: 767px) {
   .container-nav {
     padding: 0.5rem 0.5rem;
   }
 }
 
-/* Mejora de separación entre buscador y menú */
+/* Mejora de separacion entre buscador y menu */
 @media (min-width: 768px) {
   .nav-desktop {
     margin-left: 2.5rem;
@@ -961,12 +973,12 @@ section[id] {
   }
 }
 
-/* Evita salto de línea en enlaces del menú */
+/* Evita salto de linea en enlaces del menu */
 .nav-desktop {
   white-space: nowrap;
 }
 
-/* Ajuste para evitar que "Quiénes Somos" se parta en dos líneas */
+/* Ajuste para evitar que "Quienes Somos" se parta en dos lineas */
 .nav-link {
   white-space: nowrap;
   max-width: 160px;
@@ -974,7 +986,7 @@ section[id] {
   text-overflow: ellipsis;
 }
 
-/* SECCIÓN ÁREA PRIVADA */
+/* SECCION AREA PRIVADA */
 .private-section {
   padding: 5rem 0;
   background: #1e293b;
@@ -1043,7 +1055,7 @@ section[id] {
   cursor: not-allowed;
 }
 
-/* SECCIÓN FAQ */
+/* SECCION FAQ */
 .faq-section {
   padding: 4rem 0;
   background: #1e293b;
@@ -1093,7 +1105,7 @@ section[id] {
   line-height: 1.6;
 }
 
-/* Ajuste de márgenes para centrar el contenido y evitar solapamiento con el header sticky */
+/* Ajuste de margenes para centrar el contenido y evitar solapamiento con el header sticky */
 section {
   padding-top: 3.5rem;
   padding-bottom: 3.5rem;
@@ -1104,14 +1116,7 @@ section {
     padding-bottom: 2.5rem;
   }
 }
-.hero-section {
-  min-height: calc(100vh - 4.5rem);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: 0;
-  padding-bottom: 0;
-}
+
 
 /* Footer: logotipo y nombre igual de grande que en el header */
 .footer-logo-img {
@@ -1140,7 +1145,7 @@ section {
   white-space: nowrap;
 }
 
-/* Header: nombre del colegio en una sola línea */
+/* Header: nombre del colegio en una sola linea */
 .header-title-colegio {
   font-size: 1.05rem;
   font-weight: 500;
@@ -1157,3 +1162,13 @@ section {
   justify-content: center;
   gap: 1rem;
 }
+
+
+
+
+
+
+
+
+
+

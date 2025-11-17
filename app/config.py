@@ -1,5 +1,31 @@
 import os
 from logging.handlers import RotatingFileHandler
+from urllib.parse import quote_plus
+
+from config import DB_PASSWORD, DB_USER
+
+DEFAULT_DRIVER = os.getenv("ODBC_DRIVER", "ODBC Driver 17 for SQL Server")
+DEFAULT_SERVER = os.getenv("ODBC_SERVER", r"localhost\EMEBIDWH")
+DEFAULT_DATABASE = os.getenv("ODBC_DATABASE", "AMPA_JNT")
+
+
+def _build_default_sqlalchemy_uri() -> str:
+    """Arma la cadena ODBC escapada para SQLAlchemy apuntando al server real."""
+    conn_parts: list[str] = [
+        f"DRIVER={{{DEFAULT_DRIVER}}}",
+        f"SERVER={DEFAULT_SERVER}",
+        f"DATABASE={DEFAULT_DATABASE}",
+        "TrustServerCertificate=yes",
+    ]
+
+    if DB_USER and DB_PASSWORD:
+        conn_parts.extend(
+            [f"UID={DB_USER}", f"PWD={DB_PASSWORD}", "Trusted_Connection=no"]
+        )
+    else:
+        conn_parts.append("Trusted_Connection=yes")
+
+    return f"mssql+pyodbc:///?odbc_connect={quote_plus(';'.join(conn_parts) + ';')}"
 
 
 class BaseConfig:
@@ -7,7 +33,7 @@ class BaseConfig:
     SECURITY_PASSWORD_SALT = os.getenv("SECURITY_PASSWORD_SALT", "salt-me")
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "SQLALCHEMY_DATABASE_URI",
-        "mssql+pyodbc:///?odbc_connect=DRIVER%3D%7BODBC+Driver+18+for+SQL+Server%7D%3BSERVER%3Dlocalhost%3BDATABASE%3DAMPA_JNT%3BTrusted_Connection%3DYes",
+        _build_default_sqlalchemy_uri(),
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.example.com")
