@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from flask_login import UserMixin
+import sqlalchemy as sa
 from sqlalchemy import UniqueConstraint, func
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -28,6 +29,13 @@ class User(db.Model, UserMixin):
     password_hash = db.Column(db.String(255), nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
     email_verified = db.Column(db.Boolean, default=False, nullable=False, index=True)
+    first_name = db.Column(db.String(64))
+    last_name = db.Column(db.String(64))
+    phone_number = db.Column(db.String(32), index=True)
+    address = db.Column(db.String(255))
+    city = db.Column(db.String(128))
+    postal_code = db.Column(db.String(10))
+    two_fa_enabled = db.Column(db.Boolean, default=False, nullable=False, server_default=sa.false())
     role_id = db.Column(db.Integer, db.ForeignKey("roles.id"), nullable=False)
     created_at = db.Column(db.DateTime, server_default=func.now())
     last_login = db.Column(db.DateTime)

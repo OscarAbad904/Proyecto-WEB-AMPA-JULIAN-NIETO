@@ -4,7 +4,12 @@
 
 {% block content %}
   <section class="container">
-    <h1>Panel de socios</h1>
+    <div class="header-row">
+      <h1>Panel de socios</h1>
+      {% if current_user.is_admin %}
+        <button class="btn" id="open-alta">Nuevo socio</button>
+      {% endif %}
+    </div>
     <div class="card-grid">
       <a class="card" href="{{ url_for('members.sugerencias') }}">
         <h3>Foro de sugerencias</h3>
@@ -16,8 +21,79 @@
       </a>
       <a class="card" href="#">
         <h3>Documentos privados</h3>
-        <p>Accede a actas y información para socios.</p>
+        <p>Accede a actas e información para socios.</p>
       </a>
     </div>
   </section>
+
+  {% if current_user.is_admin %}
+    <div class="modal" id="alta-modal" aria-hidden="true">
+      <div class="modal-dialog">
+        <header class="modal-header">
+          <h3>Alta rápida de socio</h3>
+          <button class="close" type="button" aria-label="Cerrar" id="close-alta">×</button>
+        </header>
+        <form method="post" action="{{ url_for('members.alta_socio') }}" class="modal-body">
+          {{ alta_form.hidden_tag() }}
+          <div class="grid">
+            <div>
+              {{ alta_form.first_name.label }}{{ alta_form.first_name() }}
+            </div>
+            <div>
+              {{ alta_form.last_name.label }}{{ alta_form.last_name() }}
+            </div>
+          </div>
+          {{ alta_form.email.label }}{{ alta_form.email() }}
+          {{ alta_form.phone_number.label }}{{ alta_form.phone_number() }}
+          {{ alta_form.address.label }}{{ alta_form.address() }}
+          <div class="grid">
+            <div>
+              {{ alta_form.city.label }}{{ alta_form.city() }}
+            </div>
+            <div>
+              {{ alta_form.postal_code.label }}{{ alta_form.postal_code() }}
+            </div>
+          </div>
+          <div class="grid">
+            <div>
+              {{ alta_form.member_number.label }}{{ alta_form.member_number() }}
+            </div>
+            <div>
+              {{ alta_form.year.label }}{{ alta_form.year() }}
+            </div>
+          </div>
+          <p class="text-muted">Se generará una contraseña temporal y se activará 2FA por SMS.</p>
+          {{ alta_form.submit(class="btn full") }}
+        </form>
+      </div>
+    </div>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const modal = document.getElementById('alta-modal');
+        const openBtn = document.getElementById('open-alta');
+        const closeBtn = document.getElementById('close-alta');
+        const toggle = (show) => {
+          modal.setAttribute('aria-hidden', show ? 'false' : 'true');
+          modal.classList.toggle('open', show);
+        };
+        openBtn?.addEventListener('click', () => toggle(true));
+        closeBtn?.addEventListener('click', () => toggle(false));
+        modal?.addEventListener('click', (e) => {
+          if (e.target === modal) toggle(false);
+        });
+      });
+    </script>
+  {% endif %}
+
+  <style>
+    .header-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); padding:1.5rem; z-index:999; }
+    .modal.open { display:block; }
+    .modal-dialog { background:#fff; max-width:720px; margin:0 auto; border-radius:8px; padding:1.5rem; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
+    .modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+    .modal .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:0.75rem; }
+    .modal input { width:100%; padding:0.5rem; margin-top:0.25rem; }
+    .modal .close { background:none; border:none; font-size:1.25rem; cursor:pointer; }
+    .text-muted { color:#666; font-size:0.9rem; }
+  </style>
 {% endblock %}
