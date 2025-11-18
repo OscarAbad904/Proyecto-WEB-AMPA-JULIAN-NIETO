@@ -1,20 +1,32 @@
-{% extends "base.html" %}
+{% extends "public/layout.html" %}
 
 {% block title %}Acceso socios · AMPA Julián Nieto{% endblock %}
 
 {% block content %}
-  <section class="container auth">
-    <header>
-      <h1>Entrar</h1>
-      <p>Introduce tus credenciales para acceder al área privada.</p>
-    </header>
-    <form method="post">
-      {{ form.hidden_tag() }}
-      {{ form.email.label }}{{ form.email() }}
-      {{ form.password.label }}{{ form.password() }}
-      <label class="checkbox">{{ form.remember_me() }} {{ form.remember_me.label }}</label>
-      {{ form.submit(class="btn full") }}
-    </form>
-    <p class="muted">¿Olvidaste la contraseña? <a href="{{ url_for('members.recuperar') }}">Recuperarla</a></p>
+  <section class="private-section">
+    <div class="private-container">
+      <div class="private-icon">🔑</div>
+      <h1 class="private-title">Acceder</h1>
+      <p class="private-desc">Introduce tus credenciales para entrar en el área privada.</p>
+      <form method="post" class="private-form">
+        {{ form.hidden_tag() }}
+        <div>
+          {{ form.email.label }}
+          {{ form.email(placeholder="correo@ejemplo.com") }}
+        </div>
+        <div>
+          {{ form.password.label }}
+          {{ form.password(placeholder="Tu contraseña") }}
+        </div>
+        <label class="private-remember">
+          {{ form.remember_me() }}
+          <span>{{ form.remember_me.label.text }}</span>
+        </label>
+        {{ form.submit(class_="btn-primary") }}
+      </form>
+      <p class="private-desc" style="margin-bottom: 0;">
+        ¿Olvidaste la contraseña? <a href="{{ url_for('members.recuperar') }}">Recupérala aquí</a>
+      </p>
+    </div>
   </section>
 {% endblock %}

@@ -1044,6 +1044,16 @@ section[id] {
   padding: 0.75rem 1rem;
   color: #f1f5f9;
 }
+.private-remember {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #cbd5e1;
+  font-size: 0.95rem;
+}
+.private-remember input {
+  accent-color: #2563eb;
+}
 .private-form button {
   background: #2563eb;
   color: #fff;
