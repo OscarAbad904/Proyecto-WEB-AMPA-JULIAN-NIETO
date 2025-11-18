@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AMPA Julián Nieto Tapia</title>
+    <title>{% block title %}AMPA Julián Nieto Tapia{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/AMPA.css') }}">
     <script src="{{ url_for('static', filename='js/AMPA.js') }}" defer></script>
@@ -27,15 +27,15 @@
                     <input type="text" placeholder="Buscar..." class="buscador-input" id="buscadorAMPA" oninput="buscarEnPagina()" />
                 </div>
                 <div class="nav-desktop">
-                    <a href="#inicio" class="nav-link">Inicio</a>
-                    <a href="#quienes-somos" class="nav-link">Quiénes Somos</a>
-                    <a href="#noticias" class="nav-link">Noticias</a>
-                    <a href="#eventos" class="nav-link">Eventos</a>
-                    <a href="#documentos" class="nav-link">Documentos</a>
-                    <a href="#contacto" class="nav-link">Contacto</a>
+                    <a href="{{ url_for('public.home') }}#inicio" class="nav-link">Inicio</a>
+                    <a href="{{ url_for('public.home') }}#quienes-somos" class="nav-link">Quiénes Somos</a>
+                    <a href="{{ url_for('public.home') }}#noticias" class="nav-link">Noticias</a>
+                    <a href="{{ url_for('public.home') }}#eventos" class="nav-link">Eventos</a>
+                    <a href="{{ url_for('public.home') }}#documentos" class="nav-link">Documentos</a>
+                    <a href="{{ url_for('public.home') }}#contacto" class="nav-link">Contacto</a>
                     <a href="{{ url_for('members.login') }}" class="nav-link">Área Privada</a>
                     <a href="{{ url_for('members.register') }}" class="nav-link">Crear cuenta</a>
-                    <a href="#faq" class="nav-link">FAQ</a>
+                    <a href="{{ url_for('public.home') }}#faq" class="nav-link">FAQ</a>
                 </div>
                 <button class="menu-mobile-btn" onclick="toggleMobileMenu()">
                     <svg class="menu-mobile-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,15 +46,15 @@
             <!-- Mobile Menu -->
             <div id="mobile-menu" class="mobile-menu">
                 <div class="mobile-menu-links">
-                    <a href="#inicio" class="nav-link" onclick="toggleMobileMenu()">Inicio</a>
-                    <a href="#quienes-somos" class="nav-link" onclick="toggleMobileMenu()">Quiénes Somos</a>
-                    <a href="#noticias" class="nav-link" onclick="toggleMobileMenu()">Noticias</a>
-                    <a href="#eventos" class="nav-link" onclick="toggleMobileMenu()">Eventos</a>
-                    <a href="#documentos" class="nav-link" onclick="toggleMobileMenu()">Documentos</a>
-                    <a href="#contacto" class="nav-link" onclick="toggleMobileMenu()">Contacto</a>
+                    <a href="{{ url_for('public.home') }}#inicio" class="nav-link" onclick="toggleMobileMenu()">Inicio</a>
+                    <a href="{{ url_for('public.home') }}#quienes-somos" class="nav-link" onclick="toggleMobileMenu()">Quiénes Somos</a>
+                    <a href="{{ url_for('public.home') }}#noticias" class="nav-link" onclick="toggleMobileMenu()">Noticias</a>
+                    <a href="{{ url_for('public.home') }}#eventos" class="nav-link" onclick="toggleMobileMenu()">Eventos</a>
+                    <a href="{{ url_for('public.home') }}#documentos" class="nav-link" onclick="toggleMobileMenu()">Documentos</a>
+                    <a href="{{ url_for('public.home') }}#contacto" class="nav-link" onclick="toggleMobileMenu()">Contacto</a>
                     <a href="{{ url_for('members.login') }}" class="nav-link" onclick="toggleMobileMenu()">Área Privada</a>
                     <a href="{{ url_for('members.register') }}" class="nav-link" onclick="toggleMobileMenu()">Crear cuenta</a>
-                    <a href="#faq" class="nav-link" onclick="toggleMobileMenu()">FAQ</a>
+                    <a href="{{ url_for('public.home') }}#faq" class="nav-link" onclick="toggleMobileMenu()">FAQ</a>
                 </div>
             </div>
         </nav>
@@ -85,19 +85,19 @@
                 <div>
                     <div class="footer-section-title">Enlaces Rápidos</div>
                     <div class="footer-links">
-                        <a href="#inicio" class="footer-link">Inicio</a>
-                        <a href="#quienes-somos" class="footer-link">Quiénes Somos</a>
-                        <a href="#noticias" class="footer-link">Noticias</a>
-                        <a href="#eventos" class="footer-link">Eventos</a>
+                        <a href="{{ url_for('public.home') }}#inicio" class="footer-link">Inicio</a>
+                        <a href="{{ url_for('public.home') }}#quienes-somos" class="footer-link">Quiénes Somos</a>
+                        <a href="{{ url_for('public.home') }}#noticias" class="footer-link">Noticias</a>
+                        <a href="{{ url_for('public.home') }}#eventos" class="footer-link">Eventos</a>
                     </div>
                 </div>
                 <div>
                     <div class="footer-section-title">Recursos</div>
                     <div class="footer-links">
-                        <a href="#documentos" class="footer-link">Documentos</a>
-                        <a href="#contacto" class="footer-link">Contacto</a>
+                        <a href="{{ url_for('public.home') }}#documentos" class="footer-link">Documentos</a>
+                        <a href="{{ url_for('public.home') }}#contacto" class="footer-link">Contacto</a>
                         <a href="{{ url_for('members.login') }}" class="footer-link">Área Privada</a>
-                        <a href="#faq" class="footer-link">FAQ</a>
+                        <a href="{{ url_for('public.home') }}#faq" class="footer-link">FAQ</a>
                     </div>
                 </div>
                 <div>

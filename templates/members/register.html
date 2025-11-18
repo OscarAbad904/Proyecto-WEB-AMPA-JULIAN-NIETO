@@ -1,17 +1,32 @@
-{% extends "base.html" %}
+﻿{% extends "public/layout.html" %}
 
 {% block title %}Registro socios · AMPA Julián Nieto{% endblock %}
 
 {% block content %}
-  <section class="container auth">
-    <h1>Registrarse</h1>
-    <form method="post">
-      {{ form.hidden_tag() }}
-      {{ form.username.label }}{{ form.username() }}
-      {{ form.email.label }}{{ form.email() }}
-      {{ form.password.label }}{{ form.password() }}
-      {{ form.password_confirm.label }}{{ form.password_confirm() }}
-      {{ form.submit(class="btn full") }}
-    </form>
+  <section class="private-section">
+    <div class="private-container">
+      <h1 class="private-title">Crear cuenta</h1>
+      <p class="private-desc">Completa tus datos para acceder al área privada de socios.</p>
+      <form method="post" class="private-form">
+        {{ form.hidden_tag() }}
+        <div>
+          {{ form.username.label }}
+          {{ form.username(placeholder="Nombre de usuario") }}
+        </div>
+        <div>
+          {{ form.email.label }}
+          {{ form.email(placeholder="correo@ejemplo.com") }}
+        </div>
+        <div>
+          {{ form.password.label }}
+          {{ form.password(placeholder="Contraseña") }}
+        </div>
+        <div>
+          {{ form.password_confirm.label }}
+          {{ form.password_confirm(placeholder="Repite la contraseña") }}
+        </div>
+        {{ form.submit(class_="btn-primary") }}
+      </form>
+    </div>
   </section>
 {% endblock %}
