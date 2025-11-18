@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --header-height: 6rem;      /* altura aproximada del header sticky */
   --footer-min-height: 18rem; /* altura minima del footer */
 }
@@ -20,7 +20,7 @@ main.page-content {
 .gradient-bg { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); }
 .card-hover { transition: all 0.3s ease; }
 .card-hover:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
-.text-gradient { background: linear-gradient(135deg, #3b82f6, #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; color: transparent; }
+.text-gradient { background: linear-gradient(1450deg, #c2c2c2, #087278); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; color: transparent; }
 .nav-link { transition: all 0.3s ease; }
 .nav-link:hover { color: #3b82f6; transform: translateY(-2px); }
 .floating { animation: float 6s ease-in-out infinite; }
@@ -63,7 +63,8 @@ main.page-content {
 .logo-bg {
   width: 5rem;
   height: 5rem;
-  background: linear-gradient(90deg, #3b82f6, #f97316);
+  background: linear-gradient(0deg, #c2c2c2, #003437);
+  border: 2px #757575 solid;
   border-radius: 0.75rem;
   display: flex;
   align-items: center;
@@ -243,8 +244,9 @@ section[id] {
   width: 16rem;
   height: 16rem;
   margin: 0 auto 1.5rem auto;
-  background: linear-gradient(90deg, #3b82f6, #f97316);
-  border-radius: 50%;
+  background: linear-gradient(0deg, #c2c2c2, #003437);
+  border: 5px #757575 solid;
+  border-radius: 20%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -266,7 +268,6 @@ section[id] {
 .hero-desc {
   font-size: 1.25rem;
   color: #d1d5db;
-  margin-bottom: 2rem;
   max-width: 48rem;
   margin-left: auto;
   margin-right: auto;
@@ -802,7 +803,7 @@ section[id] {
 .footer {
   background: #0f172a;
   border-top: 1px solid #334155;
-  padding: 3rem 0;
+  padding-top: 1rem ;
 }
 .footer-grid {
   display: grid;
@@ -823,7 +824,8 @@ section[id] {
 .footer-logo-bg {
   width: 5rem;
   height: 5rem;
-  background: linear-gradient(90deg, #3b82f6, #f97316);
+  background: linear-gradient(0deg, #c2c2c2, #003437);
+  border: 2px #757575 solid;
   border-radius: 0.75rem;
   display: flex;
   align-items: center;
@@ -854,14 +856,12 @@ section[id] {
 .footer-contact-list {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.5rem;
   font-size: 1rem;
   color: #94a3b8;
 }
 .footer-bottom {
   border-top: 1px solid #334155;
-  margin-top: 2rem;
-  padding-top: 2rem;
   text-align: center;
   font-size: 0.875rem;
   color: #94a3b8;
@@ -1117,8 +1117,8 @@ section[id] {
 
 /* Ajuste de margenes para centrar el contenido y evitar solapamiento con el header sticky */
 section {
-  padding-top: 3.5rem;
-  padding-bottom: 3.5rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
 }
 @media (max-width: 768px) {
   section {

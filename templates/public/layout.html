@@ -27,15 +27,15 @@
                     <input type="text" placeholder="Buscar..." class="buscador-input" id="buscadorAMPA" oninput="buscarEnPagina()" />
                 </div>
                 <div class="nav-desktop">
-                    <a href="{{ url_for('public.home') }}#inicio" class="nav-link">Inicio</a>
+                    <a href="{{ url_for('public.home') }}" class="nav-link">Inicio</a>
                     <a href="{{ url_for('public.home') }}#quienes-somos" class="nav-link">Quiénes Somos</a>
-                    <a href="{{ url_for('public.home') }}#noticias" class="nav-link">Noticias</a>
-                    <a href="{{ url_for('public.home') }}#eventos" class="nav-link">Eventos</a>
-                    <a href="{{ url_for('public.home') }}#documentos" class="nav-link">Documentos</a>
-                    <a href="{{ url_for('public.home') }}#contacto" class="nav-link">Contacto</a>
+                    <a href="{{ url_for('public.noticias') }}" class="nav-link">Noticias</a>
+                    <a href="{{ url_for('public.eventos') }}" class="nav-link">Eventos</a>
+                    <a href="{{ url_for('public.documentos') }}" class="nav-link">Documentos</a>
+                    <a href="{{ url_for('public.contacto') }}" class="nav-link">Contacto</a>
                     <a href="{{ url_for('members.login') }}" class="nav-link">Área Privada</a>
                     <a href="{{ url_for('members.register') }}" class="nav-link">Crear cuenta</a>
-                    <a href="{{ url_for('public.home') }}#faq" class="nav-link">FAQ</a>
+                    <a href="{{ url_for('public.faq') }}" class="nav-link">FAQ</a>
                 </div>
                 <button class="menu-mobile-btn" onclick="toggleMobileMenu()">
                     <svg class="menu-mobile-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,15 +46,15 @@
             <!-- Mobile Menu -->
             <div id="mobile-menu" class="mobile-menu">
                 <div class="mobile-menu-links">
-                    <a href="{{ url_for('public.home') }}#inicio" class="nav-link" onclick="toggleMobileMenu()">Inicio</a>
+                    <a href="{{ url_for('public.home') }}" class="nav-link" onclick="toggleMobileMenu()">Inicio</a>
                     <a href="{{ url_for('public.home') }}#quienes-somos" class="nav-link" onclick="toggleMobileMenu()">Quiénes Somos</a>
-                    <a href="{{ url_for('public.home') }}#noticias" class="nav-link" onclick="toggleMobileMenu()">Noticias</a>
-                    <a href="{{ url_for('public.home') }}#eventos" class="nav-link" onclick="toggleMobileMenu()">Eventos</a>
-                    <a href="{{ url_for('public.home') }}#documentos" class="nav-link" onclick="toggleMobileMenu()">Documentos</a>
-                    <a href="{{ url_for('public.home') }}#contacto" class="nav-link" onclick="toggleMobileMenu()">Contacto</a>
+                    <a href="{{ url_for('public.noticias') }}" class="nav-link" onclick="toggleMobileMenu()">Noticias</a>
+                    <a href="{{ url_for('public.eventos') }}" class="nav-link" onclick="toggleMobileMenu()">Eventos</a>
+                    <a href="{{ url_for('public.documentos') }}" class="nav-link" onclick="toggleMobileMenu()">Documentos</a>
+                    <a href="{{ url_for('public.contacto') }}" class="nav-link" onclick="toggleMobileMenu()">Contacto</a>
                     <a href="{{ url_for('members.login') }}" class="nav-link" onclick="toggleMobileMenu()">Área Privada</a>
                     <a href="{{ url_for('members.register') }}" class="nav-link" onclick="toggleMobileMenu()">Crear cuenta</a>
-                    <a href="{{ url_for('public.home') }}#faq" class="nav-link" onclick="toggleMobileMenu()">FAQ</a>
+                    <a href="{{ url_for('public.faq') }}" class="nav-link" onclick="toggleMobileMenu()">FAQ</a>
                 </div>
             </div>
         </nav>
@@ -85,28 +85,28 @@
                 <div>
                     <div class="footer-section-title">Enlaces Rápidos</div>
                     <div class="footer-links">
-                        <a href="{{ url_for('public.home') }}#inicio" class="footer-link">Inicio</a>
+                        <a href="{{ url_for('public.home') }}" class="footer-link">Inicio</a>
                         <a href="{{ url_for('public.home') }}#quienes-somos" class="footer-link">Quiénes Somos</a>
-                        <a href="{{ url_for('public.home') }}#noticias" class="footer-link">Noticias</a>
-                        <a href="{{ url_for('public.home') }}#eventos" class="footer-link">Eventos</a>
+                        <a href="{{ url_for('public.noticias') }}" class="footer-link">Noticias</a>
+                        <a href="{{ url_for('public.eventos') }}" class="footer-link">Eventos</a>
                     </div>
                 </div>
                 <div>
                     <div class="footer-section-title">Recursos</div>
                     <div class="footer-links">
-                        <a href="{{ url_for('public.home') }}#documentos" class="footer-link">Documentos</a>
-                        <a href="{{ url_for('public.home') }}#contacto" class="footer-link">Contacto</a>
+                        <a href="{{ url_for('public.documentos') }}" class="footer-link">Documentos</a>
+                        <a href="{{ url_for('public.contacto') }}" class="footer-link">Contacto</a>
                         <a href="{{ url_for('members.login') }}" class="footer-link">Área Privada</a>
-                        <a href="{{ url_for('public.home') }}#faq" class="footer-link">FAQ</a>
+                        <a href="{{ url_for('public.faq') }}" class="footer-link">FAQ</a>
                     </div>
                 </div>
                 <div>
                     <div class="footer-section-title">Contacto</div>
                     <div class="footer-contact-list">
-                        <p>ampa.Juliannietotapia@email.com</p>
-                        <p>976 340 620</p>
-                        <p>Camino del Pilón 150</p>
-                        <p>50011 Zaragoza (Miralbueno)</p>
+                        <a>ampa.Juliannietotapia@email.com</a>
+                        <a>976 340 620</a>
+                        <a>Camino del Pilón 150</a>
+                        <a>50011 Zaragoza (Miralbueno)</a>
                     </div>
                 </div>
             </div>
