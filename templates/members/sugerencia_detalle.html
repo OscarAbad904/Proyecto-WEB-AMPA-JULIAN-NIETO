@@ -1,38 +1,43 @@
-{% extends "base.html" %}
+{% extends "public/layout.html" %}
 
 {% block title %}{{ suggestion.title }} · Foro{% endblock %}
 
 {% block content %}
-  <section class="container">
-    <article class="article">
-      <h1>{{ suggestion.title }}</h1>
-      <p class="meta">Estado {{ suggestion.status }} · {{ suggestion.votes_count }} votos</p>
-      <div class="rich-text">{{ suggestion.body_html | safe }}</div>
-    </article>
-    <section class="comments">
-      <h2>Comentarios</h2>
-      {% for comment in suggestion.comments %}
-      <div class="comment">
-        <p>{{ comment.body_html }}</p>
-        <small>{{ comment.author.username if comment.author else 'Socio' }}</small>
-      </div>
-      {% else %}
-      <p>No hay comentarios aún.</p>
-      {% endfor %}
-    </section>
-    <section class="forms">
-      <h3>Comentar</h3>
-      <form method="post" action="{{ url_for('members.comentar_sugerencia', suggestion_id=suggestion.id) }}">
-        {{ comment_form.hidden_tag() }}
-        {{ comment_form.content() }}
-        {{ comment_form.submit(class="btn") }}
-      </form>
-      <h3>Votar</h3>
-      <form method="post" action="{{ url_for('members.votar_sugerencia', suggestion_id=suggestion.id) }}">
-        {{ vote_form.hidden_tag() }}
-        {{ vote_form.value() }}
-        {{ vote_form.submit(class="btn ghost") }}
-      </form>
-    </section>
+  <section class="page-section">
+    <div class="container">
+      <article class="article">
+        <p class="eyebrow">Área privada · Foro de sugerencias</p>
+        <h1>{{ suggestion.title }}</h1>
+        <p class="meta">Estado {{ suggestion.status }} · {{ suggestion.votes_count }} votos</p>
+        <div class="rich-text">{{ suggestion.body_html | safe }}</div>
+      </article>
+
+      <section class="comments">
+        <h2>Comentarios</h2>
+        {% for comment in suggestion.comments %}
+          <div class="comment">
+            <p>{{ comment.body_html }}</p>
+            <small>{{ comment.author.username if comment.author else 'Socio' }}</small>
+          </div>
+        {% else %}
+          <p>No hay comentarios aún.</p>
+        {% endfor %}
+      </section>
+
+      <section class="forms">
+        <h3>Comentar</h3>
+        <form method="post" action="{{ url_for('members.comentar_sugerencia', suggestion_id=suggestion.id) }}">
+          {{ comment_form.hidden_tag() }}
+          {{ comment_form.content() }}
+          {{ comment_form.submit(class="btn") }}
+        </form>
+        <h3>Votar</h3>
+        <form method="post" action="{{ url_for('members.votar_sugerencia', suggestion_id=suggestion.id) }}">
+          {{ vote_form.hidden_tag() }}
+          {{ vote_form.value() }}
+          {{ vote_form.submit(class="btn ghost") }}
+        </form>
+      </section>
+    </div>
   </section>
 {% endblock %}

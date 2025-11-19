@@ -1,30 +1,33 @@
-{% extends "base.html" %}
+{% extends "public/layout.html" %}
 
 {% block title %}Recuperar acceso · AMPA Julián Nieto{% endblock %}
 
 {% block content %}
-  <section class="container auth">
-    <h1>Recuperar contraseña</h1>
+  <section class="page-section">
+    <div class="container auth">
+      <p class="eyebrow">Área privada</p>
+      <h1 class="section-title">Recuperar contraseña</h1>
 
-    {% if stage == "email" %}
-      <p>Introduce tu correo y enviaremos un código por SMS al teléfono asociado.</p>
-      <form method="post">
-        {{ email_form.hidden_tag() }}
-        {{ email_form.email.label }}{{ email_form.email() }}
-        <input type="hidden" name="stage" value="email">
-        {{ email_form.submit(class="btn full") }}
-      </form>
-    {% else %}
-      <p>Escribe el código SMS y define tu nueva contraseña.</p>
-      <form method="post">
-        {{ reset_form.hidden_tag() }}
-        {{ reset_form.email.label }}{{ reset_form.email() }}
-        {{ reset_form.code.label }}{{ reset_form.code() }}
-        {{ reset_form.password.label }}{{ reset_form.password() }}
-        {{ reset_form.password_confirm.label }}{{ reset_form.password_confirm() }}
-        <input type="hidden" name="stage" value="code">
-        {{ reset_form.submit(class="btn full") }}
-      </form>
-    {% endif %}
+      {% if stage == "email" %}
+        <p class="section-subtitle">Introduce tu correo y enviaremos un código por SMS al teléfono asociado.</p>
+        <form method="post" class="private-form">
+          {{ email_form.hidden_tag() }}
+          {{ email_form.email.label }}{{ email_form.email() }}
+          <input type="hidden" name="stage" value="email">
+          {{ email_form.submit(class="btn full") }}
+        </form>
+      {% else %}
+        <p class="section-subtitle">Escribe el código SMS y fija tu nueva contraseña.</p>
+        <form method="post" class="private-form">
+          {{ reset_form.hidden_tag() }}
+          {{ reset_form.email.label }}{{ reset_form.email() }}
+          {{ reset_form.code.label }}{{ reset_form.code() }}
+          {{ reset_form.password.label }}{{ reset_form.password() }}
+          {{ reset_form.password_confirm.label }}{{ reset_form.password_confirm() }}
+          <input type="hidden" name="stage" value="code">
+          {{ reset_form.submit(class="btn full") }}
+        </form>
+      {% endif %}
+    </div>
   </section>
 {% endblock %}

@@ -10,11 +10,11 @@
       <p class="private-desc">Introduce tus credenciales para entrar en el área privada.</p>
       <form method="post" class="private-form">
         {{ form.hidden_tag() }}
-        <div>
+        <div class="private-field">
           {{ form.email.label }}
           {{ form.email(placeholder="correo@ejemplo.com") }}
         </div>
-        <div>
+        <div class="private-field">
           {{ form.password.label }}
           {{ form.password(placeholder="Tu contraseña") }}
         </div>
