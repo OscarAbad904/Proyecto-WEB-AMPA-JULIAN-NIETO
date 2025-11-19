@@ -1,28 +1,36 @@
-{% extends "base.html" %}
+{% extends "public/layout.html" %}
 
 {% block title %}Panel socios · AMPA Julián Nieto{% endblock %}
 
 {% block content %}
-  <section class="container">
-    <div class="header-row">
-      <h1>Panel de socios</h1>
-      {% if current_user.is_admin %}
-        <button class="btn" id="open-alta">Nuevo socio</button>
-      {% endif %}
-    </div>
-    <div class="card-grid">
-      <a class="card" href="{{ url_for('members.sugerencias') }}">
-        <h3>Foro de sugerencias</h3>
-        <p>Participa, comenta y vota.</p>
-      </a>
-      <a class="card" href="{{ url_for('members.nueva_sugerencia') }}">
-        <h3>Crear sugerencia</h3>
-        <p>Propon ideas o dudas con soporte de archivos.</p>
-      </a>
-      <a class="card" href="#">
-        <h3>Documentos privados</h3>
-        <p>Accede a actas e información para socios.</p>
-      </a>
+  <section class="page-section">
+    <div class="container">
+      <div class="header-row">
+        <div>
+          <p class="eyebrow">Área privada</p>
+          <h1 class="section-title">Panel de socios</h1>
+        </div>
+        {% if current_user.is_admin %}
+          <button class="btn" id="open-alta">Nuevo socio</button>
+        {% endif %}
+      </div>
+      <p class="section-subtitle">
+        Accede a las herramientas internas con el mismo diseño, encabezado y pie que el resto del sitio público.
+      </p>
+      <div class="card-grid three">
+        <a class="card link-card" href="{{ url_for('members.sugerencias') }}">
+          <h3>Foro de sugerencias</h3>
+          <p>Participa, comenta y vota las propuestas de la comunidad.</p>
+        </a>
+        <a class="card link-card" href="{{ url_for('members.nueva_sugerencia') }}">
+          <h3>Crear sugerencia</h3>
+          <p>Propón ideas o dudas con soporte de archivos.</p>
+        </a>
+        <a class="card link-card" href="#">
+          <h3>Documentos privados</h3>
+          <p>Accede a actas y documentación exclusiva para socios.</p>
+        </a>
+      </div>
     </div>
   </section>
 
@@ -87,12 +95,16 @@
 
   <style>
     .header-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+    .section-subtitle { max-width:640px; color:#4b5563; margin-bottom:1.5rem; }
+    .card-grid.three { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1.25rem; }
+    .link-card { text-decoration:none; color:inherit; border:1px solid rgba(0,0,0,0.05); transition:transform .2s ease, box-shadow .2s ease; }
+    .link-card:hover { transform:translateY(-4px); box-shadow:0 15px 30px rgba(15,23,42,0.08); }
     .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); padding:1.5rem; z-index:999; }
     .modal.open { display:block; }
-    .modal-dialog { background:#fff; max-width:720px; margin:0 auto; border-radius:8px; padding:1.5rem; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
+    .modal-dialog { background:#fff; max-width:720px; margin:0 auto; border-radius:16px; padding:1.5rem; box-shadow:0 30px 60px rgba(15,23,42,0.25); }
     .modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
     .modal .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:0.75rem; }
-    .modal input { width:100%; padding:0.5rem; margin-top:0.25rem; }
+    .modal input { width:100%; padding:0.6rem; margin-top:0.25rem; border:1px solid #cbd5f5; border-radius:8px; }
     .modal .close { background:none; border:none; font-size:1.25rem; cursor:pointer; }
     .text-muted { color:#666; font-size:0.9rem; }
   </style>

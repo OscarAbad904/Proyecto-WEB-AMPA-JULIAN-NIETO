@@ -1,32 +1,130 @@
-﻿{% extends "public/layout.html" %}
+{% extends "public/layout.html" %}
 
-{% block title %}Registro socios · AMPA Julián Nieto{% endblock %}
+{% block title %}Registro socios AMPA Julián Nieto{% endblock %}
 
 {% block content %}
   <section class="private-section">
     <div class="private-container">
       <h1 class="private-title">Crear cuenta</h1>
       <p class="private-desc">Completa tus datos para acceder al área privada de socios.</p>
-      <form method="post" class="private-form">
+      <form method="post" class="private-form" id="register-form" novalidate>
         {{ form.hidden_tag() }}
-        <div>
+        <div class="private-field">
           {{ form.username.label }}
           {{ form.username(placeholder="Nombre de usuario") }}
         </div>
-        <div>
+        <div class="private-field">
           {{ form.email.label }}
           {{ form.email(placeholder="correo@ejemplo.com") }}
         </div>
-        <div>
+        <div class="private-field">
+          {{ form.role.label }}
+          {{ form.role() }}
+        </div>
+        <div class="private-field">
           {{ form.password.label }}
           {{ form.password(placeholder="Contraseña") }}
         </div>
-        <div>
+        <div class="private-field">
           {{ form.password_confirm.label }}
           {{ form.password_confirm(placeholder="Repite la contraseña") }}
         </div>
-        {{ form.submit(class_="btn-primary") }}
+        {{ form.submit(class_="btn-primary", disabled=True) }}
       </form>
     </div>
   </section>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const form = document.getElementById('register-form');
+      if (!form) {
+        return;
+      }
+
+      const username = form.querySelector('#username');
+      const email = form.querySelector('#email');
+      const password = form.querySelector('#password');
+      const passwordConfirm = form.querySelector('#password_confirm');
+      const role = form.querySelector('#role');
+      const submitButton = form.querySelector('input[type="submit"], button[type="submit"]');
+      const requiredFields = [username, email, role, password, passwordConfirm].filter(Boolean);
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      if (submitButton) {
+        submitButton.disabled = true;
+      }
+
+      function markField(field, isValid) {
+        if (!field) {
+          return false;
+        }
+        if (!field.value.trim()) {
+          field.classList.remove('input-valid', 'input-invalid');
+          return false;
+        }
+        if (isValid) {
+          field.classList.add('input-valid');
+          field.classList.remove('input-invalid');
+        } else {
+          field.classList.add('input-invalid');
+          field.classList.remove('input-valid');
+        }
+        return isValid;
+      }
+
+      function runValidation(field) {
+        if (!field) {
+          return false;
+        }
+        const value = field.value.trim();
+        let isValid = false;
+
+        switch (field) {
+          case username:
+            isValid = value.length >= 3;
+            break;
+          case email:
+            isValid = emailPattern.test(value);
+            break;
+          case role:
+            isValid = !!value;
+            break;
+          case password:
+            isValid = value.length >= 8;
+            break;
+          case passwordConfirm:
+            isValid = value.length >= 8 && value === (password ? password.value.trim() : '');
+            break;
+          default:
+            isValid = !!value;
+        }
+
+        return markField(field, isValid);
+      }
+
+      function evaluateForm() {
+        const allValid = requiredFields.every(runValidation);
+        if (submitButton) {
+          submitButton.disabled = !allValid;
+        }
+      }
+
+      requiredFields.forEach(function (field) {
+        const eventName = field.tagName === 'SELECT' ? 'change' : 'input';
+        field.addEventListener(eventName, evaluateForm);
+      });
+
+      form.addEventListener('submit', function (event) {
+        evaluateForm();
+        if (submitButton && submitButton.disabled) {
+          event.preventDefault();
+        }
+      });
+
+      evaluateForm();
+    });
+  </script>
 {% endblock %}

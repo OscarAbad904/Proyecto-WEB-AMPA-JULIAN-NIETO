@@ -38,6 +38,16 @@ def _resolve_key_file() -> str:
 KEY_FILE = _resolve_key_file()
 
 
+def _load_key() -> bytes:
+    if not os.path.exists(KEY_FILE):
+        raise RuntimeError(f'No se encontró el archivo de clave Fernet: {KEY_FILE}')
+    with open(KEY_FILE, 'rb') as f:
+        return f.read()
+
+
+_FERNET = Fernet(_load_key())
+
+
 def decrypt_env_var(var_name: str) -> str | None:
     """Desencripta el valor de una variable de entorno usando la clave Fernet.
 
@@ -47,21 +57,30 @@ def decrypt_env_var(var_name: str) -> str | None:
     encrypted_value = os.getenv(var_name)
     if not encrypted_value:
         return None
-    if not os.path.exists(KEY_FILE):
-        raise RuntimeError(f'No se encontró el archivo de clave Fernet: {KEY_FILE}')
-    with open(KEY_FILE, 'rb') as f:
-        key = f.read()
-    fernet = Fernet(key)
     try:
-        return fernet.decrypt(encrypted_value.encode()).decode()
+        return decrypt_value(encrypted_value)
     except Exception as e:
         print(f"Error desencriptando {var_name}: {e}")
         return None
 
 
+def encrypt_value(value: str | bytes | None) -> str:
+    """Encripta una cadena antes de guardarla en la base de datos."""
+    if value is None:
+        return ""
+    payload = value.encode() if isinstance(value, str) else value
+    return _FERNET.encrypt(payload).decode()
+
+
+def decrypt_value(value: str | bytes | None) -> str | None:
+    """Desencripta una cadena proveniente de la base de datos o del entorno."""
+    if not value:
+        return None
+    payload = value.encode() if isinstance(value, str) else value
+    return _FERNET.decrypt(payload).decode()
+
+
 # Variables de entorno principales
 SECRET_KEY = decrypt_env_var('SECRET_KEY')
 SHUTDOWN_SECRET_KEY = decrypt_env_var('SHUTDOWN_SECRET_KEY')
-DB_USER = os.getenv('DB_USER')
-DB_PASSWORD = decrypt_env_var('DB_PASSWORD')
 

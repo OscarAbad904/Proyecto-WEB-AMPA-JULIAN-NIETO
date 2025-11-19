@@ -1,7 +1,6 @@
 import os
 
-from app import create_app, db
-from app.models import Role, User
+from Api_AMPA_WEB import create_app, db, Role, User, make_lookup_hash
 
 app = create_app(os.getenv("FLASK_ENV", "development"))
 
@@ -14,7 +13,7 @@ def create_admin():
     if User.query.filter_by(email=email).first():
         print("Admin already exists")
         return
-    admin_role = Role.query.filter_by(name="admin").first()
+    admin_role = Role.query.filter_by(name_lookup=make_lookup_hash("admin")).first()
     if not admin_role:
         admin_role = Role(name="admin")
         db.session.add(admin_role)
