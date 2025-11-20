@@ -555,6 +555,11 @@ def home():
     return render_template("index.html")
 
 
+@public_bp.route("/quienes-somos")
+def quienes_somos():
+    return render_template("public/quienes_somos.html")
+
+
 @public_bp.route("/noticias")
 def noticias():
     query = request.args.get("q", "")

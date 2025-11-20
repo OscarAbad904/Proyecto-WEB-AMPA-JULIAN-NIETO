@@ -3,19 +3,83 @@
 {% block title %}Noticias · AMPA Julián Nieto{% endblock %}
 
 {% block content %}
-  <section class="container">
-    <header class="section-header">
-      <h1>Noticias</h1>
-      <p>Buscador: {{ query or "todas las noticias" }}</p>
-    </header>
-    <div class="card-grid">
-      {% for _ in range(3) %}
-      <article class="card">
-        <h3>Noticia destacada</h3>
-        <p>Resumen accesible y optimizado para SEO.</p>
-        <a href="{{ url_for('public.noticia_detalle', slug='noticia-social') }}">Leer</a>
-      </article>
-      {% endfor %}
+  <section class="news-section">
+    <div class="container">
+      <h1 class="news-title fade-in">Últimas Noticias</h1>
+      <div class="news-grid">
+        <div class="news-card fade-in">
+          <div class="news-card-icon">📰</div>
+          <h3 class="news-card-title">Torneo de Ajedrez “San Valero”</h3>
+          <p class="news-card-desc">Competición online abierta a todo el alumnado. ¡Inscríbete!</p>
+          <span class="news-card-date">Enero, 2025</span>
+        </div>
+        <div class="news-card fade-in" style="transition-delay: 0.2s;">
+          <div class="news-card-icon orange">🎉</div>
+          <h3 class="news-card-title">Fiesta de Navidad solidaria</h3>
+          <p class="news-card-desc">Celebramos una fiesta solidaria con actividades navideñas para todas las edades.</p>
+          <span class="news-card-date orange">Diciembre, 2024</span>
+        </div>
+        <div class="news-card fade-in" style="transition-delay: 0.4s;">
+          <div class="news-card-icon green">✅</div>
+          <h3 class="news-card-title">Abierto por Vacaciones - Navidad</h3>
+          <p class="news-card-desc">Programa especial en periodos no lectivos con actividades lúdicas y formativas.</p>
+          <span class="news-card-date green">Diciembre, 2024</span>
+        </div>
+      </div>
+
+      <div class="news-articles">
+        <h3 class="news-title fade-in">Noticias y Novedades</h3>
+        <div class="news-filter fade-in">
+          <button class="news-filter-btn active" onclick="filterNews('all')">Todas</button>
+          <button class="news-filter-btn" onclick="filterNews('actividades')">Actividades</button>
+          <button class="news-filter-btn" onclick="filterNews('comunicados')">Comunicados</button>
+          <button class="news-filter-btn" onclick="filterNews('reuniones')">Reuniones</button>
+        </div>
+
+        <article class="news-article fade-in news-item" data-category="actividades">
+          <div class="news-article-header">
+            <div>
+              <h3 class="news-article-title">Taller de robótica para padres e hijos</h3>
+              <span class="news-article-category">Actividades · 12 de Junio, 2025</span>
+            </div>
+            <div class="news-article-icon">🤖</div>
+          </div>
+          <p class="news-article-desc">El próximo sábado organizamos un taller de robótica donde padres e hijos podrán aprender juntos los fundamentos de la programación y la robótica educativa.</p>
+        </article>
+
+        <article class="news-article fade-in news-item" data-category="comunicados">
+          <div class="news-article-header">
+            <div>
+              <h3 class="news-article-title">Nuevas medidas de seguridad en el centro</h3>
+              <span class="news-article-category orange">Comunicados · 8 de Junio, 2025</span>
+            </div>
+            <div class="news-article-icon">🛡</div>
+          </div>
+          <p class="news-article-desc">Informamos sobre las nuevas medidas de seguridad implementadas en el centro escolar tras las reuniones mantenidas entre el AMPA y la dirección del colegio.</p>
+        </article>
+
+        <article class="news-article fade-in news-item" data-category="reuniones">
+          <div class="news-article-header">
+            <div>
+              <h3 class="news-article-title">Asamblea general ordinaria</h3>
+              <span class="news-article-category green">Reuniones · 1 de Junio, 2025</span>
+            </div>
+            <div class="news-article-icon">📢</div>
+          </div>
+          <p class="news-article-desc">Convocatoria abierta para todas las familias socias, con orden del día publicado con antelación.</p>
+        </article>
+
+        <article class="news-article fade-in news-item" data-category="actividades">
+          <div class="news-article-header">
+            <div>
+              <h3 class="news-article-title">Campamento de verano</h3>
+              <span class="news-article-category blue">Actividades · 25 de Mayo, 2025</span>
+            </div>
+            <div class="news-article-icon">⛺</div>
+          </div>
+          <p class="news-article-desc">Programa de campamento urbano con talleres de deportes, arte y ciencia para diferentes edades.</p>
+        </article>
+      </div>
     </div>
   </section>
 {% endblock %}
