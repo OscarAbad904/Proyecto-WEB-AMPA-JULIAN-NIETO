@@ -3,14 +3,35 @@
 {% block title %}Documentos · AMPA Julián Nieto{% endblock %}
 
 {% block content %}
-  <section class="container">
-    <header class="section-header">
-      <h1>Documentos públicos</h1>
-      <p>Descargas seguras con protección.</p>
-    </header>
-    <ul class="document-list">
-      <li><a href="#">Acta 2025</a> · <span>PDF · 1,2 MB</span></li>
-      <li><a href="#">Reglamento interno</a> · <span>PDF · 800 KB</span></li>
-    </ul>
+  <section id="documentos" class="news-section">
+    <div class="container">
+      <h1 class="news-title fade-in">Documentos</h1>
+      <div class="news-articles">
+        <div class="news-card fade-in">
+          <div class="news-card-icon">📄</div>
+          <h3 class="news-card-title">Estatutos del AMPA</h3>
+          <p class="news-card-desc">Consulta los estatutos que rigen la asociación y los derechos y deberes de los socios.</p>
+          <a href="#" class="btn-outline" onclick="downloadDocument('estatutos')">Descargar PDF</a>
+        </div>
+        <div class="news-card fade-in">
+          <div class="news-card-icon orange">📘</div>
+          <h3 class="news-card-title">Actas de Reuniones</h3>
+          <p class="news-card-desc">Accede a las actas de las últimas reuniones celebradas por la junta directiva y la asamblea.</p>
+          <a href="#" class="btn-outline" onclick="downloadDocument('actas')">Descargar PDF</a>
+        </div>
+        <div class="news-card fade-in">
+          <div class="news-card-icon green">💶</div>
+          <h3 class="news-card-title">Presupuesto Anual</h3>
+          <p class="news-card-desc">Consulta el presupuesto anual aprobado y el desglose de gastos e ingresos.</p>
+          <a href="#" class="btn-outline" onclick="downloadDocument('presupuesto')">Descargar PDF</a>
+        </div>
+        <div class="news-card fade-in">
+          <div class="news-card-icon purple">📝</div>
+          <h3 class="news-card-title">Formularios</h3>
+          <p class="news-card-desc">Descarga los formularios necesarios para inscribirte, proponer actividades o comunicar incidencias.</p>
+          <a href="#" class="btn-outline" onclick="downloadDocument('formularios')">Descargar PDF</a>
+        </div>
+      </div>
+    </div>
   </section>
 {% endblock %}

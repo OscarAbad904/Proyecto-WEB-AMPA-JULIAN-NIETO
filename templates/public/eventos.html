@@ -3,20 +3,149 @@
 {% block title %}Eventos · AMPA Julián Nieto{% endblock %}
 
 {% block content %}
-  <section class="container">
-    <header class="section-header">
-      <h1>Eventos</h1>
-      <p>Calendario mensual y actividades destacadas.</p>
-    </header>
-    <div class="calendar-preview">
-      <p>Mini calendario con enfoque accesible.</p>
-    </div>
-    <div class="card-grid">
-      <article class="card">
-        <h3>Jornada familiar</h3>
-        <p>Capacidad limitada, inscripción abierta.</p>
-        <a href="{{ url_for('public.evento_detalle', slug='jornada-familiar') }}">Ver detalle</a>
-      </article>
+  <section class="events-section">
+    <div class="container">
+      <div class="events-header">
+        <div class="fade-in">
+          <p class="eyebrow">Próximos eventos</p>
+          <h1 class="events-title">Actividades destacadas</h1>
+          <p class="events-desc">Participa en nuestras actividades pensadas para toda la comunidad educativa.</p>
+        </div>
+        <div class="nav-buttons fade-in">
+          <button class="nav-button" onclick="scrollEvents(-1)">←</button>
+          <button class="nav-button" onclick="scrollEvents(1)">→</button>
+        </div>
+      </div>
+
+      <div class="events-grid fade-in">
+        <div class="event-card">
+          <div class="event-cover event-cover-1"></div>
+          <div class="event-content">
+            <p class="event-category">Taller</p>
+            <h3 class="event-title">Robótica para peques</h3>
+            <p class="event-desc">Descubre la programación y la ingeniería de forma divertida y práctica.</p>
+            <div class="event-meta">
+              <span>15 Mar 2025</span>
+              <span>17:30 - Sala de Tecnología</span>
+            </div>
+            <a class="btn-outline" href="{{ url_for('public.evento_detalle', slug='robotica-peques') }}">Ver detalle</a>
+          </div>
+        </div>
+        <div class="event-card">
+          <div class="event-cover event-cover-2"></div>
+          <div class="event-content">
+            <p class="event-category orange">Charla</p>
+            <h3 class="event-title">Ciberseguridad familiar</h3>
+            <p class="event-desc">Consejos prácticos para ayudar a niños y padres a moverse por Internet con seguridad.</p>
+            <div class="event-meta">
+              <span>28 Mar 2025</span>
+              <span>18:00 - Biblioteca</span>
+            </div>
+            <a class="btn-outline" href="{{ url_for('public.evento_detalle', slug='ciberseguridad-familiar') }}">Ver detalle</a>
+          </div>
+        </div>
+        <div class="event-card">
+          <div class="event-cover event-cover-3"></div>
+          <div class="event-content">
+            <p class="event-category green">Voluntariado</p>
+            <h3 class="event-title">Jardín colaborativo</h3>
+            <p class="event-desc">Actividad en familia para crear un pequeño jardín en el patio del colegio.</p>
+            <div class="event-meta">
+              <span>6 Abr 2025</span>
+              <span>11:00 - Patio central</span>
+            </div>
+            <a class="btn-outline" href="{{ url_for('public.evento_detalle', slug='jardin-colaborativo') }}">Ver detalle</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="events-footer fade-in">
+        <div>
+          <p class="events-desc">Consulta todas las fechas y actividades programadas en el calendario.</p>
+          <a class="btn-primary" href="{{ url_for('public.eventos') }}">Ver calendario completo</a>
+        </div>
+        <div class="events-calendar">
+          <div class="event-item">
+            <div class="event-date">
+              <div class="event-date-day">15</div>
+              <div class="event-date-month">MAR</div>
+            </div>
+            <div class="event-info">
+              <div class="event-info-title">Robótica para peques</div>
+              <div class="event-info-desc">17:30 - Sala de Tecnología</div>
+            </div>
+          </div>
+          <div class="event-item">
+            <div class="event-date">
+              <div class="event-date-day orange">28</div>
+              <div class="event-date-month">MAR</div>
+            </div>
+            <div class="event-info">
+              <div class="event-info-title">Ciberseguridad familiar</div>
+              <div class="event-info-desc">18:00 - Biblioteca</div>
+            </div>
+          </div>
+          <div class="event-item">
+            <div class="event-date">
+              <div class="event-date-day green">6</div>
+              <div class="event-date-month">ABR</div>
+            </div>
+            <div class="event-info">
+              <div class="event-info-title">Jardín colaborativo</div>
+              <div class="event-info-desc">11:00 - Patio central</div>
+            </div>
+          </div>
+          <div class="event-item">
+            <div class="event-date">
+              <div class="event-date-day orange">20</div>
+              <div class="event-date-month">DEC</div>
+            </div>
+            <div class="event-info">
+              <div class="event-info-title">Fiesta de Navidad solidaria</div>
+              <div class="event-info-desc">17:00 - Gimnasio</div>
+            </div>
+          </div>
+          <div class="event-item">
+            <div class="event-date">
+              <div class="event-date-day green">10</div>
+              <div class="event-date-month">NOV</div>
+            </div>
+            <div class="event-info">
+              <div class="event-info-title">Charla "Los Sitios de Zaragoza"</div>
+              <div class="event-info-desc">19:00 - Sala Multiusos</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:1.5rem;">
+          {% if calendar_id %}
+          <iframe src="https://calendar.google.com/calendar/embed?src={{ calendar_id|urlencode }}&ctz=Europe%2FMadrid"
+                  style="border: 0; width: 100%; height: 400px;" frameborder="0" scrolling="no"></iframe>
+          {% else %}
+          <div class="alert" style="border:1px solid #334155; padding:1rem; border-radius:0.75rem; background:#0f172a;">
+            Configura un ID de calendario público de Google para mostrar los eventos aquí (por ejemplo, <code>tu_email%40gmail.com</code>).
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="event-form fade-in">
+        <h3 class="event-form-title">Inscripción a Eventos</h3>
+        <form onsubmit="handleEventForm(event)">
+          <label>Evento</label>
+          <select required>
+            <option>Fiesta de Navidad solidaria</option>
+            <option>Charla "Los Sitios de Zaragoza"</option>
+            <option>Torneo de Ajedrez “San Valero”</option>
+          </select>
+          <label>Nombre completo</label>
+          <input type="text" required>
+          <label>Email</label>
+          <input type="email" required>
+          <label>Número de asistentes</label>
+          <input type="number" min="1" required>
+          <button type="submit">Inscribirse</button>
+        </form>
+      </div>
     </div>
   </section>
 {% endblock %}

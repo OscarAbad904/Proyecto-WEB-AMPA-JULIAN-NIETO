@@ -18,6 +18,65 @@ document.querySelectorAll('.fade-in').forEach(el => {
     observer.observe(el);
 });
 
+function randomizeHeroShapes() {
+    const container = document.querySelector('.hero-floating-shapes');
+    if (!container) return;
+
+    if (window.__heroSpawnTimer) {
+        clearInterval(window.__heroSpawnTimer);
+    }
+
+    const baseSize = 5;            // rem
+    const variance = 0.2;          // +/-20%
+    const spawnGapMs = 1000;       // ms between spawns (fixed 1s)
+    const leftRange = [8, 32];     // keep gap for center/logo
+    const rightRange = [68, 92];
+    let sideToggle = 0;
+
+    const rand = (min, max) => Math.random() * (max - min) + min;
+
+    const createShape = () => {
+        const shape = document.createElement('div');
+        shape.className = `hero-shape ${Math.random() > 0.5 ? 'hero-shape--orange' : 'hero-shape--green'}`;
+
+        const sizeFactor = 1 - variance + Math.random() * (variance * 2);
+        const size = baseSize * sizeFactor;
+        shape.style.width = `${size}rem`;
+        shape.style.height = `${size}rem`;
+
+        const topStart = rand(110, 135);
+        const topEnd = rand(-140, -110);
+        const range = (sideToggle++ % 2 === 0) ? leftRange : rightRange;
+        const leftPos = rand(range[0], range[1]);
+
+        shape.style.left = `${leftPos}%`;
+        shape.style.setProperty('--hero-start-top', `${topStart}%`);
+        shape.style.setProperty('--hero-end-top', `${topEnd}%`);
+
+        const rotation = rand(-10, 10);
+        shape.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+
+        const duration = rand(11, 16);
+        shape.style.setProperty('--hero-duration', `${duration}s`);
+
+        shape.style.animation = `rise var(--hero-duration, 12s) linear 1 forwards`;
+        shape.classList.add('ready');
+        shape.style.visibility = 'visible';
+
+        shape.addEventListener('animationend', () => shape.remove());
+        container.appendChild(shape);
+    };
+
+    // start immediately and then every second
+    createShape();
+    window.__heroSpawnTimer = setInterval(createShape, spawnGapMs);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    randomizeHeroShapes();
+    window.addEventListener('resize', randomizeHeroShapes);
+});
+
 // Mobile menu toggle
 function toggleMobileMenu() {
     const menu = document.getElementById('mobile-menu');
@@ -265,7 +324,7 @@ function buscarEnPagina() {
     const secciones = document.querySelectorAll('section, article, .card-hover, .news-item');
     secciones.forEach(sec => {
         let html = sec.innerHTML;
-        const regex = new RegExp(`(${texto.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')})`, 'gi');
+        const regex = new RegExp(`(${texto.replace(/[.*+?^${}()|[\\]\\]/g, '\\\\$&')})`, 'gi');
         html = html.replace(regex, '<span class="resaltado-busqueda" style="background:#fde68a;color:#1e293b;">$1</span>');
         sec.innerHTML = html;
     });
@@ -279,53 +338,6 @@ window.addEventListener('scroll', function() {
     } else {
         header.classList.remove('scrolled');
     }
-});
-
-// Navegación tipo SPA: oculta todas las secciones y muestra solo la seleccionada
-function mostrarSeccion(id) {
-    document.querySelectorAll('section').forEach(sec => {
-        sec.style.display = 'none';
-    });
-    const target = document.getElementById(id);
-    if (target) {
-        target.style.display = '';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-    // Quitar clase active de todos los enlaces
-    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-    // Añadir clase active al enlace seleccionado
-    const navLinks = document.querySelectorAll('.nav-link[href="#' + id + '"]');
-    navLinks.forEach(link => link.classList.add('active'));
-    // Cerrar menú móvil si está abierto
-    const menu = document.getElementById('mobile-menu');
-    if (menu && !menu.classList.contains('hidden')) menu.classList.add('hidden');
-}
-// Interceptar clicks en el menú para navegación SPA
-window.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.nav-link').forEach(link => {
-        const href = link.getAttribute('href');
-        if (href && href.startsWith('#')) {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                mostrarSeccion(href.substring(1));
-            });
-        }
-    });
-    // Mostrar solo la sección de inicio al cargar
-    mostrarSeccion('inicio');
-});
-
-// Interceptar clicks en los enlaces del footer para navegación SPA
-window.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.footer-link').forEach(link => {
-        const href = link.getAttribute('href');
-        if (href && href.startsWith('#')) {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                mostrarSeccion(href.substring(1));
-            });
-        }
-    });
 });
 
 // Nota: los recursos estáticos se sirven ahora desde assets/js/AMPA.js

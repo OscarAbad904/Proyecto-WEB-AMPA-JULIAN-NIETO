@@ -1,0 +1,67 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Quiénes Somos · AMPA Julián Nieto{% endblock %}
+
+{% block content %}
+  <section id="quienes-somos" class="about-section">
+    <div class="container">
+      <div class="about-grid">
+        <div class="fade-in">
+          <h1 class="about-title">Quiénes Somos</h1>
+          <p class="about-desc">
+            El AMPA del CEIP Julián Nieto Tapia es una asociación de madres y padres comprometidos con la mejora continua de la educación de nuestros hijos. Trabajamos en estrecha colaboración con el centro educativo para crear un ambiente de aprendizaje enriquecedor.
+          </p>
+          <div class="about-list">
+            <div class="about-list-item">
+              <div class="about-list-icon blue">✔</div>
+              <span>Representamos los intereses de las familias</span>
+            </div>
+            <div class="about-list-item">
+              <div class="about-list-icon orange">✔</div>
+              <span>Organizamos actividades complementarias</span>
+            </div>
+            <div class="about-list-item">
+              <div class="about-list-icon green">✔</div>
+              <span>Facilitamos la comunicación con el centro</span>
+            </div>
+          </div>
+        </div>
+        <div class="about-contact-card fade-in">
+          <h3 class="about-contact-title">Datos de contacto AMPA</h3>
+          <p class="about-contact-subtitle">Resolvemos dudas y escuchamos propuestas</p>
+          <div class="about-contact-grid">
+            <div class="about-contact-item">
+              <div class="about-contact-icon">✉</div>
+              <div>
+                <div class="about-contact-label">Email</div>
+                <div class="about-contact-value">ampa.Juliannietotapia@email.com</div>
+              </div>
+            </div>
+            <div class="about-contact-item">
+              <div class="about-contact-icon">☎</div>
+              <div>
+                <div class="about-contact-label">Teléfono</div>
+                <div class="about-contact-value">976 340 620</div>
+              </div>
+            </div>
+            <div class="about-contact-item">
+              <div class="about-contact-icon">📍</div>
+              <div>
+                <div class="about-contact-label">Dirección</div>
+                <div class="about-contact-value">Camino del Pilón 150<br>50011 Zaragoza (Miralbueno)</div>
+              </div>
+            </div>
+            <div class="about-contact-item">
+              <div class="about-contact-icon">⏰</div>
+              <div>
+                <div class="about-contact-label">Horario de atención</div>
+                <div class="about-contact-value">L-V · 9:00 - 14:00</div>
+              </div>
+            </div>
+          </div>
+          <a class="btn-outline about-contact-cta" href="{{ url_for('public.contacto') }}">Ir a la sección de Contacto</a>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
