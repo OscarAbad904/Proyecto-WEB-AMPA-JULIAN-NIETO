@@ -5,7 +5,20 @@
 {% block content %}
   <section class="news-section">
     <div class="container">
-      <h1 class="news-title fade-in">Últimas Noticias</h1>
+      <div class="news-header fade-in">
+        <div>
+          <h1 class="news-title">Últimas Noticias</h1>
+          <p class="news-subtitle">Lo más reciente del AMPA, actividades, comunicados y reuniones.</p>
+        </div>
+        {% if can_manage_members %}
+          <div class="news-mode-switch">
+            <span class="switch-label">Modo</span>
+            <button class="news-switch-btn active" data-mode="view" id="mode-view">Vista</button>
+            <button class="news-switch-btn" data-mode="edit" id="mode-edit">Edición</button>
+          </div>
+        {% endif %}
+      </div>
+
       <div class="news-grid">
         <div class="news-card fade-in">
           <div class="news-card-icon">📰</div>
@@ -40,7 +53,7 @@
           <div class="news-article-header">
             <div>
               <h3 class="news-article-title">Taller de robótica para padres e hijos</h3>
-              <span class="news-article-category">Actividades · 12 de Junio, 2025</span>
+              <span class="news-article-category">Actividades · 12 de junio, 2025</span>
             </div>
             <div class="news-article-icon">🤖</div>
           </div>
@@ -51,7 +64,7 @@
           <div class="news-article-header">
             <div>
               <h3 class="news-article-title">Nuevas medidas de seguridad en el centro</h3>
-              <span class="news-article-category orange">Comunicados · 8 de Junio, 2025</span>
+              <span class="news-article-category orange">Comunicados · 8 de junio, 2025</span>
             </div>
             <div class="news-article-icon">🛡</div>
           </div>
@@ -62,7 +75,7 @@
           <div class="news-article-header">
             <div>
               <h3 class="news-article-title">Asamblea general ordinaria</h3>
-              <span class="news-article-category green">Reuniones · 1 de Junio, 2025</span>
+              <span class="news-article-category green">Reuniones · 1 de junio, 2025</span>
             </div>
             <div class="news-article-icon">📢</div>
           </div>
@@ -73,7 +86,7 @@
           <div class="news-article-header">
             <div>
               <h3 class="news-article-title">Campamento de verano</h3>
-              <span class="news-article-category blue">Actividades · 25 de Mayo, 2025</span>
+              <span class="news-article-category blue">Actividades · 25 de mayo, 2025</span>
             </div>
             <div class="news-article-icon">⛺</div>
           </div>
@@ -82,4 +95,29 @@
       </div>
     </div>
   </section>
+
+  {% if can_manage_members %}
+    <style>
+      .news-header { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+      .news-subtitle { margin:0.3rem 0 0; color: #cdd7e6; font-weight:500; }
+      .news-mode-switch { display:flex; align-items:center; gap:0.4rem; background: rgba(255,255,255,0.04); padding:0.5rem 0.65rem; border-radius: 999px; border:1px solid rgba(255,255,255,0.08); }
+      .news-switch-btn { background: transparent; border:1px solid rgba(255,255,255,0.25); color: #fff; border-radius: 999px; padding:0.4rem 0.85rem; cursor:pointer; font-weight:700; }
+      .news-switch-btn.active { background: #ff8a4c; color:#111; border-color: #ff8a4c; box-shadow: 0 10px 25px rgba(255,138,76,0.35); }
+      .news-switch-btn:hover { opacity:0.92; }
+      .switch-label { color:#cdd7e6; font-weight:600; margin-right:0.25rem; }
+    </style>
+    <script>
+      const btnView = document.getElementById('mode-view');
+      const btnEdit = document.getElementById('mode-edit');
+      if (btnView && btnEdit) {
+        btnView.addEventListener('click', () => {
+          btnView.classList.add('active');
+          btnEdit.classList.remove('active');
+        });
+        btnEdit.addEventListener('click', () => {
+          window.location.href = "{{ url_for('admin.posts') }}";
+        });
+      }
+    </script>
+  {% endif %}
 {% endblock %}
