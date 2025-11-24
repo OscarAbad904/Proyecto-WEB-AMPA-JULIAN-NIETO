@@ -15,6 +15,8 @@ from __future__ import annotations
 import os
 import secrets
 from datetime import datetime, timedelta
+import re
+import unicodedata
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import hashlib
@@ -56,9 +58,9 @@ from wtforms import (
     StringField,
     SubmitField,
     TextAreaField,
-)
-from wtforms.fields import EmailField, FileField
-from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional
+)  # noqa: WPS433
+from wtforms.fields import DateField, EmailField, FileField
+from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, URL
 
 from config import decrypt_value, encrypt_value
 
@@ -66,6 +68,14 @@ ROOT_PATH = Path(__file__).resolve().parent
 DATA_PATH = Path(os.getenv("AMPA_DATA_DIR", ROOT_PATH / "Data"))
 DEFAULT_DB_PATH = Path(os.getenv("AMPA_DB_PATH", DATA_PATH / "app_Ampa.db")).resolve()
 DEFAULT_SQLALCHEMY_URI = f"sqlite:///{DEFAULT_DB_PATH.as_posix()}"
+PRIVILEGED_ROLES = {
+    "admin",
+    "administrador",
+    "presidente",
+    "vicepresidente",
+    "secretario",
+    "vicesecretario",
+}
 
 
 def _normalize_sqlite_uri(uri: str) -> tuple[str, Path]:
@@ -190,6 +200,21 @@ def make_lookup_hash(value: str | None) -> str:
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
+def slugify(value: str) -> str:
+    """Crea un slug URL-safe a partir de un t��tulo."""
+    normalized = unicodedata.normalize("NFKD", value)
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", ascii_text).strip("-").lower()
+    return slug or "noticia"
+
+
+def _user_is_privileged(user: User | None) -> bool:
+    if not user or not getattr(user, "role", None):
+        return False
+    role_name = (user.role.name or "").strip().lower()
+    return role_name in PRIVILEGED_ROLES
+
+
 def generate_confirmation_token(email: str) -> str:
     serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
     return serializer.dumps(email, salt=current_app.config["SECURITY_PASSWORD_SALT"])
@@ -294,6 +319,33 @@ class CommentForm(FlaskForm):
 class VoteForm(FlaskForm):
     value = SelectField("Votar", choices=[("1", "+1"), ("-1", "-1")], validators=[DataRequired()])
     submit = SubmitField("Votar")
+
+
+class PostForm(FlaskForm):
+    title = StringField("T��tulo", validators=[DataRequired(), Length(max=255)])
+    published_at = DateField("Fecha de publicaci��n", format="%Y-%m-%d", validators=[Optional()])
+    cover_image = StringField(
+        "Imagen de portada (URL)",
+        validators=[Optional(), URL(message="Introduce una URL v��lida"), Length(max=255)],
+    )
+    image_layout = SelectField(
+        "Maquetaci��n de imagen",
+        choices=[
+            ("full", "Portada grande"),
+            ("left", "Imagen a la izquierda"),
+            ("right", "Imagen a la derecha"),
+            ("none", "Sin imagen"),
+        ],
+        default="full",
+    )
+    excerpt = TextAreaField("Resumen", validators=[Optional(), Length(max=512)])
+    content = TextAreaField("Contenido", validators=[DataRequired()])
+    status = SelectField(
+        "Estado",
+        choices=[("draft", "Borrador"), ("published", "Publicada")],
+        default="draft",
+    )
+    submit = SubmitField("Publicar noticia")
 
 
 class Role(db.Model):
@@ -607,10 +659,63 @@ def dashboard_admin():
     return render_template("admin/dashboard.html")
 
 
-@admin_bp.route("/posts")
+@admin_bp.route("/posts", methods=["GET", "POST"])
 @login_required
 def posts():
-    return render_template("admin/posts.html")
+    if not _user_is_privileged(current_user):
+        abort(403)
+
+    form = PostForm()
+    if request.method == "GET" and not form.published_at.data:
+        form.published_at.data = datetime.utcnow().date()
+
+    recent_posts = Post.query.order_by(Post.created_at.desc()).limit(12).all()
+
+    if form.validate_on_submit():
+        base_slug = slugify(form.title.data)
+        slug = base_slug
+        existing = Post.query.filter_by(slug=slug).first()
+        counter = 2
+        while existing:
+            slug = f"{base_slug}-{counter}"
+            existing = Post.query.filter_by(slug=slug).first()
+            counter += 1
+
+        published_at = None
+        if form.published_at.data:
+            published_at = datetime.combine(form.published_at.data, datetime.min.time())
+        if form.status.data == "published" and not published_at:
+            published_at = datetime.utcnow()
+
+        content_html = form.content.data or ""
+        content_text = re.sub(r"<[^>]+>", "", content_html).strip()
+        if not content_text:
+            flash("A��ade contenido a la noticia.", "warning")
+            return render_template("admin/posts.html", form=form, posts=recent_posts)
+
+        excerpt = form.excerpt.data or content_text[:240]
+
+        post = Post(
+            title=form.title.data.strip(),
+            slug=slug,
+            body_html=content_html,
+            excerpt=excerpt,
+            status=form.status.data,
+            category="noticias",
+            tags=form.image_layout.data,  # almacenamos la maquetaci��n sin tocar el esquema
+            cover_image=form.cover_image.data,
+            author_id=current_user.id,
+            published_at=published_at,
+        )
+        db.session.add(post)
+        db.session.commit()
+        flash("Noticia guardada en el tabl��n", "success")
+        return redirect(url_for("admin.posts"))
+
+    if request.method == "POST":
+        flash("Revisa los datos del formulario de noticia.", "warning")
+
+    return render_template("admin/posts.html", form=form, posts=recent_posts)
 
 
 @admin_bp.route("/eventos")
@@ -989,13 +1094,7 @@ def register_blueprints(app: Flask) -> None:
 def register_context(app: Flask) -> None:
     @app.context_processor
     def inject_globals():
-        privileged_roles = {"admin", "administrador", "presidente", "vicepresidente", "secretario", "vicesecretario"}
-        can_manage_members = bool(
-            current_user.is_authenticated
-            and current_user.role
-            and current_user.role.name
-            and current_user.role.name.strip().lower() in privileged_roles
-        )
+        can_manage_members = _user_is_privileged(current_user)
         return {
             "current_year": datetime.utcnow().year,
             "header_login_form": LoginForm(),

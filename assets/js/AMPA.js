@@ -80,7 +80,9 @@ window.addEventListener('DOMContentLoaded', () => {
 // Mobile menu toggle
 function toggleMobileMenu() {
     const menu = document.getElementById('mobile-menu');
-    menu.classList.toggle('hidden');
+    if (!menu) return;
+    menu.classList.toggle('open');
+    document.body.classList.toggle('menu-open', menu.classList.contains('open'));
 }
 
 // News filtering
@@ -305,11 +307,14 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 });
 
 // Close modal when clicking outside
-document.getElementById('modal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
-    }
-});
+const __modalEl = document.getElementById('modal');
+if (__modalEl) {
+    __modalEl.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+}
 
 // Función para búsqueda en la página
 function buscarEnPagina() {

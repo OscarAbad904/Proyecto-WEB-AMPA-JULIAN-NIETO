@@ -13,47 +13,51 @@
     <header class="header-fixed">
         <nav class="container-nav">
             <div class="header-flex">
-                <div class="header-logo-group">
-                    <div class="logo-bg">
-                        <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Logo AMPA Julián Nieto Tapia" class="logo-img" />
+                <div class="header-top">
+                    <div class="header-logo-group">
+                        <div class="logo-bg">
+                            <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Logo AMPA Julián Nieto Tapia" class="logo-img" />
+                        </div>
+                        <span class="header-title-group">
+                            <span class="header-title-ampa">AMPA</span>
+                            <span class="header-title-colegio">Julián Nieto Tapia</span>
+                        </span>
                     </div>
-                    <span class="header-title-group">
-                        <span class="header-title-ampa">AMPA</span>
-                        <span class="header-title-colegio">Julián Nieto Tapia</span>
-                    </span>
-                </div>
-                <!-- Buscador interno -->
-                <div class="buscador-desktop">
-                    <input type="text" placeholder="Buscar..." class="buscador-input" id="buscadorAMPA" oninput="buscarEnPagina()" />
-                </div>
-                <div class="nav-desktop">
-                    <a href="{{ url_for('public.home') }}" class="nav-link">Inicio</a>
-                    <a href="{{ url_for('public.quienes_somos') }}" class="nav-link">Quiénes Somos</a>
-                    <a href="{{ url_for('public.noticias') }}" class="nav-link">Noticias</a>
-                    <a href="{{ url_for('public.eventos') }}" class="nav-link">Eventos</a>
-                    <a href="{{ url_for('public.documentos') }}" class="nav-link">Documentos</a>
-                    <a href="{{ url_for('public.contacto') }}" class="nav-link">Contacto</a>
-                    <a href="{{ url_for('public.faq') }}" class="nav-link">FAQ</a>
-                    {% if current_user.is_authenticated %}
-                        <a href="{{ url_for('members.dashboard') }}" class="nav-link">Área privada</a>
-                        {% if can_manage_members %}
-                            <a href="{{ url_for('members.register') }}" class="nav-link">Crear cuenta</a>
+                    <div class="header-utilities">
+                        <div class="buscador-desktop">
+                            <input type="text" placeholder="Buscar..." class="buscador-input" id="buscadorAMPA" oninput="buscarEnPagina()" />
+                        </div>
+                        <div class="nav-auth">
+                            {% if current_user.is_authenticated %}
+                                <span class="nav-user-name">Bienvenido, {{ current_user.username }}</span>
+                                <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout">Cerrar sesión</a>
+                            {% else %}
+                                <button type="button" class="nav-auth-btn" onclick="toggleLoginModal(true)">Login</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="nav-desktop">
+                        <a href="{{ url_for('public.home') }}" class="nav-link">Inicio</a>
+                        <a href="{{ url_for('public.quienes_somos') }}" class="nav-link">Quiénes Somos</a>
+                        <a href="{{ url_for('public.noticias') }}" class="nav-link">Noticias</a>
+                        <a href="{{ url_for('public.eventos') }}" class="nav-link">Eventos</a>
+                        <a href="{{ url_for('public.documentos') }}" class="nav-link">Documentos</a>
+                        <a href="{{ url_for('public.contacto') }}" class="nav-link">Contacto</a>
+                        <a href="{{ url_for('public.faq') }}" class="nav-link">FAQ</a>
+                        {% if current_user.is_authenticated %}
+                            <a href="{{ url_for('members.dashboard') }}" class="nav-link">Área privada</a>
+                            {% if can_manage_members %}
+                                <a href="{{ url_for('members.register') }}" class="nav-link">Crear cuenta</a>
+                            {% endif %}
                         {% endif %}
-                    {% endif %}
+                    </div>
+                    <button class="menu-mobile-btn" onclick="toggleMobileMenu()">
+                        <svg class="menu-mobile-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
                 </div>
-                <div class="nav-auth">
-                    {% if current_user.is_authenticated %}
-                        <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout">Cerrar sesión</a>
-                        <span class="nav-user-name">Bienvenido, {{ current_user.username }}</span>
-                    {% else %}
-                        <button type="button" class="nav-auth-btn" onclick="toggleLoginModal(true)">Iniciar sesión</button>
-                    {% endif %}
-                </div>
-                <button class="menu-mobile-btn" onclick="toggleMobileMenu()">
-                    <svg class="menu-mobile-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                    </svg>
-                </button>
+
             </div>
             <!-- Mobile Menu -->
             <div id="mobile-menu" class="mobile-menu">
@@ -77,7 +81,7 @@
                             <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout" onclick="toggleMobileMenu()">Cerrar sesión</a>
                         {% else %}
                             <button type="button" class="nav-auth-btn" onclick="toggleMobileMenu(); toggleLoginModal(true);">
-                                Iniciar sesión
+                                Login
                             </button>
                         {% endif %}
                     </div>
@@ -174,7 +178,7 @@
     </div>
     <style>
         .nav-auth { display:flex; align-items:center; gap:0.75rem; margin-left:1rem; }
-        .nav-auth-btn { background:#1f3ba2; color:#fff; border:none; border-radius:999px; padding:0.45rem 1.25rem; font-weight:600; cursor:pointer; text-decoration:none; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; min-width:140px; }
+        .nav-auth-btn { background:#1f3ba2; color:#fff; border:none; border-radius:999px; padding:0.35rem 0.9rem; font-weight:600; cursor:pointer; text-decoration:none; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; min-width:96px; }
         .nav-auth-btn--logout { background:#1f3ba2; order:1; }
         .nav-auth-btn:hover { opacity:0.9; }
         .nav-user-name { font-weight:600; color:#ffffff; white-space:nowrap; order:2; }
