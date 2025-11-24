@@ -20,6 +20,7 @@ import unicodedata
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import hashlib
+from urllib.parse import quote_plus
 
 from dotenv import load_dotenv
 from flask import (
@@ -66,8 +67,10 @@ from config import decrypt_value, encrypt_value
 
 ROOT_PATH = Path(__file__).resolve().parent
 DATA_PATH = Path(os.getenv("AMPA_DATA_DIR", ROOT_PATH / "Data"))
-DEFAULT_DB_PATH = Path(os.getenv("AMPA_DB_PATH", DATA_PATH / "app_Ampa.db")).resolve()
-DEFAULT_SQLALCHEMY_URI = f"sqlite:///{DEFAULT_DB_PATH.as_posix()}"
+DEFAULT_SQLALCHEMY_URI = os.getenv(
+    "SQLALCHEMY_DATABASE_URI",
+    os.getenv("DATABASE_URL", "postgresql+psycopg2://user:password@localhost:5432/ampa_db"),
+)
 PRIVILEGED_ROLES = {
     "admin",
     "administrador",
@@ -78,20 +81,32 @@ PRIVILEGED_ROLES = {
 }
 
 
-def _normalize_sqlite_uri(uri: str) -> tuple[str, Path]:
-    raw_path = uri[len("sqlite:///") :]
-    path = Path(raw_path)
-    if not path.is_absolute():
-        path = (ROOT_PATH / path).resolve()
-    else:
-        path = path.resolve()
-    return f"sqlite:///{path.as_posix()}", path
+def _build_sqlalchemy_uri() -> tuple[str, Path | None]:
+    """Obtiene la URI de base de datos priorizando PostgreSQL."""
+    uri = os.getenv("SQLALCHEMY_DATABASE_URI") or os.getenv("DATABASE_URL")
+
+    # Permite configurar PostgreSQL mediante variables POSTGRES_/PG*.
+    if not uri:
+        pg_host = os.getenv("POSTGRES_HOST") or os.getenv("PGHOST")
+        pg_port = os.getenv("POSTGRES_PORT") or os.getenv("PGPORT") or "5432"
+        pg_user = os.getenv("POSTGRES_USER") or os.getenv("PGUSER")
+        pg_password = os.getenv("POSTGRES_PASSWORD")
+        if pg_password is None:
+            pg_password = os.getenv("PGPASSWORD")
+        pg_db = os.getenv("POSTGRES_DB") or os.getenv("PGDATABASE")
+        if pg_host and pg_user and pg_db and pg_password is not None:
+            uri = (
+                "postgresql+psycopg2://"
+                f"{quote_plus(pg_user)}:{quote_plus(pg_password)}@{pg_host}:{pg_port}/{quote_plus(pg_db)}"
+            )
+
+    if not uri:
+        uri = DEFAULT_SQLALCHEMY_URI
+
+    return uri, None
 
 
-_SQLALCHEMY_URI = os.getenv("SQLALCHEMY_DATABASE_URI", DEFAULT_SQLALCHEMY_URI)
-_SQLALCHEMY_PATH = DEFAULT_DB_PATH
-if _SQLALCHEMY_URI.startswith("sqlite:///") and not _SQLALCHEMY_URI.startswith("sqlite:///:memory:"):
-    _SQLALCHEMY_URI, _SQLALCHEMY_PATH = _normalize_sqlite_uri(_SQLALCHEMY_URI)
+_SQLALCHEMY_URI, _SQLALCHEMY_PATH = _build_sqlalchemy_uri()
 os.environ["SQLALCHEMY_DATABASE_URI"] = _SQLALCHEMY_URI
 
 db = SQLAlchemy()
@@ -117,8 +132,6 @@ class BaseConfig:
 
     @staticmethod
     def init_app(app: Flask) -> None:
-        data_path = Path(app.config.get("DATABASE_PATH", DEFAULT_DB_PATH))
-        data_path.parent.mkdir(parents=True, exist_ok=True)
         log_path = Path(BaseConfig.LOG_FILE)
         log_path.parent.mkdir(parents=True, exist_ok=True)
         handler = RotatingFileHandler(
@@ -142,7 +155,7 @@ class ProductionConfig(BaseConfig):
 
 class TestingConfig(BaseConfig):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    SQLALCHEMY_DATABASE_URI = _SQLALCHEMY_URI
     WTF_CSRF_ENABLED = False
 
 
