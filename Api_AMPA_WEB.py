@@ -20,7 +20,7 @@ import unicodedata
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import hashlib
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse, parse_qs
 
 from dotenv import load_dotenv
 from flask import (
@@ -59,6 +59,7 @@ from wtforms import (
     StringField,
     SubmitField,
     TextAreaField,
+    HiddenField,
 )  # noqa: WPS433
 from wtforms.fields import DateField, EmailField, FileField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, URL
@@ -214,11 +215,59 @@ def make_lookup_hash(value: str | None) -> str:
 
 
 def slugify(value: str) -> str:
-    """Crea un slug URL-safe a partir de un t��tulo."""
+    """Crea un slug URL-safe a partir de un título."""
     normalized = unicodedata.normalize("NFKD", value)
     ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", ascii_text).strip("-").lower()
     return slug or "noticia"
+
+
+def _normalize_drive_url(url: str | None) -> str | None:
+    """Convierte enlaces de Drive en URLs de visualización directa."""
+    if not url or "drive.google.com" not in url:
+        return url
+
+    patterns = [
+        r"drive\.google\.com/file/d/([^/]+)/",
+        r"drive\.google\.com/file/d/([^/]+)/view",
+        r"drive\.google\.com/open\?id=([^&]+)",
+        r"drive\.google\.com/uc\?id=([^&]+)",
+        r"drive\.googleusercontent\.com/d/([^/]+)",
+        r"drive\.google\.com/uc\?export=view&id=([^&]+)",
+    ]
+    for pat in patterns:
+        match = re.search(pat, url)
+        if match:
+            return f"https://drive.google.com/uc?export=view&id={match.group(1)}"
+    try:
+        parsed = urlparse(url)
+        qs = parse_qs(parsed.query)
+        if qs.get("id"):
+            return f"https://drive.google.com/uc?export=view&id={qs['id'][0]}"
+    except Exception:
+        return url
+    return url
+
+    patterns = [
+        r"drive\.google\.com/file/d/([^/]+)/",
+        r"drive\.google\.com/file/d/([^/]+)/view",
+        r"drive\.google\.com/open\?id=([^&]+)",
+        r"drive\.google\.com/uc\?id=([^&]+)",
+        r"drive\.googleusercontent\.com/d/([^/]+)",
+        r"drive\.google\.com/uc\?export=view&id=([^&]+)",
+    ]
+    for pat in patterns:
+        match = re.search(pat, url)
+        if match:
+            return f"https://drive.google.com/uc?export=view&id={match.group(1)}"
+    try:
+        parsed = urlparse(url)
+        qs = parse_qs(parsed.query)
+        if qs.get("id"):
+            return f"https://drive.google.com/uc?export=view&id={qs['id'][0]}"
+    except Exception:
+        return url
+    return url
 
 
 def _user_is_privileged(user: User | None) -> bool:
@@ -335,21 +384,33 @@ class VoteForm(FlaskForm):
 
 
 class PostForm(FlaskForm):
-    title = StringField("T��tulo", validators=[DataRequired(), Length(max=255)])
-    published_at = DateField("Fecha de publicaci��n", format="%Y-%m-%d", validators=[Optional()])
+    post_id = HiddenField()
+    title = StringField("Título", validators=[DataRequired(), Length(max=255)])
+    published_at = DateField("Fecha de publicación", format="%Y-%m-%d", validators=[Optional()])
     cover_image = StringField(
         "Imagen de portada (URL)",
-        validators=[Optional(), URL(message="Introduce una URL v��lida"), Length(max=255)],
+        validators=[Optional(), URL(message="Introduce una URL válida"), Length(max=255)],
     )
     image_layout = SelectField(
-        "Maquetaci��n de imagen",
+        "Maquetación de imagen",
         choices=[
             ("full", "Portada grande"),
             ("left", "Imagen a la izquierda"),
             ("right", "Imagen a la derecha"),
+            ("bottom", "Imagen abajo"),
             ("none", "Sin imagen"),
         ],
         default="full",
+    )
+    category = SelectField(
+        "Categoría",
+        choices=[
+            ("actividades", "Actividades"),
+            ("comunicados", "Comunicados"),
+            ("reuniones", "Reuniones"),
+            ("general", "General"),
+        ],
+        default="general",
     )
     excerpt = TextAreaField("Resumen", validators=[Optional(), Length(max=512)])
     content = TextAreaField("Contenido", validators=[DataRequired()])
@@ -359,6 +420,8 @@ class PostForm(FlaskForm):
         default="draft",
     )
     submit = SubmitField("Publicar noticia")
+
+
 
 
 class Role(db.Model):
@@ -628,7 +691,15 @@ def quienes_somos():
 @public_bp.route("/noticias")
 def noticias():
     query = request.args.get("q", "")
-    return render_template("public/noticias.html", query=query)
+    posts = (
+        Post.query.filter_by(status="published")
+        .order_by(Post.published_at.desc().nullslast(), Post.created_at.desc())
+        .all()
+    )
+    for post in posts:
+        post.cover_image = _normalize_drive_url(post.cover_image)
+    latest_three = posts[:3]
+    return render_template("public/noticias.html", query=query, posts=posts, latest_three=latest_three)
 
 
 @public_bp.route("/noticias/<slug>")
@@ -682,17 +753,26 @@ def posts():
     if request.method == "GET" and not form.published_at.data:
         form.published_at.data = datetime.utcnow().date()
 
-    recent_posts = Post.query.order_by(Post.created_at.desc()).limit(12).all()
+    recent_posts = (
+        Post.query.order_by(Post.published_at.desc().nullslast(), Post.created_at.desc())
+        .all()
+    )
+    for rp in recent_posts:
+        rp.cover_image = _normalize_drive_url(rp.cover_image) or rp.cover_image
 
     if form.validate_on_submit():
-        base_slug = slugify(form.title.data)
-        slug = base_slug
-        existing = Post.query.filter_by(slug=slug).first()
-        counter = 2
-        while existing:
-            slug = f"{base_slug}-{counter}"
-            existing = Post.query.filter_by(slug=slug).first()
-            counter += 1
+        post: Post | None = None
+        if form.post_id.data:
+            try:
+                post = Post.query.get(int(form.post_id.data))
+            except Exception:
+                post = None
+
+        content_html = form.content.data or ""
+        content_text = re.sub(r"<[^>]+>", "", content_html).strip()
+        if not content_text:
+            flash("Añade contenido a la noticia.", "warning")
+            return render_template("admin/posts.html", form=form, posts=recent_posts)
 
         published_at = None
         if form.published_at.data:
@@ -700,35 +780,75 @@ def posts():
         if form.status.data == "published" and not published_at:
             published_at = datetime.utcnow()
 
-        content_html = form.content.data or ""
-        content_text = re.sub(r"<[^>]+>", "", content_html).strip()
-        if not content_text:
-            flash("A��ade contenido a la noticia.", "warning")
-            return render_template("admin/posts.html", form=form, posts=recent_posts)
-
         excerpt = form.excerpt.data or content_text[:240]
 
-        post = Post(
-            title=form.title.data.strip(),
-            slug=slug,
-            body_html=content_html,
-            excerpt=excerpt,
-            status=form.status.data,
-            category="noticias",
-            tags=form.image_layout.data,  # almacenamos la maquetaci��n sin tocar el esquema
-            cover_image=form.cover_image.data,
-            author_id=current_user.id,
-            published_at=published_at,
-        )
-        db.session.add(post)
-        db.session.commit()
-        flash("Noticia guardada en el tabl��n", "success")
+        category_value = form.category.data or "general"
+        normalized_cover = _normalize_drive_url(form.cover_image.data)
+
+        if post:
+            post.title = form.title.data.strip()
+            if form.title.data and post.slug:
+                base_slug = slugify(form.title.data)
+                slug = base_slug
+                counter = 2
+                existing = Post.query.filter(Post.slug == slug, Post.id != post.id).first()
+                while existing:
+                    slug = f"{base_slug}-{counter}"
+                    existing = Post.query.filter(Post.slug == slug, Post.id != post.id).first()
+                    counter += 1
+                post.slug = slug
+            post.body_html = content_html
+            post.excerpt = excerpt
+            post.status = form.status.data
+            post.tags = form.image_layout.data  # usamos tags para layout
+            post.cover_image = normalized_cover
+            post.published_at = published_at
+            post.category = category_value
+            db.session.commit()
+            flash("Noticia actualizada", "success")
+        else:
+            base_slug = slugify(form.title.data)
+            slug = base_slug
+            existing = Post.query.filter_by(slug=slug).first()
+            counter = 2
+            while existing:
+                slug = f"{base_slug}-{counter}"
+                existing = Post.query.filter_by(slug=slug).first()
+                counter += 1
+
+            post = Post(
+                title=form.title.data.strip(),
+                slug=slug,
+                body_html=content_html,
+                excerpt=excerpt,
+                status=form.status.data,
+                category=category_value,
+                tags=form.image_layout.data,  # layout
+                cover_image=normalized_cover,
+                author_id=current_user.id,
+                published_at=published_at,
+            )
+            db.session.add(post)
+            db.session.commit()
+            flash("Noticia guardada en el tablón", "success")
         return redirect(url_for("admin.posts"))
 
     if request.method == "POST":
         flash("Revisa los datos del formulario de noticia.", "warning")
 
     return render_template("admin/posts.html", form=form, posts=recent_posts)
+
+
+@admin_bp.route("/posts/<int:post_id>/delete", methods=["POST"])
+@login_required
+def delete_post(post_id: int):
+    if not _user_is_privileged(current_user):
+        abort(403)
+    post = Post.query.get_or_404(post_id)
+    db.session.delete(post)
+    db.session.commit()
+    flash("Noticia eliminada", "success")
+    return redirect(url_for("admin.posts"))
 
 
 @admin_bp.route("/eventos")

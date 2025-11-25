@@ -1,0 +1,40 @@
+class VoteForm(FlaskForm):
+    value = SelectField("Votar", choices=[("1", "+1"), ("-1", "-1")], validators=[DataRequired()])
+    submit = SubmitField("Votar")
+
+
+class PostForm(FlaskForm):
+    post_id = HiddenField()
+    title = StringField("Título", validators=[DataRequired(), Length(max=255)])
+    published_at = DateField("Fecha de publicación", format="%Y-%m-%d", validators=[Optional()])
+    cover_image = StringField(
+        "Imagen de portada (URL)",
+        validators=[Optional(), URL(message="Introduce una URL válida"), Length(max=255)],
+    )
+    image_layout = SelectField(
+        "Maquetación de imagen",
+        choices=[
+            ("full", "Portada grande"),
+            ("left", "Imagen a la izquierda"),
+            ("right", "Imagen a la derecha"),
+            ("bottom", "Imagen abajo"),
+            ("none", "Sin imagen"),
+        ],
+        default="full",
+    )
+    category = SelectField(
+        "Categoría",
+        choices=[
+            ("actividades", "Actividades"),
+            ("comunicados", "Comunicados"),
+            ("reuniones", "Reuniones"),
+            ("general", "General"),
+        ],
+        default="general",
+    )
+    excerpt = TextAreaField("Resumen", validators=[Optional(), Length(max=512)])
+    content = TextAreaField("Contenido", validators=[DataRequired()])
+    status = SelectField(
+        "Estado",
+        choices=[("draft", "Borrador"), ("published", "Publicada")],
+        default="draft",

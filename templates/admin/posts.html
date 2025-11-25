@@ -1,56 +1,19 @@
-{% extends "base.html" %}
+{% extends "public/layout.html" %}
 
 {% block title %}Tablón de noticias · Admin{% endblock %}
 
 {% block head %}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.0-rc.4/dist/quill.snow.css" />
-  <style>
-    .admin-grid { display:grid; grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr); gap:1.5rem; align-items:start; }
-    .card { background: var(--card); border-radius: 12px; padding: 1.5rem; box-shadow: 0 12px 32px rgba(15,23,42,0.08); border: 1px solid rgba(0,0,0,0.04); }
-    .form-card .field { display:flex; flex-direction:column; gap:0.35rem; margin-bottom: 1rem; }
-    .form-card label { font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
-    .form-card input, .form-card textarea, .form-card select { border:1px solid rgba(0,0,0,0.08); border-radius: 10px; padding: 0.8rem; font-size: 0.95rem; background: #fff; }
-    .form-card input:focus, .form-card textarea:focus, .form-card select:focus { outline:2px solid rgba(255,139,95,0.25); border-color: var(--accent); box-shadow: 0 0 0 4px rgba(255,139,95,0.12); }
-    .form-card textarea { min-height: 96px; resize: vertical; }
-    .eyebrow { letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.78rem; color: var(--muted); margin: 0 0 0.35rem; }
-    .page-title { margin: 0; font-size: 2rem; letter-spacing: -0.02em; }
-    .text-muted { color: var(--muted); }
-    .two-cols { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 0.75rem; }
-    .ql-container { border-radius: 12px; }
-    .ql-toolbar { border-radius: 12px 12px 0 0; }
-    .ql-editor { min-height: 220px; }
-    .btn-primary { background: var(--accent); color:#111; border:none; border-radius: 999px; padding: 0.95rem 1.4rem; font-weight: 700; cursor: pointer; width: 100%; transition: transform .1s ease, box-shadow .2s ease; }
-    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(255,139,95,0.25); }
-    .flash-stack { display:flex; flex-direction:column; gap:0.35rem; margin: 0.75rem 0 1rem; }
-    .flash { padding: 0.75rem 1rem; border-radius: 12px; font-weight: 600; border:1px solid rgba(0,0,0,0.05); }
-    .flash-success { background: #ecfdf3; color:#166534; }
-    .flash-warning { background: #fff7ed; color:#9a3412; }
-    .preview-card { position: sticky; top: 100px; }
-    .post-preview { border: 1px dashed rgba(0,0,0,0.06); border-radius: 14px; overflow:hidden; background: var(--bg); }
-    .post-preview[data-layout="left"], .post-preview[data-layout="right"] { display:grid; grid-template-columns: 1fr 1fr; }
-    .post-preview figure { margin:0; height: 180px; background: linear-gradient(135deg,#f8fafc,#e2e8f0); display:flex; align-items:center; justify-content:center; overflow:hidden; }
-    .post-preview img { width: 100%; height: 100%; object-fit: cover; }
-    .post-preview .body { padding: 1rem; }
-    .chip { display:inline-flex; padding:0.2rem 0.65rem; border-radius: 999px; background:#ffe8dd; color:#9a3412; font-size: 0.82rem; margin-right: 0.35rem; border:1px solid rgba(255,139,95,0.35); }
-    .chip-live { background:#dcfce7; color:#166534; border-color: rgba(22,101,52,0.35); }
-    .post-list { display:flex; flex-direction:column; gap: 0.85rem; margin-top: 1rem; }
-    .post-row { display:grid; grid-template-columns: 96px 1fr; gap: 0.75rem; align-items:center; padding: 0.7rem; border:1px solid rgba(0,0,0,0.06); border-radius: 12px; background: #fff; box-shadow: 0 8px 24px rgba(15,23,42,0.05); }
-    .post-thumb { width: 100%; aspect-ratio: 1/1; border-radius: 10px; background-size: cover; background-position: center; background-color: #e5e7eb; }
-    .post-row h3 { margin: 0 0 0.25rem; letter-spacing: -0.01em; }
-    .post-row p { margin: 0; }
-    @media (max-width: 960px) {
-      .admin-grid { grid-template-columns: 1fr; }
-      .preview-card { position: static; }
-      .post-preview { grid-template-columns: 1fr !important; }
-    }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
 {% endblock %}
 
 {% block content %}
-  <section class="container">
-    <p class="eyebrow">Noticias · Administración</p>
-    <h1 class="page-title">Tablón de publicaciones</h1>
-    <p class="text-muted">Crea nuevas noticias con formato enriquecido, enlaces y maquetación de imagen estilo red social.</p>
+  <section class="admin-wrapper">
+    <div class="admin-header">
+      <p class="admin-kicker">Noticias · Administración</p>
+      <h1 class="admin-title">Tablón de publicaciones</h1>
+      <p class="admin-subtitle">Crea noticias con formato enriquecido, maquetación de imagen y previsualización en vivo con el mismo estilo del sitio.</p>
+    </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -63,14 +26,14 @@
     {% endwith %}
 
     <div class="admin-grid">
-      <form class="card form-card" method="post" novalidate>
-        {{ form.hidden_tag() }}
+      <form class="admin-card admin-form" method="post" novalidate>
+        {{ form.csrf_token }}
+        {{ form.post_id(id="post-id") }}
         <div class="field">
           {{ form.title.label }}
           {{ form.title(placeholder="Título de la noticia") }}
-          {% for error in form.title.errors %}<small class="text-muted">{{ error }}</small>{% endfor %}
         </div>
-        <div class="field two-cols">
+        <div class="field field-row">
           <div>
             {{ form.published_at.label }}
             {{ form.published_at(type="date") }}
@@ -80,14 +43,21 @@
             {{ form.status() }}
           </div>
         </div>
-        <div class="field two-cols">
+        <div class="field field-row">
           <div>
-            {{ form.cover_image.label }}
-            {{ form.cover_image(placeholder="https://...") }}
+            {{ form.category.label }}
+            {{ form.category() }}
           </div>
           <div>
             {{ form.image_layout.label }}
             {{ form.image_layout() }}
+          </div>
+        </div>
+        <div class="field field-row">
+          <div>
+            {{ form.cover_image.label }}
+            {{ form.cover_image(placeholder="URL de la portada (Drive o web)") }}
+            <small class="helper">Puedes pegar un enlace de Google Drive y lo convertiremos para mostrar la imagen.</small>
           </div>
         </div>
         <div class="field">
@@ -98,53 +68,76 @@
           <label>Contenido de la noticia</label>
           <div id="editor"></div>
           {{ form.content(style="display:none") }}
-          <small class="text-muted">Negrita, cursiva, subrayado, tamaño, color, alineación, listas y enlaces disponibles.</small>
+          <small class="helper">Negrita, cursiva, subrayado, tamaño, color, alineación, listas y enlaces disponibles.</small>
         </div>
         {{ form.submit(class="btn-primary") }}
       </form>
 
-      <aside class="card preview-card">
-        <p class="eyebrow">Previsualización</p>
-        <div class="post-preview" data-layout="full" id="preview-card">
-          <figure id="preview-figure">
-            <img id="preview-image" src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Imagen de portada" />
-          </figure>
-          <div class="body">
-            <div>
-              <span class="chip" id="preview-status">Borrador</span>
-              <span class="text-muted" id="preview-date">Fecha pendiente</span>
+      <aside class="admin-card preview-card">
+        <p class="admin-kicker" style="margin-bottom:0.3rem;">Previsualización</p>
+        <div class="preview-shell">
+          <div class="post-preview layout-full" id="preview-card">
+            <figure id="preview-figure">
+              <img id="preview-image" src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Imagen de portada" referrerpolicy="no-referrer" />
+            </figure>
+            <div class="body">
+              <div>
+                <span class="chip" id="preview-status">Borrador</span>
+                <span class="muted" id="preview-date">Fecha pendiente</span>
+              </div>
+              <h3 id="preview-title" style="margin: 0.35rem 0;">Título de ejemplo</h3>
+              <div class="ql-editor" id="preview-content"><p>El contenido enriquecido aparecerá aquí.</p></div>
             </div>
-            <h3 id="preview-title">Título de ejemplo</h3>
-            <div class="ql-editor" id="preview-content"><p>El contenido enriquecido aparecerá aquí.</p></div>
           </div>
         </div>
       </aside>
     </div>
 
-    <div class="card list-card">
-      <div class="two-cols" style="align-items:center;">
-        <h2 style="margin:0;">Últimas noticias creadas</h2>
-        <p class="text-muted" style="margin:0; text-align:right;">Se muestran las 12 más recientes.</p>
+    <div class="admin-card list-card">
+      <div class="field-row" style="align-items:center;">
+        <h2 style="margin:0;">Noticias</h2>
+        <div style="margin-left:auto; display:flex; gap:0.6rem; align-items:center; width:100%; justify-content:flex-end;">
+          <input type="search" id="post-search" class="post-search" placeholder="Buscar por título, categoría o fecha" />
+        </div>
       </div>
       <div class="post-list">
         {% if posts %}
           {% for post in posts %}
-            <article class="post-row" data-layout="{{ post.tags or 'full' }}">
-              <div class="post-thumb" style="background-image:url('{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}');"></div>
+            <article
+              class="post-row"
+              data-layout="{{ post.tags or 'full' }}"
+              data-id="{{ post.id }}"
+              data-title="{{ post.title }}"
+              data-status="{{ post.status }}"
+              data-cover="{{ post.cover_image or '' }}"
+              data-date="{{ post.published_at.strftime('%Y-%m-%d') if post.published_at else '' }}"
+              data-excerpt="{{ post.excerpt or '' }}"
+              data-content='{{ post.body_html|tojson }}'
+              data-category="{{ post.category or 'general' }}"
+            >
+              <div class="post-thumb">
+                <img src="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}" alt="Portada" referrerpolicy="no-referrer" />
+              </div>
               <div>
-                <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <span class="chip {% if post.status == 'published' %}chip-live{% endif %}">{{ 'Publicada' if post.status == 'published' else 'Borrador' }}</span>
-                  <span class="text-muted">{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}</span>
-                  <span class="text-muted">·</span>
-                  <span class="text-muted">{{ post.tags or 'full' }}</span>
+                <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; justify-content:space-between;">
+                  <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+                    <span class="chip {% if post.status == 'published' %}chip-live{% endif %}">{{ 'Publicada' if post.status == 'published' else 'Borrador' }}</span>
+                    <span class="muted">{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}</span>
+                    <span class="muted">·</span>
+                    <span class="muted">{{ post.tags or 'full' }}</span>
+                  </div>
+                  <form class="delete-post-form" method="post" action="{{ url_for('admin.delete_post', post_id=post.id) }}" style="margin-left:auto;">
+                    {{ form.csrf_token }}
+                    <button type="submit" class="delete-post-btn" aria-label="Eliminar noticia">Eliminar</button>
+                  </form>
                 </div>
                 <h3>{{ post.title }}</h3>
-                <p class="text-muted">{{ (post.excerpt or '')[:120] }}{% if (post.excerpt or '')|length > 120 %}…{% endif %}</p>
+                <p>{{ (post.excerpt or '')[:120] }}{% if (post.excerpt or '')|length > 120 %}…{% endif %}</p>
               </div>
             </article>
           {% endfor %}
         {% else %}
-          <p class="text-muted">Todavía no hay noticias creadas.</p>
+          <p class="muted">Todavía no hay noticias creadas.</p>
         {% endif %}
       </div>
     </div>
@@ -154,90 +147,304 @@
 {% block scripts %}
   <script src="https://cdn.jsdelivr.net/npm/quill@2.0.0-rc.4/dist/quill.js"></script>
   <script>
-    const quill = new Quill('#editor', {
-      theme: 'snow',
-      placeholder: 'Escribe la noticia con el estilo que quieras...',
-      modules: {
-        toolbar: [
-          [{ 'header': [1, 2, 3, false] }],
-          [{ 'size': [] }, { 'color': [] }],
-          ['bold', 'italic', 'underline'],
-          [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-          [{ 'align': [] }],
-          ['link', 'clean']
-        ]
+    document.addEventListener('DOMContentLoaded', () => {
+      const editorEl = document.getElementById('editor');
+      const hiddenContent = document.querySelector('textarea[name="{{ form.content.name }}"]');
+      const previewContent = document.getElementById('preview-content');
+      const titleInput = document.querySelector('input[name="{{ form.title.name }}"]');
+      const coverInput = document.querySelector('input[name="{{ form.cover_image.name }}"]');
+      const statusSelect = document.querySelector('select[name="{{ form.status.name }}"]');
+      const dateInput = document.querySelector('input[name="{{ form.published_at.name }}"]');
+      const layoutSelect = document.querySelector('select[name="{{ form.image_layout.name }}"]');
+      const previewFigure = document.getElementById('preview-figure');
+      const previewImage = document.getElementById('preview-image');
+      const previewCard = document.getElementById('preview-card');
+      const defaultImage = "{{ url_for('static', filename='images/Logo_AMPA.png') }}";
+      const categorySelect = document.querySelector('select[name="{{ form.category.name }}"]');
+      const submitBtn = document.querySelector('input[name="{{ form.submit.name }}"]');
+      const postIdInput = document.getElementById('post-id');
+      const searchInput = document.getElementById('post-search');
+      const previewBody = document.querySelector('#preview-card .body');
+      const formEl = document.querySelector('.admin-form');
+      let currentPostId = '';
+
+      const drivePatterns = [
+        /https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\//,
+        /https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\/view/,
+        /https?:\/\/drive\.google\.com\/open\?id=([^&]+)/,
+        /https?:\/\/drive\.google\.com\/uc\?id=([^&]+)/,
+        /https?:\/\/drive\.googleusercontent\.com\/d\/([^/]+)/,
+        /https?:\/\/drive\.google\.com\/uc\?export=view&?id=([^&]+)/,
+      ];
+
+      const toolbarConfig = [
+        [{ header: [1, 2, 3, false] }],
+        [{ size: [] }, { color: [] }, { background: [] }],
+        ['bold', 'italic', 'underline'],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        [{ align: [] }],
+        ['link', 'clean']
+      ];
+
+      let quill = null;
+      if (window.Quill && editorEl) {
+        quill = new Quill(editorEl, {
+          theme: 'snow',
+          placeholder: 'Escribe la noticia con el estilo que quieras...',
+          modules: { toolbar: toolbarConfig }
+        });
       }
+
+      if (!quill && hiddenContent) {
+        hiddenContent.style.display = 'block';
+        hiddenContent.style.minHeight = '200px';
+        hiddenContent.style.background = 'rgba(15,23,42,0.6)';
+        hiddenContent.style.color = '#f8fafc';
+        hiddenContent.style.borderRadius = '10px';
+        hiddenContent.placeholder = hiddenContent.placeholder || 'Contenido de la noticia';
+      }
+
+      function extractDriveId(url) {
+        if (!url || !url.includes('drive.google.com')) return null;
+        for (const pattern of drivePatterns) {
+          const match = url.match(pattern);
+          if (match && match[1]) {
+            return match[1];
+          }
+        }
+        try {
+          const u = new URL(url);
+          const id = u.searchParams.get('id');
+          if (id) return id;
+        } catch (e) {
+          // ignore parse errors
+        }
+        return null;
+      }
+
+      function normalizeDriveUrl(url) {
+        const id = extractDriveId(url);
+        if (id) return { url: `https://drive.google.com/uc?export=view&id=${id}`, id };
+        return url;
+      }
+
+      function addDriveFallback(imgEl) {
+        imgEl?.addEventListener('error', () => {
+          const driveId = imgEl.dataset.driveId;
+          if (driveId && imgEl.dataset.fallbackApplied !== 'thumb') {
+            imgEl.dataset.fallbackApplied = 'thumb';
+            imgEl.src = `https://drive.google.com/thumbnail?id=${driveId}&sz=w1200`;
+            return;
+          }
+          if (driveId && imgEl.dataset.fallbackApplied !== 'alt') {
+            imgEl.dataset.fallbackApplied = 'alt';
+            imgEl.src = `https://lh3.googleusercontent.com/d/${driveId}=w1200`;
+            return;
+          }
+          imgEl.src = defaultImage;
+        });
+      }
+
+      function setImageWithFallback(imgEl, rawUrl) {
+        if (!imgEl) return;
+        const normalizedResult = normalizeDriveUrl(rawUrl);
+        const normalized = typeof normalizedResult === 'string' ? normalizedResult : normalizedResult.url;
+        const driveId = typeof normalizedResult === 'object' && normalizedResult.id ? normalizedResult.id : extractDriveId(rawUrl);
+        imgEl.dataset.driveId = driveId || '';
+        imgEl.dataset.fallbackApplied = '';
+        imgEl.src = '';
+        imgEl.src = normalized || defaultImage;
+      }
+
+      const getContentHtml = () => {
+        if (quill) return quill.root.innerHTML.trim();
+        return (hiddenContent?.value || '').trim();
+      };
+
+      function setSubmitLabel(isEdit) {
+        if (!submitBtn) return;
+        submitBtn.value = isEdit ? 'Actualizar publicación' : 'Publicar noticia';
+      }
+
+      function setCurrentPostId(idValue) {
+        currentPostId = idValue || '';
+        if (postIdInput) postIdInput.value = currentPostId;
+        setSubmitLabel(!!currentPostId);
+      }
+
+      function applyMediaConstraints() {
+        if (!previewCard || !previewFigure || !previewBody) return;
+        const layout = layoutSelect?.value || 'full';
+        const fallbackMax = Math.max(200, Math.round(window.innerHeight * 0.3));
+
+        if (layout === 'left' || layout === 'right') {
+          previewFigure.style.display = 'flex';
+          previewFigure.style.maxHeight = '';
+          previewFigure.style.flex = '0 0 30%';
+          previewFigure.style.maxWidth = '30%';
+          previewFigure.style.minWidth = '30%';
+          previewBody.style.flex = '1 1 70%';
+          previewBody.style.minWidth = '0';
+        } else if (layout === 'none') {
+          previewFigure.style.display = 'none';
+          previewBody.style.flex = '1 1 auto';
+        } else {
+          previewFigure.style.display = 'flex';
+          const cardHeight = previewCard.clientHeight || 0;
+          const maxH = cardHeight ? Math.round(cardHeight * 0.3) : 0;
+          previewFigure.style.maxHeight = `${maxH || fallbackMax}px`;
+          previewFigure.style.flex = '0 0 auto';
+          previewFigure.style.maxWidth = '100%';
+          previewFigure.style.minWidth = '0';
+          previewBody.style.flex = '1 1 auto';
+        }
+      }
+
+      function applySearch() {
+        const term = (searchInput?.value || '').toLowerCase().trim();
+        document.querySelectorAll('.post-row').forEach((row) => {
+          const text = [
+            row.dataset.title,
+            row.dataset.excerpt,
+            row.dataset.category,
+            row.dataset.date
+          ].join(' ').toLowerCase();
+          row.style.display = term ? (text.includes(term) ? '' : 'none') : '';
+        });
+      }
+
+      function syncContent() {
+        const html = getContentHtml();
+        if (hiddenContent) hiddenContent.value = html;
+        if (previewContent) {
+          previewContent.innerHTML = html || '<p>El contenido enriquecido aparecerá aquí.</p>';
+        }
+      }
+
+      quill?.on('text-change', syncContent);
+      hiddenContent?.addEventListener('input', syncContent);
+
+      function updateTitle() {
+        const titleEl = document.getElementById('preview-title');
+        if (titleEl) titleEl.textContent = (titleInput?.value || 'Título de ejemplo');
+      }
+      titleInput?.addEventListener('input', updateTitle);
+
+      function updateCover() {
+        let url = coverInput?.value.trim() || '';
+        const isHttp = /^https?:\/\//i.test(url);
+        if (url && isHttp) {
+          const normalizedResult = normalizeDriveUrl(url);
+          const normalized = typeof normalizedResult === 'string' ? normalizedResult : normalizedResult.url;
+          const driveId = typeof normalizedResult === 'object' && normalizedResult.id ? normalizedResult.id : extractDriveId(url);
+          if (normalized !== url && coverInput) coverInput.value = normalized;
+          previewImage.dataset.fallbackApplied = '';
+          // force reload by resetting src to avoid cached broken state
+          previewImage.src = '';
+          previewImage.src = normalized;
+          previewImage.dataset.driveId = driveId || '';
+        } else {
+          previewImage.src = defaultImage;
+        }
+      }
+      coverInput?.addEventListener('input', updateCover);
+      coverInput?.addEventListener('blur', updateCover);
+      addDriveFallback(previewImage);
+
+      function updateStatus() {
+        const chip = document.getElementById('preview-status');
+        if (!chip) return;
+        chip.textContent = statusSelect?.value === 'published' ? 'Publicada' : 'Borrador';
+        chip.classList.toggle('chip-live', statusSelect?.value === 'published');
+      }
+      statusSelect?.addEventListener('change', updateStatus);
+
+      function updateDate() {
+        const dateEl = document.getElementById('preview-date');
+        if (!dateEl) return;
+        dateEl.textContent = dateInput?.value ? dateInput.value.split('-').reverse().join('/') : 'Fecha pendiente';
+      }
+      dateInput?.addEventListener('change', updateDate);
+
+      function updateLayout() {
+        const layout = layoutSelect?.value || 'full';
+        previewCard.classList.remove('layout-left', 'layout-right', 'layout-none', 'layout-full', 'layout-bottom');
+        previewCard.classList.add(`layout-${layout}`);
+        if (layout === 'none') {
+          previewFigure.style.display = 'none';
+        } else {
+          previewFigure.style.display = 'flex';
+        }
+        applyMediaConstraints();
+      }
+      layoutSelect?.addEventListener('change', updateLayout);
+
+      function loadPostFromRow(row) {
+        if (!row) return;
+        const data = row.dataset;
+        const content = data.content ? JSON.parse(data.content) : '';
+        const dateValue = data.date || '';
+        const statusValue = data.status || 'draft';
+        const layoutValue = data.layout || 'full';
+
+        setCurrentPostId(data.id || '');
+        if (titleInput) titleInput.value = data.title || '';
+        if (coverInput) coverInput.value = data.cover || '';
+        if (statusSelect) statusSelect.value = statusValue;
+        if (categorySelect) categorySelect.value = data.category || 'general';
+        if (layoutSelect) layoutSelect.value = layoutValue;
+        if (dateInput) dateInput.value = dateValue;
+        const excerptField = document.querySelector('textarea[name="{{ form.excerpt.name }}"]');
+        if (excerptField) excerptField.value = data.excerpt || '';
+
+        if (quill) {
+          quill.root.innerHTML = content || '';
+        } else if (hiddenContent) {
+          hiddenContent.value = content || '';
+        }
+
+        syncContent();
+        updateTitle();
+        updateCover();
+        updateStatus();
+        updateDate();
+        updateLayout();
+        setSubmitLabel(true);
+      }
+
+      function refreshThumbs() {
+        document.querySelectorAll('.post-thumb img').forEach((imgEl) => {
+          const cover = imgEl.closest('[data-cover]')?.dataset.cover || imgEl.getAttribute('src') || defaultImage;
+          addDriveFallback(imgEl);
+          setImageWithFallback(imgEl, cover);
+        });
+      }
+
+      document.querySelectorAll('.post-row').forEach((row) => {
+        row.addEventListener('click', () => loadPostFromRow(row));
+        row.style.cursor = 'pointer';
+      });
+
+      document.querySelectorAll('.delete-post-form').forEach((form) => {
+        form.addEventListener('click', (e) => e.stopPropagation());
+      });
+
+      searchInput?.addEventListener('input', applySearch);
+      formEl?.addEventListener('submit', () => {
+        setCurrentPostId(postIdInput?.value || currentPostId);
+      });
+      window.addEventListener('resize', () => requestAnimationFrame(applyMediaConstraints));
+
+      syncContent();
+      updateTitle();
+      updateCover();
+      updateStatus();
+      updateDate();
+      updateLayout();
+      setCurrentPostId(postIdInput?.value || '');
+      applySearch();
+      applyMediaConstraints();
+      refreshThumbs();
     });
-
-    const hiddenContent = document.querySelector('textarea[name="{{ form.content.name }}"]');
-    const previewContent = document.getElementById('preview-content');
-    const titleInput = document.querySelector('input[name="{{ form.title.name }}"]');
-    const coverInput = document.querySelector('input[name="{{ form.cover_image.name }}"]');
-    const statusSelect = document.querySelector('select[name="{{ form.status.name }}"]');
-    const dateInput = document.querySelector('input[name="{{ form.published_at.name }}"]');
-    const layoutSelect = document.querySelector('select[name="{{ form.image_layout.name }}"]');
-    const previewFigure = document.getElementById('preview-figure');
-    const previewImage = document.getElementById('preview-image');
-    const previewCard = document.getElementById('preview-card');
-
-    if (hiddenContent.value) {
-      quill.root.innerHTML = hiddenContent.value;
-      previewContent.innerHTML = hiddenContent.value;
-    }
-
-    function updateHidden() {
-      const html = quill.root.innerHTML.trim();
-      hiddenContent.value = html;
-      previewContent.innerHTML = html || '<p>El contenido enriquecido aparecerá aquí.</p>';
-    }
-    quill.on('text-change', updateHidden);
-
-    function updateTitle() {
-      const titleEl = document.getElementById('preview-title');
-      titleEl.textContent = titleInput.value || 'Título de ejemplo';
-    }
-    titleInput?.addEventListener('input', updateTitle);
-
-    function updateCover() {
-      const url = coverInput.value;
-      if (url && url.startsWith('http')) {
-        previewImage.src = url;
-      } else {
-        previewImage.src = "{{ url_for('static', filename='images/Logo_AMPA.png') }}";
-      }
-    }
-    coverInput?.addEventListener('input', updateCover);
-
-    function updateStatus() {
-      const chip = document.getElementById('preview-status');
-      chip.textContent = statusSelect.value === 'published' ? 'Publicada' : 'Borrador';
-      chip.classList.toggle('chip-live', statusSelect.value === 'published');
-    }
-    statusSelect?.addEventListener('change', updateStatus);
-
-    function updateDate() {
-      const dateEl = document.getElementById('preview-date');
-      dateEl.textContent = dateInput.value ? dateInput.value.split('-').reverse().join('/') : 'Fecha pendiente';
-    }
-    dateInput?.addEventListener('change', updateDate);
-
-    function updateLayout() {
-      const layout = layoutSelect.value || 'full';
-      previewCard.dataset.layout = layout;
-      if (layout === 'none') {
-        previewFigure.style.display = 'none';
-      } else {
-        previewFigure.style.display = 'flex';
-        previewFigure.style.order = layout === 'right' ? 1 : 0;
-      }
-    }
-    layoutSelect?.addEventListener('change', updateLayout);
-
-    updateHidden();
-    updateTitle();
-    updateCover();
-    updateStatus();
-    updateDate();
-    updateLayout();
   </script>
 {% endblock %}
