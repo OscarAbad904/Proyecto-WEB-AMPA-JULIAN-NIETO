@@ -6,7 +6,9 @@
     <title>{% block title %}AMPA Julián Nieto Tapia{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/AMPA.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <script src="{{ url_for('static', filename='js/AMPA.js') }}" defer></script>
+    {% block head %}{% endblock %}
 </head>
 <body>
 <!-- Header -->
@@ -29,6 +31,9 @@
                         </div>
                         <div class="nav-auth">
                             {% if current_user.is_authenticated %}
+                                {% if can_manage_members and request.endpoint in ['public.noticias', 'public.eventos', 'public.documentos'] %}
+                                    <a href="{{ url_for('admin.posts') }}" class="nav-auth-btn nav-auth-btn--edit">Edición</a>
+                                {% endif %}
                                 <span class="nav-user-name">Bienvenido, {{ current_user.username }}</span>
                                 <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout">Cerrar sesión</a>
                             {% else %}
@@ -179,6 +184,7 @@
     <style>
         .nav-auth { display:flex; align-items:center; gap:0.75rem; margin-left:1rem; }
         .nav-auth-btn { background:#1f3ba2; color:#fff; border:none; border-radius:999px; padding:0.35rem 0.9rem; font-weight:600; cursor:pointer; text-decoration:none; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; min-width:96px; }
+        .nav-auth-btn--edit { background:#ff8a4c; color:#0b1526; box-shadow:0 12px 24px rgba(255,138,76,0.35); }
         .nav-auth-btn--logout { background:#1f3ba2; order:1; }
         .nav-auth-btn:hover { opacity:0.9; }
         .nav-user-name { font-weight:600; color:#ffffff; white-space:nowrap; order:2; }

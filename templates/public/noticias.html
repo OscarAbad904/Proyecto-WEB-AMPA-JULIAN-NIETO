@@ -3,121 +3,333 @@
 {% block title %}Noticias · AMPA Julián Nieto{% endblock %}
 
 {% block content %}
-  <section class="news-section">
+  <section class="news-section" data-can-reorder="{{ 'true' if can_manage_members else 'false' }}">
     <div class="container">
       <div class="news-header fade-in">
         <div>
           <h1 class="news-title">Últimas Noticias</h1>
           <p class="news-subtitle">Lo más reciente del AMPA, actividades, comunicados y reuniones.</p>
         </div>
-        {% if can_manage_members %}
-          <div class="news-mode-switch">
-            <span class="switch-label">Modo</span>
-            <button class="news-switch-btn active" data-mode="view" id="mode-view">Vista</button>
-            <button class="news-switch-btn" data-mode="edit" id="mode-edit">Edición</button>
-          </div>
-        {% endif %}
       </div>
 
-      <div class="news-grid">
-        <div class="news-card fade-in">
-          <div class="news-card-icon">📰</div>
-          <h3 class="news-card-title">Torneo de Ajedrez “San Valero”</h3>
-          <p class="news-card-desc">Competición online abierta a todo el alumnado. ¡Inscríbete!</p>
-          <span class="news-card-date">Enero, 2025</span>
+      {% if latest_three %}
+        <div class="news-grid dynamic-news">
+          {% for post in latest_three %}
+            <article class="news-card fade-in news-open-modal layout-{{ post.tags or 'full' }}"
+                     data-index="{{ loop.index0 }}"
+                     data-id="{{ post.id }}"
+                     data-title="{{ post.title }}"
+                     data-date="{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}"
+                     data-category="{{ post.category or 'general' }}"
+                     data-cover="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
+                     data-layout="{{ post.tags or 'full' }}"
+                     data-content='{{ post.body_html|tojson }}'>
+              <div class="news-card-cover">
+                <img src="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
+                     alt="Portada"
+                     referrerpolicy="no-referrer" />
+              </div>
+              <div class="news-card-body">
+                <h3 class="news-card-title">{{ post.title }}</h3>
+                <p class="news-card-desc">{{ (post.excerpt or '')[:200] }}{% if (post.excerpt or '')|length > 200 %}…{% endif %}</p>
+                <span class="news-card-date">{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}</span>
+              </div>
+            </article>
+          {% endfor %}
         </div>
-        <div class="news-card fade-in" style="transition-delay: 0.2s;">
-          <div class="news-card-icon orange">🎉</div>
-          <h3 class="news-card-title">Fiesta de Navidad solidaria</h3>
-          <p class="news-card-desc">Celebramos una fiesta solidaria con actividades navideñas para todas las edades.</p>
-          <span class="news-card-date orange">Diciembre, 2024</span>
-        </div>
-        <div class="news-card fade-in" style="transition-delay: 0.4s;">
-          <div class="news-card-icon green">✅</div>
-          <h3 class="news-card-title">Abierto por Vacaciones - Navidad</h3>
-          <p class="news-card-desc">Programa especial en periodos no lectivos con actividades lúdicas y formativas.</p>
-          <span class="news-card-date green">Diciembre, 2024</span>
-        </div>
-      </div>
+      {% endif %}
 
-      <div class="news-articles">
+      <div class="news-articles" style="margin-top: 2rem;">
         <h3 class="news-title fade-in">Noticias y Novedades</h3>
-        <div class="news-filter fade-in">
-          <button class="news-filter-btn active" onclick="filterNews('all')">Todas</button>
-          <button class="news-filter-btn" onclick="filterNews('actividades')">Actividades</button>
-          <button class="news-filter-btn" onclick="filterNews('comunicados')">Comunicados</button>
-          <button class="news-filter-btn" onclick="filterNews('reuniones')">Reuniones</button>
+        <div class="news-filter fade-in" id="news-filter">
+          <button class="news-filter-btn active" data-filter="all">Todas</button>
+          <button class="news-filter-btn" data-filter="actividades">Actividades</button>
+          <button class="news-filter-btn" data-filter="comunicados">Comunicados</button>
+          <button class="news-filter-btn" data-filter="reuniones">Reuniones</button>
+          <button class="news-filter-btn" data-filter="general">General</button>
         </div>
 
-        <article class="news-article fade-in news-item" data-category="actividades">
-          <div class="news-article-header">
-            <div>
-              <h3 class="news-article-title">Taller de robótica para padres e hijos</h3>
-              <span class="news-article-category">Actividades · 12 de junio, 2025</span>
+        {% for post in posts %}
+          <article class="news-article fade-in news-item"
+                   data-category="{{ post.category or 'general' }}"
+                   data-id="{{ post.id }}"
+                   data-title="{{ post.title }}"
+                   data-date="{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}"
+                   data-cover="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
+                   data-layout="{{ post.tags or 'full' }}"
+                   data-content='{{ post.body_html|tojson }}'>
+            <div class="news-article-header">
+              <div>
+                <h3 class="news-article-title">{{ post.title }}</h3>
+                <span class="news-article-category">{{ post.category or 'General' }} · {{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}</span>
+              </div>
+              <div class="news-article-icon">📰</div>
             </div>
-            <div class="news-article-icon">🤖</div>
-          </div>
-          <p class="news-article-desc">El próximo sábado organizamos un taller de robótica donde padres e hijos podrán aprender juntos los fundamentos de la programación y la robótica educativa.</p>
-        </article>
-
-        <article class="news-article fade-in news-item" data-category="comunicados">
-          <div class="news-article-header">
-            <div>
-              <h3 class="news-article-title">Nuevas medidas de seguridad en el centro</h3>
-              <span class="news-article-category orange">Comunicados · 8 de junio, 2025</span>
-            </div>
-            <div class="news-article-icon">🛡</div>
-          </div>
-          <p class="news-article-desc">Informamos sobre las nuevas medidas de seguridad implementadas en el centro escolar tras las reuniones mantenidas entre el AMPA y la dirección del colegio.</p>
-        </article>
-
-        <article class="news-article fade-in news-item" data-category="reuniones">
-          <div class="news-article-header">
-            <div>
-              <h3 class="news-article-title">Asamblea general ordinaria</h3>
-              <span class="news-article-category green">Reuniones · 1 de junio, 2025</span>
-            </div>
-            <div class="news-article-icon">📢</div>
-          </div>
-          <p class="news-article-desc">Convocatoria abierta para todas las familias socias, con orden del día publicado con antelación.</p>
-        </article>
-
-        <article class="news-article fade-in news-item" data-category="actividades">
-          <div class="news-article-header">
-            <div>
-              <h3 class="news-article-title">Campamento de verano</h3>
-              <span class="news-article-category blue">Actividades · 25 de mayo, 2025</span>
-            </div>
-            <div class="news-article-icon">⛺</div>
-          </div>
-          <p class="news-article-desc">Programa de campamento urbano con talleres de deportes, arte y ciencia para diferentes edades.</p>
-        </article>
+            <p class="news-article-desc">{{ (post.excerpt or '')[:260] }}{% if (post.excerpt or '')|length > 260 %}…{% endif %}</p>
+          </article>
+        {% endfor %}
       </div>
     </div>
   </section>
 
-  {% if can_manage_members %}
-    <style>
-      .news-header { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
-      .news-subtitle { margin:0.3rem 0 0; color: #cdd7e6; font-weight:500; }
-      .news-mode-switch { display:flex; align-items:center; gap:0.4rem; background: rgba(255,255,255,0.04); padding:0.5rem 0.65rem; border-radius: 999px; border:1px solid rgba(255,255,255,0.08); }
-      .news-switch-btn { background: transparent; border:1px solid rgba(255,255,255,0.25); color: #fff; border-radius: 999px; padding:0.4rem 0.85rem; cursor:pointer; font-weight:700; }
-      .news-switch-btn.active { background: #ff8a4c; color:#111; border-color: #ff8a4c; box-shadow: 0 10px 25px rgba(255,138,76,0.35); }
-      .news-switch-btn:hover { opacity:0.92; }
-      .switch-label { color:#cdd7e6; font-weight:600; margin-right:0.25rem; }
-    </style>
-    <script>
-      const btnView = document.getElementById('mode-view');
-      const btnEdit = document.getElementById('mode-edit');
-      if (btnView && btnEdit) {
-        btnView.addEventListener('click', () => {
-          btnView.classList.add('active');
-          btnEdit.classList.remove('active');
-        });
-        btnEdit.addEventListener('click', () => {
-          window.location.href = "{{ url_for('admin.posts') }}";
+  <div class="news-modal" id="news-modal" aria-hidden="true">
+    <div class="news-modal-backdrop"></div>
+    <div class="news-modal-dialog">
+      <button class="news-modal-close" type="button" aria-label="Cerrar" id="news-modal-close">×</button>
+      <figure class="news-modal-cover">
+        <img id="modal-image" src="" alt="Imagen de portada" referrerpolicy="no-referrer" />
+      </figure>
+      <div class="news-modal-body">
+        <p class="news-modal-meta" id="modal-meta"></p>
+        <h2 id="modal-title"></h2>
+        <div id="modal-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .news-card { display:flex; flex-direction:column; gap:0.9rem; height:100%; }
+    .news-card.layout-left { flex-direction:row; align-items:stretch; }
+    .news-card.layout-right { flex-direction:row-reverse; align-items:stretch; }
+    .news-card.layout-bottom { flex-direction:column-reverse; }
+    .news-card-cover { width:100%; aspect-ratio: 16 / 9; border-radius:0.9rem; background: linear-gradient(145deg, rgba(150,164,178,0.3), rgba(7,17,31,0.95)); margin:0; border:1px solid var(--color-border); box-shadow:0 15px 30px rgba(3,7,18,0.35); overflow:hidden; display:flex; flex: 0 0 auto; }
+    .news-card.layout-left .news-card-cover,
+    .news-card.layout-right .news-card-cover { flex: 0 0 30%; max-width:50%; min-width:50%; aspect-ratio: 3 / 3; }
+    .news-card-cover img { width:100%; height:100%; object-fit: cover; display:block; }
+    .news-card-body { flex:1 1 auto; display:flex; flex-direction:column; gap:0.4rem; }
+    .news-card.layout-left .news-card-body,
+    .news-card.layout-right .news-card-body { flex:1 1 70%; min-width:0; }
+    .news-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:1200; }
+    .news-modal.open { display:flex; }
+    .news-modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.6); }
+    .news-modal-dialog { position:relative; background: var(--color-panel); border-radius: 16px; border:1px solid var(--color-border); max-width: 1600px; width: min(90vw, 1600px); max-height: 90vh; box-shadow:0 30px 60px rgba(3,7,18,0.6); overflow:hidden; display:flex; flex-direction:column; }
+    .news-modal-dialog.layout-left { flex-direction:row; }
+    .news-modal-dialog.layout-right { flex-direction:row-reverse; }
+    .news-modal-dialog.layout-bottom { flex-direction:column-reverse; }
+    .news-modal-dialog.layout-none .news-modal-cover { display:none; }
+    .news-modal-close { position:absolute; top:0.75rem; right:0.75rem; border:none; background: rgba(255,255,255,0.08); color: var(--color-text-base); width:36px; height:36px; border-radius: 999px; font-size: 1.1rem; cursor:pointer; }
+    .news-modal-cover { margin:1rem; margin-bottom:0; width:auto; aspect-ratio: 16 / 9; overflow:hidden; border:1px solid var(--color-border); border-radius:14px; background: linear-gradient(120deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)); flex: 0 0 auto; }
+    .news-modal-dialog.layout-left .news-modal-cover,
+    .news-modal-dialog.layout-right .news-modal-cover { flex: 0 0 30%; max-width:30%; min-width:30%; aspect-ratio: 16 / 9; margin-bottom:1rem; }
+    .news-modal-dialog.layout-left .news-modal-body,
+    .news-modal-dialog.layout-right .news-modal-body { flex:1 1 70%; min-width:0; }
+    .news-modal-dialog.layout-bottom .news-modal-cover { margin: 0 1rem 1rem 1rem; }
+    .news-modal-cover img { width:100%; height:100%; object-fit:cover; display:block; }
+    .news-modal-body { padding: 1.25rem 1.5rem 1.5rem; overflow:auto; flex:1; scrollbar-color: rgba(255,255,255,0.3) rgba(255,255,255,0.06); scrollbar-width: thin; }
+    .news-modal-meta { color: var(--color-text-soft); margin:0 0 0.25rem; }
+    .news-modal-body::-webkit-scrollbar { width: 10px; }
+    .news-modal-body::-webkit-scrollbar-track { background: rgba(255,255,255,0.06); border-radius: 12px; }
+    .news-modal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.28); border-radius: 12px; border: 2px solid rgba(255,255,255,0.06); }
+    .news-modal-dialog:not(.layout-left):not(.layout-right):not(.layout-bottom):not(.layout-none) .news-modal-cover {
+      width: calc(100% - 2rem);
+      max-width: 960px;
+      max-height: 60vh;
+      height: auto;
+      margin: 1rem auto 0;
+    }
+    .dynamic-news.reorderable .news-card { cursor: grab; }
+    .dynamic-news.reorderable .news-card:active { cursor: grabbing; }
+    .news-card.dragging { opacity: 0.65; transform: scale(0.99); }
+  </style>
+
+  <script>
+    /* eslint-disable */
+    document.addEventListener('DOMContentLoaded', () => {
+      const modal = document.getElementById('news-modal');
+      const modalImg = document.getElementById('modal-image');
+      const modalTitle = document.getElementById('modal-title');
+      const modalMeta = document.getElementById('modal-meta');
+      const modalContent = document.getElementById('modal-content');
+      const closeBtn = document.getElementById('news-modal-close');
+      const modalDialog = document.querySelector('.news-modal-dialog');
+      const newsSection = document.querySelector('[data-can-reorder]');
+      const canReorder = newsSection ? newsSection.getAttribute('data-can-reorder') === 'true' : false;
+      let isDraggingCard = false;
+      const defaultImage = "{{ url_for('static', filename='images/Logo_AMPA.png') }}";
+      
+      // Apply transition delay to news cards
+      document.querySelectorAll('.news-card[data-index]').forEach((el) => {
+        const index = parseInt(el.getAttribute('data-index'), 10);
+        el.style.transitionDelay = (index * 0.08) + 's';
+      });
+      const drivePatterns = [
+        /https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\//,
+        /https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\/view/,
+        /https?:\/\/drive\.google\.com\/open\?id=([^&]+)/,
+        /https?:\/\/drive\.google\.com\/uc\?id=([^&]+)/,
+        /https?:\/\/drive\.googleusercontent\.com\/d\/([^/]+)/,
+        /https?:\/\/drive\.google\.com\/uc\?export=view&?id=([^&]+)/,
+      ];
+
+      function extractDriveId(url) {
+        if (!url) return null;
+        for (const pattern of drivePatterns) {
+          const match = url.match(pattern);
+          if (match && match[1]) return match[1];
+        }
+        try {
+          const parsed = new URL(url);
+          const id = parsed.searchParams.get('id');
+          if (id) return id;
+        } catch (e) {
+          // ignore parse errors
+        }
+        return null;
+      }
+
+      function normalizeDriveUrl(url) {
+        const id = extractDriveId(url);
+        if (id) return { url: `https://drive.google.com/uc?export=view&id=${id}`, id };
+        return { url: url || defaultImage, id: null };
+      }
+
+      function addDriveFallback(imgEl) {
+        imgEl?.addEventListener('error', () => {
+          const driveId = imgEl.dataset.driveId;
+          const applied = imgEl.dataset.fallbackApplied;
+          if (driveId && applied !== 'thumb') {
+            imgEl.dataset.fallbackApplied = 'thumb';
+            imgEl.src = `https://drive.google.com/thumbnail?id=${driveId}&sz=w1200`;
+            return;
+          }
+          if (driveId && applied !== 'alt') {
+            imgEl.dataset.fallbackApplied = 'alt';
+            imgEl.src = `https://lh3.googleusercontent.com/d/${driveId}=w1200`;
+            return;
+          }
+          imgEl.src = defaultImage;
         });
       }
-    </script>
-  {% endif %}
+
+      function setImageWithFallback(imgEl, rawUrl) {
+        if (!imgEl) return;
+        const { url, id } = normalizeDriveUrl(rawUrl);
+        imgEl.dataset.driveId = id || '';
+        imgEl.dataset.fallbackApplied = '';
+        imgEl.src = url;
+      }
+
+      function setModalLayout(layout) {
+        if (!modalDialog) return;
+        const mode = layout || 'full';
+        modalDialog.classList.remove('layout-left', 'layout-right', 'layout-bottom', 'layout-none');
+        modalDialog.classList.add(`layout-${mode}`);
+        const cover = modalDialog.querySelector('.news-modal-cover');
+        if (cover) cover.style.display = mode === 'none' ? 'none' : 'block';
+      }
+
+      function openModal(data) {
+        setImageWithFallback(modalImg, data.cover || defaultImage);
+        modalTitle.textContent = data.title || '';
+        modalMeta.textContent = `${data.category || 'General'} · ${data.date || 'Sin fecha'}`;
+        modalContent.innerHTML = data.content || '';
+        setModalLayout(data.layout);
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeModal() {
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+      }
+
+      document.querySelectorAll('.news-open-modal, .news-item').forEach((el) => {
+        el.addEventListener('click', () => {
+          if (isDraggingCard) return;
+          const data = el.dataset;
+          openModal({
+            cover: data.cover,
+            title: data.title,
+            date: data.date,
+            category: data.category,
+            layout: data.layout,
+            content: data.content ? JSON.parse(data.content) : ''
+          });
+        });
+      });
+
+      addDriveFallback(modalImg);
+      document.querySelectorAll('.news-card-cover img').forEach((imgEl) => {
+        const cover = imgEl.closest('[data-cover]')?.dataset.cover || imgEl.getAttribute('src') || defaultImage;
+        addDriveFallback(imgEl);
+        setImageWithFallback(imgEl, cover);
+      });
+
+      function saveFeaturedOrder(grid) {
+        const order = Array.from(grid.querySelectorAll('.news-card')).map(card => card.dataset.id);
+        localStorage.setItem('news-feature-order', JSON.stringify(order));
+      }
+
+      function applySavedOrder(grid) {
+        const raw = localStorage.getItem('news-feature-order');
+        if (!raw) return;
+        try {
+          const order = JSON.parse(raw);
+          const cards = Array.from(grid.querySelectorAll('.news-card'));
+          order.forEach(id => {
+            const card = cards.find(c => c.dataset.id === id);
+            if (card) grid.appendChild(card);
+          });
+        } catch (e) {
+          // ignore parse errors
+        }
+      }
+
+      function enableReorder() {
+        const grid = document.querySelector('.dynamic-news');
+        if (!grid || !canReorder) return;
+        grid.classList.add('reorderable');
+        applySavedOrder(grid);
+        let dragged = null;
+
+        grid.querySelectorAll('.news-card').forEach((card) => {
+          card.setAttribute('draggable', 'true');
+          card.addEventListener('dragstart', (e) => {
+            dragged = card;
+            isDraggingCard = true;
+            card.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+          });
+          card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+            setTimeout(() => { isDraggingCard = false; }, 50);
+            saveFeaturedOrder(grid);
+          });
+        });
+
+        grid.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          const target = e.target.closest('.news-card');
+          if (!dragged || !target || dragged === target) return;
+          const cards = Array.from(grid.querySelectorAll('.news-card'));
+          const draggedIndex = cards.indexOf(dragged);
+          const targetIndex = cards.indexOf(target);
+          if (draggedIndex < targetIndex) {
+            grid.insertBefore(dragged, target.nextSibling);
+          } else {
+            grid.insertBefore(dragged, target);
+          }
+        });
+      }
+
+      enableReorder();
+
+      closeBtn?.addEventListener('click', closeModal);
+      modal?.addEventListener('click', (e) => { if (e.target === modal || e.target === modal.querySelector('.news-modal-backdrop')) closeModal(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+      const filterButtons = document.querySelectorAll('#news-filter .news-filter-btn');
+      const items = document.querySelectorAll('.news-item');
+      filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const filter = btn.dataset.filter;
+          filterButtons.forEach(b => b.classList.toggle('active', b === btn));
+          items.forEach(item => {
+            const category = item.dataset.category || 'general';
+            item.style.display = (filter === 'all' || category === filter) ? '' : 'none';
+          });
+        });
+      });
+    });
+  </script>
 {% endblock %}
