@@ -65,6 +65,7 @@ from wtforms.fields import DateField, EmailField, FileField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, URL
 
 from config import decrypt_value, encrypt_value
+from media_utils import upload_news_image_variants
 
 ROOT_PATH = Path(__file__).resolve().parent
 DATA_PATH = Path(os.getenv("AMPA_DATA_DIR", ROOT_PATH / "Data"))
@@ -130,6 +131,19 @@ class BaseConfig:
     LOG_FILE = str(ROOT_PATH / "logs" / "ampa.log")
     DATABASE_PATH = _SQLALCHEMY_PATH
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+    GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE = os.getenv(
+        "GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE",
+        str(ROOT_PATH / "service_account.json"),
+    )
+    GOOGLE_DRIVE_NEWS_FOLDER_ID = os.getenv("GOOGLE_DRIVE_NEWS_FOLDER_ID", "")
+    GOOGLE_DRIVE_NEWS_FOLDER_NAME = os.getenv("GOOGLE_DRIVE_NEWS_FOLDER_NAME", "Noticias")
+    GOOGLE_DRIVE_SHARED_DRIVE_ID = os.getenv("GOOGLE_DRIVE_SHARED_DRIVE_ID", "")
+    GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE = os.getenv(
+        "GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE",
+        str(ROOT_PATH / "credentials_drive_oauth.json"),
+    )
+    NEWS_IMAGE_FORMAT = os.getenv("NEWS_IMAGE_FORMAT", "JPEG")
+    NEWS_IMAGE_QUALITY = int(os.getenv("NEWS_IMAGE_QUALITY", 80))
 
     @staticmethod
     def init_app(app: Flask) -> None:
@@ -391,6 +405,7 @@ class PostForm(FlaskForm):
         "Imagen de portada (URL)",
         validators=[Optional(), URL(message="Introduce una URL válida"), Length(max=255)],
     )
+    cover_image_file = FileField("Imagen original (subir archivo)", validators=[Optional()])
     image_layout = SelectField(
         "Maquetación de imagen",
         choices=[
@@ -547,6 +562,7 @@ class Post(db.Model):
     category = db.Column(db.String(64), default="noticias", nullable=False, index=True)
     tags = db.Column(encrypted_string(255))
     cover_image = db.Column(encrypted_string(255))
+    image_variants = db.Column(sa.JSON)
     author_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     published_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, server_default=func.now())
@@ -697,7 +713,24 @@ def noticias():
         .all()
     )
     for post in posts:
-        post.cover_image = _normalize_drive_url(post.cover_image)
+        normalized_cover = _normalize_drive_url(post.cover_image)
+        variants = post.image_variants or {}
+        if isinstance(variants, dict):
+            post.cover_image = (
+                variants.get("latest")
+                or variants.get("last_v")
+                or variants.get("last_h")
+                or normalized_cover
+            )
+            post.modal_image = (
+                variants.get("modal")
+                or variants.get("modal_v")
+                or variants.get("modal_h")
+                or post.cover_image
+            )
+        else:
+            post.cover_image = normalized_cover
+            post.modal_image = normalized_cover
     latest_three = posts[:3]
     return render_template("public/noticias.html", query=query, posts=posts, latest_three=latest_three)
 
@@ -758,7 +791,24 @@ def posts():
         .all()
     )
     for rp in recent_posts:
-        rp.cover_image = _normalize_drive_url(rp.cover_image) or rp.cover_image
+        normalized_cover = _normalize_drive_url(rp.cover_image) or rp.cover_image
+        variants = rp.image_variants or {}
+        if isinstance(variants, dict) and variants:
+            rp.cover_image = (
+                variants.get("latest")
+                or variants.get("last_h")
+                or variants.get("last_v")
+                or normalized_cover
+            )
+            rp.modal_image = (
+                variants.get("modal")
+                or variants.get("modal_h")
+                or variants.get("modal_v")
+                or rp.cover_image
+            )
+        else:
+            rp.cover_image = normalized_cover
+            rp.modal_image = normalized_cover
 
     if form.validate_on_submit():
         post: Post | None = None
@@ -767,6 +817,29 @@ def posts():
                 post = Post.query.get(int(form.post_id.data))
             except Exception:
                 post = None
+
+        base_slug = slugify(form.title.data)
+        slug_value = None
+        if post:
+            slug_value = post.slug or base_slug
+            if form.title.data and post.slug:
+                slug_candidate = base_slug
+                counter = 2
+                existing = Post.query.filter(Post.slug == slug_candidate, Post.id != post.id).first()
+                while existing:
+                    slug_candidate = f"{base_slug}-{counter}"
+                    existing = Post.query.filter(Post.slug == slug_candidate, Post.id != post.id).first()
+                    counter += 1
+                slug_value = slug_candidate
+        else:
+            slug_candidate = base_slug
+            counter = 2
+            existing = Post.query.filter_by(slug=slug_candidate).first()
+            while existing:
+                slug_candidate = f"{base_slug}-{counter}"
+                existing = Post.query.filter_by(slug=slug_candidate).first()
+                counter += 1
+            slug_value = slug_candidate
 
         content_html = form.content.data or ""
         content_text = re.sub(r"<[^>]+>", "", content_html).strip()
@@ -784,54 +857,58 @@ def posts():
 
         category_value = form.category.data or "general"
         normalized_cover = _normalize_drive_url(form.cover_image.data)
+        image_file = request.files.get("cover_image_file")
+        variants_urls: dict[str, str] = {}
+        if image_file and image_file.filename:
+            try:
+                variants_urls = upload_news_image_variants(
+                    image_file,
+                    base_name=slug_value,
+                    parent_folder_id=current_app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_ID", "") or None,
+                    folder_name=current_app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_NAME", "Noticias"),
+                    shared_drive_id=current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID", "") or None,
+                )
+            except Exception as exc:  # noqa: BLE001
+                current_app.logger.exception("Error generando/subiendo variantes de imagen", exc_info=exc)
+                flash(
+                    "No se pudieron generar ni subir las variantes en Drive. Revisa la configuraci?n.",
+                    "danger",
+                )
+        cover_value = variants_urls.get("latest") or normalized_cover
 
         if post:
             post.title = form.title.data.strip()
-            if form.title.data and post.slug:
-                base_slug = slugify(form.title.data)
-                slug = base_slug
-                counter = 2
-                existing = Post.query.filter(Post.slug == slug, Post.id != post.id).first()
-                while existing:
-                    slug = f"{base_slug}-{counter}"
-                    existing = Post.query.filter(Post.slug == slug, Post.id != post.id).first()
-                    counter += 1
-                post.slug = slug
+            post.slug = slug_value
             post.body_html = content_html
             post.excerpt = excerpt
             post.status = form.status.data
             post.tags = form.image_layout.data  # usamos tags para layout
-            post.cover_image = normalized_cover
+            post.cover_image = cover_value or post.cover_image
+            if variants_urls:
+                post.image_variants = variants_urls
             post.published_at = published_at
             post.category = category_value
             db.session.commit()
             flash("Noticia actualizada", "success")
         else:
-            base_slug = slugify(form.title.data)
-            slug = base_slug
-            existing = Post.query.filter_by(slug=slug).first()
-            counter = 2
-            while existing:
-                slug = f"{base_slug}-{counter}"
-                existing = Post.query.filter_by(slug=slug).first()
-                counter += 1
-
             post = Post(
                 title=form.title.data.strip(),
-                slug=slug,
+                slug=slug_value,
                 body_html=content_html,
                 excerpt=excerpt,
                 status=form.status.data,
                 category=category_value,
                 tags=form.image_layout.data,  # layout
-                cover_image=normalized_cover,
+                cover_image=cover_value,
+                image_variants=variants_urls or None,
                 author_id=current_user.id,
                 published_at=published_at,
             )
             db.session.add(post)
             db.session.commit()
-            flash("Noticia guardada en el tablón", "success")
+            flash("Noticia guardada en el tabl?n", "success")
         return redirect(url_for("admin.posts"))
+
 
     if request.method == "POST":
         flash("Revisa los datos del formulario de noticia.", "warning")

@@ -26,7 +26,7 @@
     {% endwith %}
 
     <div class="admin-grid">
-      <form class="admin-card admin-form" method="post" novalidate>
+      <form class="admin-card admin-form" method="post" novalidate enctype="multipart/form-data">
         {{ form.csrf_token }}
         {{ form.post_id(id="post-id") }}
         <div class="field">
@@ -58,6 +58,13 @@
             {{ form.cover_image.label }}
             {{ form.cover_image(placeholder="URL de la portada (Drive o web)") }}
             <small class="helper">Puedes pegar un enlace de Google Drive y lo convertiremos para mostrar la imagen.</small>
+          </div>
+        </div>
+        <div class="field field-row">
+          <div>
+            {{ form.cover_image_file.label }}
+            {{ form.cover_image_file(accept="image/*") }}
+            <small class="helper">Si subes un archivo generaremos automáticamente las 4 variantes (últimas noticias vertical/horizontal y modal vertical/horizontal) y las subiremos a Drive.</small>
           </div>
         </div>
         <div class="field">
@@ -153,6 +160,7 @@
       const previewContent = document.getElementById('preview-content');
       const titleInput = document.querySelector('input[name="{{ form.title.name }}"]');
       const coverInput = document.querySelector('input[name="{{ form.cover_image.name }}"]');
+      const coverFileInput = document.querySelector('input[name="{{ form.cover_image_file.name }}"]');
       const statusSelect = document.querySelector('select[name="{{ form.status.name }}"]');
       const dateInput = document.querySelector('input[name="{{ form.published_at.name }}"]');
       const layoutSelect = document.querySelector('select[name="{{ form.image_layout.name }}"]');
@@ -330,7 +338,24 @@
       }
       titleInput?.addEventListener('input', updateTitle);
 
+      function previewLocalFile(file) {
+        if (!file || !file.type?.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (!previewImage) return;
+          previewImage.dataset.driveId = '';
+          previewImage.dataset.fallbackApplied = '';
+          previewImage.src = e.target?.result || '';
+        };
+        reader.readAsDataURL(file);
+      }
+
       function updateCover() {
+        const localFile = coverFileInput?.files && coverFileInput.files[0];
+        if (localFile) {
+          previewLocalFile(localFile);
+          return;
+        }
         let url = coverInput?.value.trim() || '';
         const isHttp = /^https?:\/\//i.test(url);
         if (url && isHttp) {
@@ -347,8 +372,18 @@
           previewImage.src = defaultImage;
         }
       }
+
       coverInput?.addEventListener('input', updateCover);
       coverInput?.addEventListener('blur', updateCover);
+      coverFileInput?.addEventListener('change', () => {
+        const file = coverFileInput.files && coverFileInput.files[0];
+        if (file) {
+          if (coverInput) coverInput.value = '';
+          previewLocalFile(file);
+        } else {
+          updateCover();
+        }
+      });
       addDriveFallback(previewImage);
 
       function updateStatus() {
@@ -388,6 +423,7 @@
         const layoutValue = data.layout || 'full';
 
         setCurrentPostId(data.id || '');
+        if (coverFileInput) coverFileInput.value = '';
         if (titleInput) titleInput.value = data.title || '';
         if (coverInput) coverInput.value = data.cover || '';
         if (statusSelect) statusSelect.value = statusValue;

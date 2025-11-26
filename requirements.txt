@@ -12,3 +12,8 @@ pytz
 email-validator
 gunicorn>=23.0.0
 psycopg2-binary>=2.9
+Pillow>=10.0
+google-api-python-client>=2.143
+google-auth>=2.34
+google-auth-httplib2>=0.2
+google-auth-oauthlib>=1.2
