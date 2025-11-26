@@ -22,6 +22,7 @@
                      data-date="{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}"
                      data-category="{{ post.category or 'general' }}"
                      data-cover="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
+                     data-modalcover="{{ post.modal_image or post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
                      data-layout="{{ post.tags or 'full' }}"
                      data-content='{{ post.body_html|tojson }}'>
               <div class="news-card-cover">
@@ -56,6 +57,7 @@
                    data-title="{{ post.title }}"
                    data-date="{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}"
                    data-cover="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
+                   data-modalcover="{{ post.modal_image or post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
                    data-layout="{{ post.tags or 'full' }}"
                    data-content='{{ post.body_html|tojson }}'>
             <div class="news-article-header">
@@ -219,7 +221,8 @@
       }
 
       function openModal(data) {
-        setImageWithFallback(modalImg, data.cover || defaultImage);
+        const modalCover = data.modalcover || data.cover || defaultImage;
+        setImageWithFallback(modalImg, modalCover);
         modalTitle.textContent = data.title || '';
         modalMeta.textContent = `${data.category || 'General'} · ${data.date || 'Sin fecha'}`;
         modalContent.innerHTML = data.content || '';
@@ -239,6 +242,7 @@
           const data = el.dataset;
           openModal({
             cover: data.cover,
+            modalcover: data.modalcover,
             title: data.title,
             date: data.date,
             category: data.category,

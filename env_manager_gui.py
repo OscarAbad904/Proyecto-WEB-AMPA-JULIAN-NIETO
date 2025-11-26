@@ -82,6 +82,13 @@ class EnvManagerApp(tk.Tk):
             "MAIL_PASSWORD",
             "MAIL_DEFAULT_SENDER",
             "SQLALCHEMY_DATABASE_URI",
+            "GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE",
+            "GOOGLE_DRIVE_NEWS_FOLDER_ID",
+            "GOOGLE_DRIVE_NEWS_FOLDER_NAME",
+            "GOOGLE_DRIVE_SHARED_DRIVE_ID",
+            "GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE",
+            "NEWS_IMAGE_FORMAT",
+            "NEWS_IMAGE_QUALITY",
         ]
 
         # Frame de autenticación

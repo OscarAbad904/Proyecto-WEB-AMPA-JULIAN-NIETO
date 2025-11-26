@@ -1,0 +1,305 @@
+"""
+Utilidades de imagen y subida a Google Drive para las noticias.
+
+Genera variantes optimizadas con Pillow y las envía a Drive usando
+OAuth de usuario (token persistido en token_drive.json).
+"""
+
+from __future__ import annotations
+
+import uuid
+import time
+import re
+from pathlib import Path
+from typing import Dict, Tuple
+from io import BytesIO
+
+from flask import current_app
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+from googleapiclient.errors import HttpError
+from google_auth_oauthlib.flow import InstalledAppFlow
+from PIL import Image
+
+# Tamaños solicitados para las noticias, por orientación
+IMAGE_SIZES_NEWS: Dict[str, Dict[str, Tuple[int, int]]] = {
+    "vertical": {
+        "latest": (337, 552),   # últimas noticias / miniaturas
+        "modal": (476, 663),    # modal vertical (mayor)
+    },
+    "horizontal": {
+        "latest": (677, 382),   # últimas noticias / miniaturas
+        "modal": (957, 537),    # modal horizontal (mayor)
+    },
+}
+
+SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+_drive_service = None
+
+
+def _get_user_drive_service():
+    """
+    Inicializa (o reutiliza) el cliente de Google Drive autenticado como usuario.
+    Guarda/lee el token en token_drive.json.
+    """
+    global _drive_service
+    if _drive_service is not None:
+        return _drive_service
+
+    token_path = Path(current_app.root_path) / "token_drive.json"
+    creds = None
+    if token_path.exists():
+        creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                current_app.config["GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE"],
+                SCOPES,
+            )
+            creds = flow.run_local_server(port=0)
+        with open(token_path, "w", encoding="utf-8") as token:
+            token.write(creds.to_json())
+
+    _drive_service = build("drive", "v3", credentials=creds)
+    return _drive_service
+
+
+def _slugify_name(value: str | None, default: str = "noticia") -> str:
+    if not value:
+        return default
+    slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", value.strip().lower()).strip("-")
+    return slug or default
+
+
+def _find_folder_id(
+    drive_service,
+    name: str,
+    parent_id: str | None = None,
+    drive_id: str | None = None,
+) -> str | None:
+    query_parts = [
+        "mimeType='application/vnd.google-apps.folder'",
+        "trashed=false",
+        f"name='{name}'",
+    ]
+    if parent_id:
+        query_parts.append(f"'{parent_id}' in parents")
+    query = " and ".join(query_parts)
+    list_kwargs = {
+        "q": query,
+        "spaces": "drive",
+        "fields": "files(id,name)",
+        "pageSize": 1,
+        "supportsAllDrives": True,
+        "includeItemsFromAllDrives": True,
+    }
+    if drive_id:
+        list_kwargs["corpora"] = "drive"
+        list_kwargs["driveId"] = drive_id
+
+    resp = drive_service.files().list(**list_kwargs).execute()
+    files = resp.get("files", [])
+    if files:
+        return files[0].get("id")
+    return None
+
+
+def ensure_folder(name: str, parent_id: str | None = None, drive_id: str | None = None) -> str:
+    """Busca o crea una carpeta en Drive (o Shared Drive) y devuelve su id."""
+    drive = _get_user_drive_service()
+    existing = _find_folder_id(drive, name, parent_id, drive_id)
+    if existing:
+        return existing
+    metadata = {
+        "name": name,
+        "mimeType": "application/vnd.google-apps.folder",
+    }
+    if parent_id:
+        metadata["parents"] = [parent_id]
+    if drive_id:
+        metadata["driveId"] = drive_id
+    folder = drive.files().create(
+        body=metadata,
+        fields="id",
+        supportsAllDrives=True,
+    ).execute()
+    return folder.get("id")
+
+
+def _crop_to_aspect(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
+    """Recorta centrado para ajustar el aspect ratio antes de escalar."""
+    src_w, src_h = img.size
+    src_ratio = src_w / src_h
+    target_ratio = target_w / target_h
+
+    if src_ratio > target_ratio:
+        # Imagen más ancha -> recortar laterales
+        new_w = int(src_h * target_ratio)
+        offset = (src_w - new_w) // 2
+        box = (offset, 0, offset + new_w, src_h)
+    else:
+        # Imagen más alta -> recortar arriba/abajo
+        new_h = int(src_w / target_ratio)
+        offset = (src_h - new_h) // 2
+        box = (0, offset, src_w, offset + new_h)
+
+    return img.crop(box)
+
+
+def _export_to_bytes(img: Image.Image, fmt: str = "JPEG", quality: int = 80) -> bytes:
+    """Convierte una imagen Pillow a bytes comprimidos."""
+    buffer = BytesIO()
+    save_kwargs = {"format": fmt.upper()}
+    if fmt.upper() in ("JPEG", "WEBP"):
+        save_kwargs["quality"] = quality
+        save_kwargs["optimize"] = True
+    img.save(buffer, **save_kwargs)
+    buffer.seek(0)
+    return buffer.read()
+
+
+def generate_news_variants(file_storage, fmt: str = "JPEG", quality: int = 80) -> Dict[str, bytes]:
+    """
+    Crea las variantes para noticias a partir de un FileStorage.
+
+    Devuelve un dict {clave: bytes_imagen}.
+    """
+    file_storage.stream.seek(0)
+    with Image.open(file_storage.stream) as img:
+        if img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+
+        is_vertical = img.height > img.width
+        orientation = "vertical" if is_vertical else "horizontal"
+        sizes = IMAGE_SIZES_NEWS[orientation]
+
+        variants_bytes: Dict[str, bytes] = {}
+        for key, (w, h) in sizes.items():
+            working = img.copy()
+            cropped = _crop_to_aspect(working, w, h)
+            resized = cropped.resize((w, h), Image.LANCZOS)
+            variants_bytes[key] = _export_to_bytes(resized, fmt=fmt, quality=quality)
+
+    file_storage.stream.seek(0)
+    return variants_bytes
+
+
+def upload_image_bytes_to_drive(
+    image_bytes: bytes,
+    filename: str,
+    folder_id: str,
+    mimetype: str,
+    drive_id: str | None = None,
+) -> str:
+    """
+    Sube bytes a una carpeta de Drive usando OAuth de usuario y devuelve el enlace público.
+    """
+    drive_service = _get_user_drive_service()
+    metadata = {"name": filename}
+    if folder_id:
+        metadata["parents"] = [folder_id]
+    if drive_id:
+        metadata["driveId"] = drive_id
+
+    media = MediaIoBaseUpload(BytesIO(image_bytes), mimetype=mimetype, resumable=False)
+
+    created = _execute_with_retry(
+        lambda: drive_service.files()
+        .create(
+            body=metadata,
+            media_body=media,
+            fields="id",
+            supportsAllDrives=True,
+        )
+        .execute()
+    )
+    file_id = created.get("id")
+
+    # Pausa ligera para evitar rate limits encadenados
+    time.sleep(0.15)
+
+    _execute_with_retry(
+        lambda: drive_service.permissions()
+        .create(
+            fileId=file_id,
+            body={"type": "anyone", "role": "reader"},
+            fields="id",
+        )
+        .execute()
+    )
+
+    return f"https://drive.google.com/uc?id={file_id}"
+
+
+def upload_news_image_variants(
+    file_storage,
+    base_name: str | None = None,
+    parent_folder_id: str | None = None,
+    folder_name: str | None = None,
+    shared_drive_id: str | None = None,
+) -> Dict[str, str]:
+    """
+    Genera y sube las variantes (latest/modal) a Drive.
+
+    Crea la carpeta indicada si no existe.
+    Devuelve un dict con las URLs públicas.
+    """
+    fmt = current_app.config.get("NEWS_IMAGE_FORMAT", "JPEG").upper()
+    quality = int(current_app.config.get("NEWS_IMAGE_QUALITY", 80))
+    mimetype = "image/jpeg" if fmt == "JPEG" else f"image/{fmt.lower()}"
+
+    default_folder_name = current_app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_NAME", "Noticias")
+    target_folder_name = folder_name or default_folder_name
+    target_parent = parent_folder_id or current_app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_ID", "") or None
+    target_drive = shared_drive_id or current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID", "") or None
+    target_folder_id = ensure_folder(target_folder_name, target_parent, target_drive)
+
+    variants_bytes = generate_news_variants(file_storage, fmt=fmt, quality=quality)
+    base_slug = _slugify_name(base_name)
+    urls: Dict[str, str] = {}
+
+    filename_map = {
+        "latest": f"{base_slug}_Ultimas_noticias.{fmt.lower()}",
+        "modal": f"{base_slug}_Modal.{fmt.lower()}",
+    }
+
+    for key, img_bytes in variants_bytes.items():
+        filename = filename_map.get(key, f"{base_slug}_{key}.{fmt.lower()}")
+        urls[key] = upload_image_bytes_to_drive(
+            img_bytes,
+            filename,
+            target_folder_id,
+            mimetype=mimetype,
+            drive_id=target_drive,
+        )
+
+    return urls
+
+
+def _is_rate_limit_error(err: HttpError) -> bool:
+    """Detecta errores típicos de rate limit de Drive."""
+    if err.resp is not None and err.resp.status in (403, 429):
+        try:
+            reason = err.error_details[0].get("reason") if err.error_details else ""
+        except Exception:
+            reason = ""
+        if reason in {"userRateLimitExceeded", "rateLimitExceeded"}:
+            return True
+    return False
+
+
+def _execute_with_retry(fn, retries: int = 3, base_sleep: float = 0.3):
+    """Ejecuta una llamada a la API de Drive con reintentos sencillos."""
+    for attempt in range(retries):
+        try:
+            return fn()
+        except HttpError as err:
+            if _is_rate_limit_error(err) and attempt < retries - 1:
+                time.sleep(base_sleep * (attempt + 1))
+                continue
+            raise
