@@ -49,6 +49,29 @@ def _get_user_drive_service():
         return _drive_service
 
     token_path = Path(current_app.root_path) / "token_drive.json"
+    token_env = current_app.config.get("GOOGLE_DRIVE_TOKEN_JSON")
+    if token_env and not token_path.exists():
+        try:
+            token_path.parent.mkdir(parents=True, exist_ok=True)
+            token_path.write_text(token_env, encoding="utf-8")
+        except Exception as exc:  # noqa: BLE001
+            current_app.logger.warning(
+                "No se pudo escribir token_drive.json desde GOOGLE_DRIVE_TOKEN_JSON: %s",
+                exc,
+            )
+
+    credentials_path = Path(current_app.config["GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE"])
+    creds_json = current_app.config.get("GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON")
+    if creds_json and not credentials_path.exists():
+        try:
+            credentials_path.parent.mkdir(parents=True, exist_ok=True)
+            credentials_path.write_text(creds_json, encoding="utf-8")
+        except Exception as exc:  # noqa: BLE001
+            current_app.logger.warning(
+                "No se pudo escribir credentials_drive_oauth.json desde GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON: %s",
+                exc,
+            )
+
     creds = None
     if token_path.exists():
         creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
@@ -57,6 +80,11 @@ def _get_user_drive_service():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
+            if not credentials_path.exists():
+                raise RuntimeError(
+                    "No se encontro el archivo de credenciales de OAuth de Drive. "
+                    "Configura GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON o proporciona el archivo en la ruta indicada."
+                )
             flow = InstalledAppFlow.from_client_secrets_file(
                 current_app.config["GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE"],
                 SCOPES,

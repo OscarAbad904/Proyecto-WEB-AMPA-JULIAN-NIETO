@@ -64,7 +64,7 @@ from wtforms import (
 from wtforms.fields import DateField, EmailField, FileField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, URL
 
-from config import decrypt_value, encrypt_value
+from config import decrypt_value, encrypt_value, decrypt_env_var
 from media_utils import upload_news_image_variants
 
 ROOT_PATH = Path(__file__).resolve().parent
@@ -141,6 +141,14 @@ class BaseConfig:
     GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE = os.getenv(
         "GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE",
         str(ROOT_PATH / "credentials_drive_oauth.json"),
+    )
+    GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON = decrypt_env_var("GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON") or os.getenv(
+        "GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON",
+        "",
+    )
+    GOOGLE_DRIVE_TOKEN_JSON = decrypt_env_var("GOOGLE_DRIVE_TOKEN_JSON") or os.getenv(
+        "GOOGLE_DRIVE_TOKEN_JSON",
+        "",
     )
     NEWS_IMAGE_FORMAT = os.getenv("NEWS_IMAGE_FORMAT", "JPEG")
     NEWS_IMAGE_QUALITY = int(os.getenv("NEWS_IMAGE_QUALITY", 80))
