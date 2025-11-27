@@ -4,3 +4,5 @@ instance/
 .env
 assets/uploads/
 logs/
+token_drive.json
+credentials_drive_oauth.json

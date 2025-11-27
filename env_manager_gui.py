@@ -87,6 +87,8 @@ class EnvManagerApp(tk.Tk):
             "GOOGLE_DRIVE_NEWS_FOLDER_NAME",
             "GOOGLE_DRIVE_SHARED_DRIVE_ID",
             "GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE",
+            "GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON",
+            "GOOGLE_DRIVE_TOKEN_JSON",
             "NEWS_IMAGE_FORMAT",
             "NEWS_IMAGE_QUALITY",
         ]
@@ -154,7 +156,14 @@ class EnvManagerApp(tk.Tk):
         updated = {}
         for key, entry in self.entries.items():
             plain = entry.get()
-            if key in {"SECRET_KEY", "SECURITY_PASSWORD_SALT", "ADMIN_PASSWORD", "MAIL_PASSWORD"}:
+            if key in {
+                "SECRET_KEY",
+                "SECURITY_PASSWORD_SALT",
+                "ADMIN_PASSWORD",
+                "MAIL_PASSWORD",
+                "GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON",
+                "GOOGLE_DRIVE_TOKEN_JSON",
+            }:
                 updated[key] = encrypt_value(plain) if plain else ""
             else:
                 updated[key] = plain
