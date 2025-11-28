@@ -1,20 +1,34 @@
 import os
+import json
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 
 from dotenv import dotenv_values
 
-# Importamos la app para acceder a db/User y create_app
+# -------------------------------------------------------------------
+# IMPORTACIONES DE TU APP (Mantenidas igual)
+# -------------------------------------------------------------------
 from Api_AMPA_WEB import create_app, db, User, Role, make_lookup_hash
-from config import encrypt_value, decrypt_env_var
-
+from config import encrypt_value, decrypt_env_var, decrypt_value
 
 ENV_PATH = ".env"
+CONFIG_FILE = "gui_config.json"  # Archivo para guardar preferencias (último usuario)
 
+SENSITIVE_KEYS = {
+    "SECRET_KEY",
+    "SECURITY_PASSWORD_SALT",
+    "ADMIN_PASSWORD",
+    "MAIL_PASSWORD",
+    "GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON",
+    "GOOGLE_DRIVE_TOKEN_JSON",
+}
+
+# -------------------------------------------------------------------
+# FUNCIONES AUXILIARES
+# -------------------------------------------------------------------
 
 def load_env():
     return dotenv_values(ENV_PATH)
-
 
 def save_env(env_dict):
     lines = []
@@ -25,19 +39,17 @@ def save_env(env_dict):
     with open(ENV_PATH, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
-
 def _get_admin_user():
     return User.query.join(Role).filter(Role.name_lookup == make_lookup_hash("admin")).first()
-
 
 def verify_or_create_admin(app, email, password):
     with app.app_context():
         admin = _get_admin_user()
         if admin:
             if admin.email != email:
-                return False, "El administrador registrado usa otro correo."
+                return False, "El administrador registrado usa otro correo.", None
             if not admin.check_password(password):
-                return False, "Contraseña incorrecta para el administrador."
+                return False, "Contraseña incorrecta.", None
             return True, "Autenticado.", admin
 
         role = Role.query.filter_by(name_lookup=make_lookup_hash("admin")).first()
@@ -51,7 +63,6 @@ def verify_or_create_admin(app, email, password):
         db.session.commit()
         return True, "Administrador creado.", admin
 
-
 def update_admin_password(app, email, new_password):
     with app.app_context():
         admin = _get_admin_user()
@@ -61,12 +72,28 @@ def update_admin_password(app, email, new_password):
         db.session.commit()
         return True
 
+# -------------------------------------------------------------------
+# CLASE PRINCIPAL DE LA INTERFAZ
+# -------------------------------------------------------------------
 
 class EnvManagerApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Gestor .env cifrado AMPA")
-        self.resizable(False, False)
+        
+        # Configuración de ventana
+        self.title("Gestor de Configuración AMPA (Seguro)")
+        self.geometry("650x700")
+        self.minsize(500, 500)
+        self.center_window()
+        
+        # Estilos visuales
+        style = ttk.Style()
+        style.theme_use('clam') # 'clam' suele verse mejor que 'default' en windows/linux
+        style.configure("TLabel", font=("Segoe UI", 10))
+        style.configure("TButton", font=("Segoe UI", 10), padding=6)
+        style.configure("Header.TLabel", font=("Segoe UI", 14, "bold"))
+        style.configure("Card.TFrame", background="#f0f0f0", relief="groove")
+        
         self.env = load_env()
         self.unlocked = False
         self.auth_email = None
@@ -93,112 +120,240 @@ class EnvManagerApp(tk.Tk):
             "NEWS_IMAGE_QUALITY",
         ]
 
-        # Frame de autenticación
-        self.login_frame = ttk.Frame(self, padding=10)
-        ttk.Label(self.login_frame, text="Correo administrador").grid(row=0, column=0, sticky="w", pady=4)
-        ttk.Label(self.login_frame, text="Contraseña").grid(row=1, column=0, sticky="w", pady=4)
-        self.login_email = ttk.Entry(self.login_frame, width=50)
-        self.login_email.grid(row=0, column=1, pady=4)
-        self.login_password = ttk.Entry(self.login_frame, width=50, show="*")
-        self.login_password.grid(row=1, column=1, pady=4)
-        ttk.Button(self.login_frame, text="Acceder", command=self.handle_auth).grid(row=2, column=0, columnspan=2, pady=8)
-        self.login_frame.grid(row=0, column=0, sticky="nsew")
-
-        # Frame de configuración (se muestra tras autenticación)
-        self.config_frame = ttk.Frame(self, padding=10)
         self.entries = {}
+        
+        # Contenedor principal
+        self.main_container = ttk.Frame(self)
+        self.main_container.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Iniciar UI
+        self.setup_login_ui()
+        self.setup_config_ui()
+        
+        # Mostrar Login primero
+        self.show_login()
+
+    def center_window(self):
+        self.update_idletasks()
+        width = self.winfo_width()
+        height = self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
+
+    # --- Lógica de "Recordar Usuario" ---
+    def load_last_user(self):
+        if os.path.exists(CONFIG_FILE):
+            try:
+                with open(CONFIG_FILE, "r") as f:
+                    data = json.load(f)
+                    return data.get("last_email", "")
+            except:
+                return ""
+        return ""
+
+    def save_last_user(self, email):
+        try:
+            with open(CONFIG_FILE, "w") as f:
+                json.dump({"last_email": email}, f)
+        except Exception as e:
+            print(f"No se pudo guardar preferencia: {e}")
+
+    # --- UI de Login ---
+    def setup_login_ui(self):
+        self.login_frame = ttk.Frame(self.main_container)
+        
+        # Tarjeta central para login
+        card = ttk.Frame(self.login_frame, style="Card.TFrame", padding=30)
+        card.place(relx=0.5, rely=0.4, anchor="center")
+
+        ttk.Label(card, text="Acceso Administrativo", style="Header.TLabel").pack(pady=(0, 20))
+        
+        # Campo Email
+        ttk.Label(card, text="Correo Electrónico:").pack(anchor="w")
+        self.login_email = ttk.Entry(card, width=40)
+        self.login_email.pack(pady=(5, 15))
+        
+        # Cargar último usuario
+        last_user = self.load_last_user()
+        if last_user:
+            self.login_email.insert(0, last_user)
+        
+        # Campo Password
+        ttk.Label(card, text="Contraseña:").pack(anchor="w")
+        self.login_password = ttk.Entry(card, width=40, show="•")
+        self.login_password.pack(pady=(5, 20))
+        
+        # Botón
+        btn = ttk.Button(card, text="Iniciar Sesión", command=self.handle_auth)
+        btn.pack(fill="x")
+        
+        # Bind Enter key
+        self.bind('<Return>', lambda event: self.handle_auth())
+
+    # --- UI de Configuración (Scrollable) ---
+    def setup_config_ui(self):
+        self.config_container = ttk.Frame(self.main_container)
+        
+        # Barra superior
+        top_bar = ttk.Frame(self.config_container)
+        top_bar.pack(fill="x", pady=(0, 10))
+        ttk.Label(top_bar, text="Editar Variables de Entorno", style="Header.TLabel").pack(side="left")
+        ttk.Button(top_bar, text="Cambiar Password Admin", command=self.update_admin).pack(side="right")
+
+        # Área Scrollable
+        canvas = tk.Canvas(self.config_container, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self.config_container, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = ttk.Frame(canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        # Crear ventana dentro del canvas
+        canvas_window = canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+
+        # Ajustar ancho del frame al ancho del canvas
+        def configure_canvas(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+        canvas.bind("<Configure>", configure_canvas)
+
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Layout del scroll
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Generar campos dinámicamente
         for idx, key in enumerate(self.fields):
-            ttk.Label(self.config_frame, text=key).grid(row=idx, column=0, sticky="w", pady=2)
-            entry = ttk.Entry(self.config_frame, width=60)
-            entry.grid(row=idx, column=1, pady=2)
+            row_frame = ttk.Frame(self.scrollable_frame, padding=(5, 5))
+            row_frame.pack(fill="x", pady=2)
+            
+            lbl = ttk.Label(row_frame, text=key, width=35, anchor="w")
+            lbl.pack(side="left")
+            
+            # Si es sensitivo, indicarlo visualmente (opcional)
+            if key in SENSITIVE_KEYS:
+                lbl.configure(foreground="#d9534f") # Rojo suave
+
+            entry = ttk.Entry(row_frame)
+            entry.pack(side="left", fill="x", expand=True, padx=5)
             self.entries[key] = entry
 
-        ttk.Button(self.config_frame, text="Guardar .env cifrado", command=self.save_encrypted).grid(
-            row=len(self.fields), column=0, pady=8
-        )
-        ttk.Button(self.config_frame, text="Cambiar contraseña admin", command=self.update_admin).grid(
-            row=len(self.fields), column=1, pady=8, sticky="w"
-        )
-        self.config_frame.grid_remove()
+        # Botón Guardar inferior
+        bottom_bar = ttk.Frame(self.config_container, padding=10)
+        bottom_bar.pack(fill="x")
+        save_btn = ttk.Button(bottom_bar, text="GUARDAR CAMBIOS (.ENV)", command=self.save_encrypted)
+        save_btn.pack(fill="x", ipady=5)
+
+    def show_login(self):
+        self.config_container.pack_forget()
+        self.login_frame.pack(fill="both", expand=True)
+
+    def show_config(self):
+        self.login_frame.pack_forget()
+        self.config_container.pack(fill="both", expand=True)
+        self.unbind('<Return>') # Quitar bind del enter
+
+    # --- Lógica de Negocio ---
 
     def handle_auth(self):
         email = self.login_email.get().strip()
         password = self.login_password.get()
         if not email or not password:
-            messagebox.showerror("Faltan datos", "Introduce correo y contraseña de administrador.")
+            messagebox.showerror("Faltan datos", "Introduce correo y contraseña.")
             return
-        app = create_app(os.getenv("FLASK_ENV", "development"))
-        ok, msg, _ = verify_or_create_admin(app, email, password)
+        
+        try:
+            app = create_app(os.getenv("FLASK_ENV", "development"))
+            ok, msg, _ = verify_or_create_admin(app, email, password)
+        except Exception as e:
+            messagebox.showerror("Error de Conexión", f"No se pudo conectar a la DB:\n{e}")
+            return
+
         if not ok:
             messagebox.showerror("Acceso denegado", msg)
             return
+        
+        # Login correcto
+        self.save_last_user(email) # Guardar preferencia
         self.auth_email = email
         self.auth_password = password
-        self.populate_entries(email, password)
+        self.populate_entries()
         self.unlocked = True
-        self.login_frame.grid_remove()
-        self.config_frame.grid(row=0, column=0, sticky="nsew")
-        messagebox.showinfo("Acceso concedido", msg + " Configuración desbloqueada.")
+        
+        messagebox.showinfo("Bienvenido", f"{msg}\nModo edición habilitado.")
+        self.show_config()
 
-    def populate_entries(self, admin_email, admin_password):
-        # Cargamos valores existentes (sin exponer antes de autenticación)
+    def populate_entries(self):
+        # Limpiar y rellenar
         for key, entry in self.entries.items():
             entry.delete(0, tk.END)
-            entry.insert(0, self.env.get(key, ""))
-        # Guardamos en memoria las credenciales para el guardado cifrado
-        self.auth_email = admin_email
-        self.auth_password = admin_password
+            val = self.env.get(key, "")
+            # Si quieres mostrar placeholders para valores encriptados:
+            # if key in SENSITIVE_KEYS and val:
+            #     val = decrypt_value(val) # Opcional: mostrar descifrado si se desea
+            entry.insert(0, val)
 
     def save_encrypted(self):
         if not self.unlocked:
-            messagebox.showerror("No autenticado", "Primero accede con el administrador.")
             return
+        
         updated = {}
+        # Leer campos del formulario
         for key, entry in self.entries.items():
-            plain = entry.get()
-            if key in {
-                "SECRET_KEY",
-                "SECURITY_PASSWORD_SALT",
-                "ADMIN_PASSWORD",
-                "MAIL_PASSWORD",
-                "GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON",
-                "GOOGLE_DRIVE_TOKEN_JSON",
-            }:
-                updated[key] = encrypt_value(plain) if plain else ""
+            plain = entry.get().strip()
+            
+            # Si el campo está vacío, lo dejamos vacío
+            if not plain:
+                updated[key] = ""
+                continue
+                
+            # Lógica de encriptación
+            if key in SENSITIVE_KEYS:
+                # Comprobar si ya estaba encriptado (si empieza por el prefijo de tu config, etc)
+                # O simplemente re-encriptar siempre lo que hay en el input:
+                try:
+                    # Asumimos que lo que hay en el Entry es TEXTO PLANO que el usuario quiere guardar
+                    updated[key] = encrypt_value(plain)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Fallo al encriptar {key}: {e}")
+                    return
             else:
                 updated[key] = plain
-        # Incluimos admin encriptado aunque no se muestre en el formulario
-        updated["ADMIN_EMAIL"] = self.auth_email or ""
+                
+        # Asegurar credenciales admin
+        updated["ADMIN_EMAIL"] = self.auth_email
         updated["ADMIN_PASSWORD"] = encrypt_value(self.auth_password) if self.auth_password else ""
-        save_env(updated)
-        messagebox.showinfo("Guardado", "Valores guardados en .env (cifrados donde aplica).")
+        
+        try:
+            save_env(updated)
+            # Actualizar memoria
+            self.env = updated
+            messagebox.showinfo("Éxito", "Archivo .env actualizado y cifrado correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo escribir el archivo: {e}")
 
     def update_admin(self):
-        if not self.unlocked:
-            messagebox.showerror("No autenticado", "Primero accede con el administrador.")
-            return
-        if not self.auth_email:
-            messagebox.showerror("No hay admin", "No hay correo de admin cargado.")
-            return
         new_password = simpledialog.askstring(
-            "Nueva contraseña",
-            "Introduce la nueva contraseña para el administrador:",
-            show="*",
+            "Cambiar Contraseña",
+            f"Nueva contraseña para {self.auth_email}:",
+            show="•",
             parent=self,
         )
         if not new_password:
-            messagebox.showinfo("Sin cambios", "La contraseña no ha cambiado.")
             return
+            
         app = create_app(os.getenv("FLASK_ENV", "development"))
         if update_admin_password(app, self.auth_email, new_password):
             self.auth_password = new_password
-            # Actualizamos también el .env en memoria
-            self.env["ADMIN_EMAIL"] = self.auth_email
             self.env["ADMIN_PASSWORD"] = encrypt_value(new_password)
-            messagebox.showinfo("Actualizado", "Contraseña de administrador actualizada.")
+            save_env(self.env) # Guardar inmediatamente el cambio de pass en env
+            messagebox.showinfo("Actualizado", "Contraseña de administrador actualizada en DB y .env")
         else:
-            messagebox.showerror("Error", "No se pudo actualizar la contraseña.")
-
+            messagebox.showerror("Error", "No se pudo actualizar la contraseña en la base de datos.")
 
 if __name__ == "__main__":
-    EnvManagerApp().mainloop()
+    app = EnvManagerApp()
+    app.mainloop()

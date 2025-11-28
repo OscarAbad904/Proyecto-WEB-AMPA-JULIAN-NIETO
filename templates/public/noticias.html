@@ -146,6 +146,7 @@
       const modalDialog = document.querySelector('.news-modal-dialog');
       const newsSection = document.querySelector('[data-can-reorder]');
       const canReorder = newsSection ? newsSection.getAttribute('data-can-reorder') === 'true' : false;
+      const featuredOrderEndpoint = "{{ url_for('admin.update_featured_order') }}";
       let isDraggingCard = false;
       const defaultImage = "{{ url_for('static', filename='images/Logo_AMPA.png') }}";
       
@@ -259,31 +260,29 @@
         setImageWithFallback(imgEl, cover);
       });
 
-      function saveFeaturedOrder(grid) {
-        const order = Array.from(grid.querySelectorAll('.news-card')).map(card => card.dataset.id);
-        localStorage.setItem('news-feature-order', JSON.stringify(order));
+      function persistFeaturedOrder(order) {
+        if (!canReorder || !featuredOrderEndpoint) return;
+        fetch(featuredOrderEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({ order }),
+        }).catch((error) => {
+          console.error('Error actualizando el orden de noticias', error);
+        });
       }
 
-      function applySavedOrder(grid) {
-        const raw = localStorage.getItem('news-feature-order');
-        if (!raw) return;
-        try {
-          const order = JSON.parse(raw);
-          const cards = Array.from(grid.querySelectorAll('.news-card'));
-          order.forEach(id => {
-            const card = cards.find(c => c.dataset.id === id);
-            if (card) grid.appendChild(card);
-          });
-        } catch (e) {
-          // ignore parse errors
-        }
+      function saveFeaturedOrder(grid) {
+        const order = Array.from(grid.querySelectorAll('.news-card')).map((card) => card.dataset.id);
+        persistFeaturedOrder(order);
       }
 
       function enableReorder() {
         const grid = document.querySelector('.dynamic-news');
         if (!grid || !canReorder) return;
         grid.classList.add('reorderable');
-        applySavedOrder(grid);
         let dragged = null;
 
         grid.querySelectorAll('.news-card').forEach((card) => {

@@ -43,58 +43,78 @@ def _get_user_drive_service():
     """
     Inicializa (o reutiliza) el cliente de Google Drive autenticado como usuario.
     Guarda/lee el token en token_drive.json.
+    
+    Si hay un problema con las credenciales, devuelve None.
     """
     global _drive_service
     if _drive_service is not None:
         return _drive_service
 
-    token_path = Path(current_app.root_path) / "token_drive.json"
-    token_env = current_app.config.get("GOOGLE_DRIVE_TOKEN_JSON")
-    if token_env and not token_path.exists():
-        try:
-            token_path.parent.mkdir(parents=True, exist_ok=True)
-            token_path.write_text(token_env, encoding="utf-8")
-        except Exception as exc:  # noqa: BLE001
-            current_app.logger.warning(
-                "No se pudo escribir token_drive.json desde GOOGLE_DRIVE_TOKEN_JSON: %s",
-                exc,
-            )
-
-    credentials_path = Path(current_app.config["GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE"])
-    creds_json = current_app.config.get("GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON")
-    if creds_json and not credentials_path.exists():
-        try:
-            credentials_path.parent.mkdir(parents=True, exist_ok=True)
-            credentials_path.write_text(creds_json, encoding="utf-8")
-        except Exception as exc:  # noqa: BLE001
-            current_app.logger.warning(
-                "No se pudo escribir credentials_drive_oauth.json desde GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON: %s",
-                exc,
-            )
-
-    creds = None
-    if token_path.exists():
-        creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
-
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            if not credentials_path.exists():
-                raise RuntimeError(
-                    "No se encontro el archivo de credenciales de OAuth de Drive. "
-                    "Configura GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON o proporciona el archivo en la ruta indicada."
+    try:
+        token_path = Path(current_app.root_path) / "token_drive.json"
+        token_env = current_app.config.get("GOOGLE_DRIVE_TOKEN_JSON")
+        if token_env and not token_path.exists():
+            try:
+                token_path.parent.mkdir(parents=True, exist_ok=True)
+                token_path.write_text(token_env, encoding="utf-8")
+            except Exception as exc:  # noqa: BLE001
+                current_app.logger.warning(
+                    "No se pudo escribir token_drive.json desde GOOGLE_DRIVE_TOKEN_JSON: %s",
+                    exc,
                 )
-            flow = InstalledAppFlow.from_client_secrets_file(
-                current_app.config["GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE"],
-                SCOPES,
-            )
-            creds = flow.run_local_server(port=0)
-        with open(token_path, "w", encoding="utf-8") as token:
-            token.write(creds.to_json())
 
-    _drive_service = build("drive", "v3", credentials=creds)
-    return _drive_service
+        credentials_path = Path(current_app.config["GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE"])
+        creds_json = current_app.config.get("GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON")
+        if creds_json and not credentials_path.exists():
+            try:
+                credentials_path.parent.mkdir(parents=True, exist_ok=True)
+                credentials_path.write_text(creds_json, encoding="utf-8")
+            except Exception as exc:  # noqa: BLE001
+                current_app.logger.warning(
+                    "No se pudo escribir credentials_drive_oauth.json desde GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON: %s",
+                    exc,
+                )
+
+        creds = None
+        if token_path.exists():
+            creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                if not credentials_path.exists():
+                    current_app.logger.warning(
+                        "No se encontro el archivo de credenciales de OAuth de Drive. "
+                        "Las imágenes se guardarán localmente."
+                    )
+                    return None
+                    
+                # Verificar que las credenciales no sean valores de demostración
+                creds_content = credentials_path.read_text(encoding="utf-8")
+                if "TU_CLIENT_ID" in creds_content or "TU_SECRET" in creds_content:
+                    current_app.logger.warning(
+                        "Las credenciales de Google Drive contienen valores de demostración. "
+                        "Las imágenes se guardarán localmente."
+                    )
+                    return None
+                    
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    current_app.config["GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE"],
+                    SCOPES,
+                )
+                creds = flow.run_local_server(port=0)
+            with open(token_path, "w", encoding="utf-8") as token:
+                token.write(creds.to_json())
+
+        _drive_service = build("drive", "v3", credentials=creds)
+        return _drive_service
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.warning(
+            "Error inicializando Google Drive service: %s. Las imágenes se guardarán localmente.",
+            exc,
+        )
+        return None
 
 
 def _slugify_name(value: str | None, default: str = "noticia") -> str:
@@ -272,23 +292,17 @@ def upload_news_image_variants(
     shared_drive_id: str | None = None,
 ) -> Dict[str, str]:
     """
-    Genera y sube las variantes (latest/modal) a Drive.
+    Genera y sube las variantes (latest/modal) a Drive o localmente.
 
-    Crea la carpeta indicada si no existe.
+    Si no hay credenciales válidas de Drive, guarda localmente.
     Devuelve un dict con las URLs públicas.
     """
     fmt = current_app.config.get("NEWS_IMAGE_FORMAT", "JPEG").upper()
     quality = int(current_app.config.get("NEWS_IMAGE_QUALITY", 80))
     mimetype = "image/jpeg" if fmt == "JPEG" else f"image/{fmt.lower()}"
 
-    default_folder_name = current_app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_NAME", "Noticias")
-    target_folder_name = folder_name or default_folder_name
-    target_parent = parent_folder_id or current_app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_ID", "") or None
-    target_drive = shared_drive_id or current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID", "") or None
-    target_folder_id = ensure_folder(target_folder_name, target_parent, target_drive)
-
-    variants_bytes = generate_news_variants(file_storage, fmt=fmt, quality=quality)
     base_slug = _slugify_name(base_name)
+    variants_bytes = generate_news_variants(file_storage, fmt=fmt, quality=quality)
     urls: Dict[str, str] = {}
 
     filename_map = {
@@ -296,15 +310,52 @@ def upload_news_image_variants(
         "modal": f"{base_slug}_Modal.{fmt.lower()}",
     }
 
-    for key, img_bytes in variants_bytes.items():
-        filename = filename_map.get(key, f"{base_slug}_{key}.{fmt.lower()}")
-        urls[key] = upload_image_bytes_to_drive(
-            img_bytes,
-            filename,
-            target_folder_id,
-            mimetype=mimetype,
-            drive_id=target_drive,
-        )
+    # Intentar usar Google Drive, si no está disponible guardar localmente
+    drive_service = _get_user_drive_service()
+    
+    if drive_service is None:
+        # Guardar localmente en uploads/
+        uploads_dir = Path(current_app.static_folder) / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        
+        for key, img_bytes in variants_bytes.items():
+            filename = filename_map.get(key, f"{base_slug}_{key}.{fmt.lower()}")
+            file_path = uploads_dir / filename
+            file_path.write_bytes(img_bytes)
+            urls[key] = f"/assets/uploads/{filename}"
+            current_app.logger.info(f"Imagen guardada localmente: {filename}")
+    else:
+        # Usar Google Drive
+        default_folder_name = current_app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_NAME", "Noticias")
+        target_folder_name = folder_name or default_folder_name
+        target_parent = parent_folder_id or current_app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_ID", "") or None
+        target_drive = shared_drive_id or current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID", "") or None
+        
+        try:
+            target_folder_id = ensure_folder(target_folder_name, target_parent, target_drive)
+
+            for key, img_bytes in variants_bytes.items():
+                filename = filename_map.get(key, f"{base_slug}_{key}.{fmt.lower()}")
+                urls[key] = upload_image_bytes_to_drive(
+                    img_bytes,
+                    filename,
+                    target_folder_id,
+                    mimetype=mimetype,
+                    drive_id=target_drive,
+                )
+        except Exception as exc:  # noqa: BLE001
+            current_app.logger.warning(
+                "Error subiendo a Google Drive, guardando localmente: %s", exc
+            )
+            # Fallback a guardado local
+            uploads_dir = Path(current_app.static_folder) / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            
+            for key, img_bytes in variants_bytes.items():
+                filename = filename_map.get(key, f"{base_slug}_{key}.{fmt.lower()}")
+                file_path = uploads_dir / filename
+                file_path.write_bytes(img_bytes)
+                urls[key] = f"/assets/uploads/{filename}"
 
     return urls
 

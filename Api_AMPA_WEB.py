@@ -29,6 +29,7 @@ from flask import (
     abort,
     current_app,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -573,6 +574,7 @@ class Post(db.Model):
     image_variants = db.Column(sa.JSON)
     author_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     published_at = db.Column(db.DateTime)
+    featured_position = db.Column(db.Integer, nullable=True, index=True)
     created_at = db.Column(db.DateTime, server_default=func.now())
     updated_at = db.Column(db.DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -739,7 +741,24 @@ def noticias():
         else:
             post.cover_image = normalized_cover
             post.modal_image = normalized_cover
-    latest_three = posts[:3]
+    featured_candidates = [p for p in posts if p.featured_position is not None]
+    featured_candidates.sort(key=lambda p: p.featured_position or 0)
+
+    latest_three: list[Post] = []
+    seen_ids: set[int] = set()
+    for post in featured_candidates:
+        if len(latest_three) >= 3:
+            break
+        latest_three.append(post)
+        seen_ids.add(post.id)
+
+    for post in posts:
+        if len(latest_three) >= 3:
+            break
+        if post.id in seen_ids:
+            continue
+        latest_three.append(post)
+        seen_ids.add(post.id)
     return render_template("public/noticias.html", query=query, posts=posts, latest_three=latest_three)
 
 
@@ -922,6 +941,51 @@ def posts():
         flash("Revisa los datos del formulario de noticia.", "warning")
 
     return render_template("admin/posts.html", form=form, posts=recent_posts)
+
+
+@admin_bp.route("/posts/featured-order", methods=["POST"])
+@csrf.exempt
+@login_required
+def update_featured_order():
+    if not _user_is_privileged(current_user):
+        abort(403)
+
+    payload = request.get_json(silent=True) or {}
+    raw_order = payload.get("order")
+    order_ids: list[int] = []
+    seen_ids: set[int] = set()
+    if isinstance(raw_order, list):
+        for candidate in raw_order:
+            try:
+                value = int(candidate)
+            except (TypeError, ValueError):
+                continue
+            if value in seen_ids:
+                continue
+            seen_ids.add(value)
+            order_ids.append(value)
+
+    if order_ids:
+        Post.query.filter(
+            Post.featured_position.isnot(None),
+            ~Post.id.in_(order_ids),
+        ).update({"featured_position": None}, synchronize_session=False)
+    else:
+        Post.query.filter(Post.featured_position.isnot(None)).update(
+            {"featured_position": None}, synchronize_session=False
+        )
+
+    relevant_posts = {
+        post.id: post for post in Post.query.filter(Post.id.in_(order_ids)).all()
+    }
+
+    for index, post_id in enumerate(order_ids, start=1):
+        post = relevant_posts.get(post_id)
+        if post:
+            post.featured_position = index
+
+    db.session.commit()
+    return jsonify({"status": "ok"}), 200
 
 
 @admin_bp.route("/posts/<int:post_id>/delete", methods=["POST"])
