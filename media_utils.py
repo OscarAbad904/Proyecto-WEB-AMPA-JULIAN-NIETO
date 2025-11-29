@@ -382,3 +382,106 @@ def _execute_with_retry(fn, retries: int = 3, base_sleep: float = 0.3):
                 time.sleep(base_sleep * (attempt + 1))
                 continue
             raise
+
+
+def _extract_file_id_from_drive_url(url: str) -> str | None:
+    """
+    Extrae el ID de archivo de una URL de Google Drive.
+    
+    Soporta formatos:
+    - https://drive.google.com/uc?id=FILE_ID
+    - https://drive.google.com/file/d/FILE_ID/view
+    """
+    if not url or not isinstance(url, str):
+        return None
+    
+    # Formato: https://drive.google.com/uc?id=FILE_ID
+    if "id=" in url:
+        try:
+            return url.split("id=")[1].split("&")[0]
+        except IndexError:
+            pass
+    
+    # Formato: https://drive.google.com/file/d/FILE_ID/view
+    if "/file/d/" in url:
+        try:
+            return url.split("/file/d/")[1].split("/")[0]
+        except IndexError:
+            pass
+    
+    return None
+
+
+def delete_file_from_drive(file_id: str) -> bool:
+    """
+    Elimina un archivo de Google Drive por su ID.
+    
+    Devuelve True si se eliminó correctamente, False si hay error.
+    """
+    if not file_id:
+        return False
+    
+    try:
+        drive_service = _get_user_drive_service()
+        if drive_service is None:
+            current_app.logger.warning(
+                "No se pudo obtener el servicio de Drive. El archivo %s no se eliminará.", file_id
+            )
+            return False
+        
+        _execute_with_retry(
+            lambda: drive_service.files()
+            .delete(fileId=file_id, supportsAllDrives=True)
+            .execute()
+        )
+        current_app.logger.info(f"Archivo eliminado de Drive: {file_id}")
+        return True
+    except HttpError as err:
+        if err.resp and err.resp.status == 404:
+            # El archivo ya no existe en Drive
+            current_app.logger.warning(f"Archivo no encontrado en Drive (ya eliminado): {file_id}")
+            return True
+        current_app.logger.error(f"Error eliminando archivo de Drive {file_id}: {err}")
+        return False
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.error(f"Error eliminando archivo de Drive {file_id}: {exc}")
+        return False
+
+
+def delete_news_images(cover_image_url: str | None, image_variants: dict | None) -> None:
+    """
+    Elimina todas las imágenes de una noticia (cover_image + variantes) de Drive.
+    
+    Si las imágenes están en local (/assets/uploads/), las elimina del filesystem.
+    Si están en Drive, las elimina de allí.
+    """
+    files_to_delete = []
+    
+    # Agregar cover_image
+    if cover_image_url:
+        files_to_delete.append(cover_image_url)
+    
+    # Agregar variantes (latest y modal)
+    if image_variants and isinstance(image_variants, dict):
+        for variant_url in image_variants.values():
+            if variant_url:
+                files_to_delete.append(variant_url)
+    
+    for file_url in files_to_delete:
+        if not file_url:
+            continue
+        
+        # Si es una URL local
+        if file_url.startswith("/assets/uploads/"):
+            try:
+                file_path = Path(current_app.static_folder) / file_url.replace("/assets/", "")
+                if file_path.exists():
+                    file_path.unlink()
+                    current_app.logger.info(f"Imagen local eliminada: {file_url}")
+            except Exception as exc:  # noqa: BLE001
+                current_app.logger.error(f"Error eliminando imagen local {file_url}: {exc}")
+        # Si es una URL de Drive
+        elif "drive.google.com" in file_url:
+            file_id = _extract_file_id_from_drive_url(file_url)
+            if file_id:
+                delete_file_from_drive(file_id)

@@ -744,24 +744,18 @@ def noticias():
         else:
             post.cover_image = normalized_cover
             post.modal_image = normalized_cover
-    featured_candidates = [p for p in posts if p.featured_position is not None]
-    featured_candidates.sort(key=lambda p: p.featured_position or 0)
-
-    latest_three: list[Post] = []
-    seen_ids: set[int] = set()
-    for post in featured_candidates:
-        if len(latest_three) >= 3:
-            break
-        latest_three.append(post)
-        seen_ids.add(post.id)
-
-    for post in posts:
-        if len(latest_three) >= 3:
-            break
-        if post.id in seen_ids:
-            continue
-        latest_three.append(post)
-        seen_ids.add(post.id)
+    # Siempre obtener las 3 noticias más recientes (por published_at descendente)
+    latest_three: list[Post] = posts[:3]
+    
+    # Reordenar las 3 más recientes según featured_position si existen
+    posts_with_position = [p for p in latest_three if p.featured_position is not None]
+    posts_without_position = [p for p in latest_three if p.featured_position is None]
+    
+    # Ordenar solo los que tienen featured_position
+    posts_with_position.sort(key=lambda p: p.featured_position or 0)
+    
+    # Combinar: primero los que tienen posición (ordenados), luego los demás
+    latest_three = posts_with_position + posts_without_position
     return render_template("public/noticias.html", query=query, posts=posts, latest_three=latest_three)
 
 
@@ -997,6 +991,15 @@ def delete_post(post_id: int):
     if not _user_is_privileged(current_user):
         abort(403)
     post = Post.query.get_or_404(post_id)
+    
+    # Eliminar imágenes asociadas de Drive o local
+    from media_utils import delete_news_images
+    try:
+        delete_news_images(post.cover_image, post.image_variants)
+    except Exception as e:
+        current_app.logger.error(f"Error eliminando imágenes de la noticia {post_id}: {e}")
+    
+    # Eliminar la noticia de la base de datos
     db.session.delete(post)
     db.session.commit()
     flash("Noticia eliminada", "success")
