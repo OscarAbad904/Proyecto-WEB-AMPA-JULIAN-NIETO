@@ -65,7 +65,7 @@ from wtforms import (
 from wtforms.fields import DateField, EmailField, FileField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, URL
 
-from config import decrypt_value, encrypt_value, decrypt_env_var
+from config import decrypt_value, encrypt_value, decrypt_env_var, ensure_google_drive_credentials_file, ensure_google_drive_token_file
 from media_utils import upload_news_image_variants
 
 ROOT_PATH = Path(__file__).resolve().parent
@@ -84,7 +84,7 @@ PRIVILEGED_ROLES = {
 }
 
 
-def _build_sqlalchemy_uri() -> tuple[str, Path | None]:
+def _build_sqlalchemy_uri() -> str:
     """Obtiene la URI de base de datos priorizando PostgreSQL."""
     uri = os.getenv("SQLALCHEMY_DATABASE_URI") or os.getenv("DATABASE_URL")
 
@@ -106,10 +106,10 @@ def _build_sqlalchemy_uri() -> tuple[str, Path | None]:
     if not uri:
         uri = DEFAULT_SQLALCHEMY_URI
 
-    return uri, None
+    return uri
 
 
-_SQLALCHEMY_URI, _SQLALCHEMY_PATH = _build_sqlalchemy_uri()
+_SQLALCHEMY_URI = _build_sqlalchemy_uri()
 os.environ["SQLALCHEMY_DATABASE_URI"] = _SQLALCHEMY_URI
 
 db = SQLAlchemy()
@@ -119,23 +119,18 @@ csrf = CSRFProtect()
 
 
 class BaseConfig:
-    SECRET_KEY = os.getenv("SECRET_KEY", "changeme")
-    SECURITY_PASSWORD_SALT = os.getenv("SECURITY_PASSWORD_SALT", "salt-me")
+    SECRET_KEY = decrypt_env_var("SECRET_KEY") or os.getenv("SECRET_KEY", "changeme")
+    SECURITY_PASSWORD_SALT = decrypt_env_var("SECURITY_PASSWORD_SALT") or os.getenv("SECURITY_PASSWORD_SALT", "salt-me")
     SQLALCHEMY_DATABASE_URI = _SQLALCHEMY_URI
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.example.com")
     MAIL_PORT = int(os.getenv("MAIL_PORT", 587))
     MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "true").lower() in ("true", "1", "yes")
     MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
-    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
+    MAIL_PASSWORD = decrypt_env_var("MAIL_PASSWORD") or os.getenv("MAIL_PASSWORD", "")
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "no-reply@ampa-jnt.es")
     LOG_FILE = str(ROOT_PATH / "logs" / "ampa.log")
-    DATABASE_PATH = _SQLALCHEMY_PATH
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-    GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE = os.getenv(
-        "GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE",
-        str(ROOT_PATH / "service_account.json"),
-    )
     GOOGLE_DRIVE_NEWS_FOLDER_ID = os.getenv("GOOGLE_DRIVE_NEWS_FOLDER_ID", "")
     GOOGLE_DRIVE_NEWS_FOLDER_NAME = os.getenv("GOOGLE_DRIVE_NEWS_FOLDER_NAME", "Noticias")
     GOOGLE_DRIVE_SHARED_DRIVE_ID = os.getenv("GOOGLE_DRIVE_SHARED_DRIVE_ID", "")
@@ -156,6 +151,10 @@ class BaseConfig:
 
     @staticmethod
     def init_app(app: Flask) -> None:
+        # Asegurar que los archivos de Google Drive existen y están desencriptados
+        ensure_google_drive_credentials_file(ROOT_PATH)
+        ensure_google_drive_token_file(ROOT_PATH)
+        
         log_path = Path(BaseConfig.LOG_FILE)
         log_path.parent.mkdir(parents=True, exist_ok=True)
         handler = RotatingFileHandler(

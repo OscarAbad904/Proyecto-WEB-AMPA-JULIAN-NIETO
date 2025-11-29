@@ -9,7 +9,7 @@ from dotenv import dotenv_values
 # IMPORTACIONES DE TU APP (Mantenidas igual)
 # -------------------------------------------------------------------
 from Api_AMPA_WEB import create_app, db, User, Role, make_lookup_hash
-from config import encrypt_value, decrypt_env_var, decrypt_value
+from config import encrypt_value, decrypt_env_var, decrypt_value, ensure_google_drive_credentials_file, ensure_google_drive_token_file
 
 ENV_PATH = ".env"
 CONFIG_FILE = "gui_config.json"  # Archivo para guardar preferencias (último usuario)
@@ -17,7 +17,6 @@ CONFIG_FILE = "gui_config.json"  # Archivo para guardar preferencias (último us
 SENSITIVE_KEYS = {
     "SECRET_KEY",
     "SECURITY_PASSWORD_SALT",
-    "ADMIN_PASSWORD",
     "MAIL_PASSWORD",
     "GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON",
     "GOOGLE_DRIVE_TOKEN_JSON",
@@ -109,7 +108,6 @@ class EnvManagerApp(tk.Tk):
             "MAIL_PASSWORD",
             "MAIL_DEFAULT_SENDER",
             "SQLALCHEMY_DATABASE_URI",
-            "GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE",
             "GOOGLE_DRIVE_NEWS_FOLDER_ID",
             "GOOGLE_DRIVE_NEWS_FOLDER_NAME",
             "GOOGLE_DRIVE_SHARED_DRIVE_ID",
@@ -322,16 +320,38 @@ class EnvManagerApp(tk.Tk):
                     return
             else:
                 updated[key] = plain
-                
-        # Asegurar credenciales admin
-        updated["ADMIN_EMAIL"] = self.auth_email
-        updated["ADMIN_PASSWORD"] = encrypt_value(self.auth_password) if self.auth_password else ""
         
         try:
             save_env(updated)
             # Actualizar memoria
             self.env = updated
-            messagebox.showinfo("Éxito", "Archivo .env actualizado y cifrado correctamente.")
+            
+            # Si se guardaron variables de Google Drive, crear los archivos desencriptados
+            files_created = []
+            errors = []
+            
+            if "GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON" in updated and updated["GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON"]:
+                try:
+                    ensure_google_drive_credentials_file(os.getcwd())
+                    files_created.append("credentials_drive_oauth.json")
+                except Exception as e:
+                    errors.append(f"credentials_drive_oauth.json: {e}")
+            
+            if "GOOGLE_DRIVE_TOKEN_JSON" in updated and updated["GOOGLE_DRIVE_TOKEN_JSON"]:
+                try:
+                    ensure_google_drive_token_file(os.getcwd())
+                    files_created.append("token_drive.json")
+                except Exception as e:
+                    errors.append(f"token_drive.json: {e}")
+            
+            if errors:
+                msg = f"Archivo .env guardado.\nArchivos creados: {', '.join(files_created) if files_created else 'ninguno'}\nErrores: {'; '.join(errors)}"
+                messagebox.showwarning("Advertencia", msg)
+            elif files_created:
+                msg = f"Archivo .env actualizado y cifrado correctamente.\nArchivos creados: {', '.join(files_created)}"
+                messagebox.showinfo("Éxito", msg)
+            else:
+                messagebox.showinfo("Éxito", "Archivo .env actualizado y cifrado correctamente.")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo escribir el archivo: {e}")
 

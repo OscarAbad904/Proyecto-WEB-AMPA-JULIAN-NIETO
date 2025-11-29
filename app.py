@@ -1,16 +1,15 @@
 import os
 
 from Api_AMPA_WEB import create_app, db, Role, User, make_lookup_hash
-from config import decrypt_env_var
 
 app = create_app(os.getenv("FLASK_ENV", "development"))
 
 @app.cli.command("create-admin")
 def create_admin():
-    """Create a default admin user using env credentials."""
-    email = decrypt_env_var("ADMIN_EMAIL") or os.getenv("ADMIN_EMAIL", "admin@ampa-jnt.es")
+    """Create a default admin user."""
+    email = "admin@ampa-jnt.es"
     username = "admin"
-    password = decrypt_env_var("ADMIN_PASSWORD") or os.getenv("ADMIN_PASSWORD", "changeme")
+    password = "changeme"
     if User.query.filter_by(email=email).first():
         print("Admin already exists")
         return
