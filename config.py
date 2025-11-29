@@ -84,3 +84,86 @@ def decrypt_value(value: str | bytes | None) -> str | None:
 SECRET_KEY = decrypt_env_var('SECRET_KEY')
 SHUTDOWN_SECRET_KEY = decrypt_env_var('SHUTDOWN_SECRET_KEY')
 
+
+def ensure_google_drive_credentials_file(root_path: Path | str) -> str | None:
+    """Desencripta GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON y crea el archivo si es necesario.
+    
+    Args:
+        root_path: Ruta raíz de la aplicación (para guardar credentials_drive_oauth.json)
+    
+    Returns:
+        Ruta al archivo de credenciales, o None si no está disponible.
+    """
+    root_path = Path(root_path)
+    credentials_path = root_path / "credentials_drive_oauth.json"
+    
+    # Intentar obtener las credenciales encriptadas del entorno
+    encrypted_creds = os.getenv("GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON")
+    
+    if not encrypted_creds:
+        # Si no hay credenciales encriptadas, usar archivo existente si lo hay
+        if credentials_path.exists():
+            return str(credentials_path)
+        return None
+    
+    # Desencriptar las credenciales
+    try:
+        creds_json = decrypt_value(encrypted_creds)
+        if not creds_json:
+            return None
+        
+        # Crear el archivo si no existe o si el contenido cambió
+        if not credentials_path.exists() or credentials_path.read_text(encoding="utf-8") != creds_json:
+            credentials_path.parent.mkdir(parents=True, exist_ok=True)
+            credentials_path.write_text(creds_json, encoding="utf-8")
+        
+        return str(credentials_path)
+    except Exception as e:
+        print(f"Error al desencriptar GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON: {e}")
+        # Fallback: usar archivo existente si lo hay
+        if credentials_path.exists():
+            return str(credentials_path)
+        return None
+
+
+def ensure_google_drive_token_file(root_path: Path | str) -> str | None:
+    """Desencripta GOOGLE_DRIVE_TOKEN_JSON y crea el archivo si es necesario.
+    
+    Args:
+        root_path: Ruta raíz de la aplicación (para guardar token_drive.json)
+    
+    Returns:
+        Ruta al archivo de token, o None si no está disponible.
+    """
+    root_path = Path(root_path)
+    token_path = root_path / "token_drive.json"
+    
+    # Intentar obtener el token encriptado del entorno
+    encrypted_token = os.getenv("GOOGLE_DRIVE_TOKEN_JSON")
+    
+    if not encrypted_token:
+        # Si no hay token encriptado, usar archivo existente si lo hay
+        if token_path.exists():
+            return str(token_path)
+        return None
+    
+    # Desencriptar el token
+    try:
+        token_json = decrypt_value(encrypted_token)
+        if not token_json:
+            return None
+        
+        # Crear el archivo si no existe o si el contenido cambió
+        if not token_path.exists() or token_path.read_text(encoding="utf-8") != token_json:
+            token_path.parent.mkdir(parents=True, exist_ok=True)
+            token_path.write_text(token_json, encoding="utf-8")
+        
+        return str(token_path)
+    except Exception as e:
+        print(f"Error al desencriptar GOOGLE_DRIVE_TOKEN_JSON: {e}")
+        # Fallback: usar archivo existente si lo hay
+        if token_path.exists():
+            return str(token_path)
+        return None
+
+
