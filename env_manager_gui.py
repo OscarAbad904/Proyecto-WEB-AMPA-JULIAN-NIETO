@@ -81,8 +81,8 @@ class EnvManagerApp(tk.Tk):
         
         # Configuración de ventana
         self.title("Gestor de Configuración AMPA (Seguro)")
-        self.geometry("650x700")
-        self.minsize(500, 500)
+        self.geometry("700x700")
+        self.minsize(550, 550)
         self.center_window()
         
         # Estilos visuales
@@ -97,6 +97,7 @@ class EnvManagerApp(tk.Tk):
         self.unlocked = False
         self.auth_email = None
         self.auth_password = None
+        self.password_visibility = {}  # Rastrear visibilidad de contraseñas
 
         self.fields = [
             "SECRET_KEY",
@@ -242,6 +243,17 @@ class EnvManagerApp(tk.Tk):
             entry = ttk.Entry(row_frame)
             entry.pack(side="left", fill="x", expand=True, padx=5)
             self.entries[key] = entry
+            
+            # Si es sensible, agregar botón de visibilidad
+            if key in SENSITIVE_KEYS:
+                self.password_visibility[key] = False  # Iniciar oculto
+                btn = ttk.Button(
+                    row_frame, 
+                    text="👁", 
+                    width=3,
+                    command=lambda k=key: self.toggle_password_visibility(k)
+                )
+                btn.pack(side="left", padx=2)
 
         # Botón Guardar inferior
         bottom_bar = ttk.Frame(self.config_container, padding=10)
@@ -293,10 +305,38 @@ class EnvManagerApp(tk.Tk):
         for key, entry in self.entries.items():
             entry.delete(0, tk.END)
             val = self.env.get(key, "")
-            # Si quieres mostrar placeholders para valores encriptados:
-            # if key in SENSITIVE_KEYS and val:
-            #     val = decrypt_value(val) # Opcional: mostrar descifrado si se desea
+            
+            # Si es sensible, desencriptar para mostrar
+            if key in SENSITIVE_KEYS and val:
+                try:
+                    val = decrypt_value(val)
+                except Exception as e:
+                    print(f"No se pudo desencriptar {key}: {e}")
+                    val = "[ERROR descifrado]"
+                
+                # Mostrar como oculto por defecto
+                entry.config(show="•")
+            
             entry.insert(0, val)
+
+    def toggle_password_visibility(self, key: str):
+        """Alterna la visibilidad de una contraseña entre oculta y visible."""
+        if key not in self.entries:
+            return
+        
+        entry = self.entries[key]
+        is_visible = self.password_visibility.get(key, False)
+        
+        # Alternar visibilidad
+        self.password_visibility[key] = not is_visible
+        
+        # Cambiar el atributo 'show' del Entry
+        if self.password_visibility[key]:
+            # Mostrar texto plano
+            entry.config(show="")
+        else:
+            # Ocultar con asteriscos
+            entry.config(show="•")
 
     def save_encrypted(self):
         if not self.unlocked:
