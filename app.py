@@ -24,5 +24,33 @@ def create_admin():
     db.session.commit()
     print(f"Created admin user {email}")
 
+@app.cli.command("setup-drive-folders")
+def setup_drive_folders():
+    """Setup Google Drive folders for Eventos, Documentos, and Noticias.
+    
+    This command creates the folders in Google Drive (if they don't exist)
+    and prints their IDs so you can add them to your .env file.
+    """
+    from media_utils import ensure_folder
+    
+    with app.app_context():
+        folders = {
+            "GOOGLE_DRIVE_NEWS_FOLDER_ID": app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_NAME", "Noticias"),
+            "GOOGLE_DRIVE_EVENTS_FOLDER_ID": app.config.get("GOOGLE_DRIVE_EVENTS_FOLDER_NAME", "Eventos"),
+            "GOOGLE_DRIVE_DOCS_FOLDER_ID": app.config.get("GOOGLE_DRIVE_DOCS_FOLDER_NAME", "Documentos"),
+        }
+        
+        shared_drive_id = app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID") or None
+        
+        print("\n📁 Setting up Google Drive folders...\n")
+        
+        for env_var, folder_name in folders.items():
+            try:
+                folder_id = ensure_folder(folder_name, parent_id=None, drive_id=shared_drive_id)
+                print(f"✅ {folder_name}: {folder_id}")
+                print(f"   Add to .env: {env_var}={folder_id}\n")
+            except Exception as e:
+                print(f"❌ Error creating {folder_name}: {e}\n")
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 3000)))
