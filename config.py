@@ -88,6 +88,20 @@ def decrypt_value(value: str | bytes | None) -> str | None:
 SECRET_KEY = decrypt_env_var('SECRET_KEY')
 SHUTDOWN_SECRET_KEY = decrypt_env_var('SHUTDOWN_SECRET_KEY')
 
+def get_int_env(key: str, default: int) -> int:
+    """Obtiene una variable de entorno como entero, manejando valores vacíos o inválidos."""
+    val = os.getenv(key)
+    if not val:
+        return default
+    try:
+        return int(val)
+    except ValueError:
+        return default
+
+# Variables de entorno para Google Calendar
+GOOGLE_CALENDAR_ID = os.getenv('GOOGLE_CALENDAR_ID', 'primary')
+GOOGLE_CALENDAR_CACHE_TTL = get_int_env('GOOGLE_CALENDAR_CACHE_TTL', 600)  # 10 minutos
+
 
 def ensure_google_drive_credentials_file(root_path: Path | str) -> str | None:
     """Desencripta GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON y crea el archivo si es necesario.
