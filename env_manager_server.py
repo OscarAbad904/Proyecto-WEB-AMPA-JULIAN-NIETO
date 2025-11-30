@@ -22,7 +22,13 @@ from dotenv import dotenv_values, load_dotenv
 
 # Importaciones del proyecto AMPA
 from Api_AMPA_WEB import create_app as create_ampa_app, db, User, Role, make_lookup_hash
-from config import encrypt_value, decrypt_value, ensure_google_drive_credentials_file, ensure_google_drive_token_file
+from config import (
+    encrypt_value,
+    decrypt_value,
+    ensure_google_drive_credentials_file,
+    ensure_google_drive_token_file,
+    unwrap_fernet_layers,
+)
 
 # Configuración
 ENV_PATH = ".env"
@@ -677,10 +683,16 @@ def get_env():
     result = {}
     for key, value in env.items():
         if key in SENSITIVE_KEYS and value:
-            try:
-                result[key] = decrypt_value(value)
-            except:
+            decrypted = unwrap_fernet_layers(value)
+            if decrypted is None:
+                try:
+                    decrypted = decrypt_value(value)
+                except Exception:
+                    decrypted = None
+            if decrypted is None:
                 result[key] = DECRYPT_ERROR_PLACEHOLDER
+            else:
+                result[key] = decrypted
         else:
             result[key] = value
     
