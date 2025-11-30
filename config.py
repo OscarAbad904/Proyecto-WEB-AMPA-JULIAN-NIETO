@@ -101,8 +101,8 @@ def _valid_json(text: str) -> bool:
         return False
 
 
-def _unwrap_fernet_layers(value: str | None, *, max_layers: int = 5) -> str | None:
-    """Desencripta hasta que ya no parezca un token Fernet o se agoten las capas."""
+def unwrap_fernet_layers(value: str | None, *, max_layers: int = 5) -> str | None:
+    """Desencripta hasta que el texto ya no parece un token Fernet."""
     candidate = value
     for _ in range(max_layers):
         if not candidate or not _looks_like_fernet_token(candidate):
@@ -111,6 +111,12 @@ def _unwrap_fernet_layers(value: str | None, *, max_layers: int = 5) -> str | No
             candidate = decrypt_value(candidate)
         except Exception:
             return None
+    return candidate
+
+
+def unwrap_fernet_json_layers(value: str | None, *, max_layers: int = 5) -> str | None:
+    """Desencripta repetidas capas de Fernet asegurando que el resultado sea JSON."""
+    candidate = unwrap_fernet_layers(value, max_layers=max_layers)
     if candidate and _valid_json(candidate):
         return candidate
     return None
@@ -158,7 +164,7 @@ def ensure_google_drive_credentials_file(root_path: Path | str) -> str | None:
     
     # Desencriptar las credenciales
     try:
-        creds_json = _unwrap_fernet_layers(encrypted_creds)
+        creds_json = unwrap_fernet_json_layers(encrypted_creds)
         if not creds_json:
             return None
         
@@ -199,7 +205,7 @@ def ensure_google_drive_token_file(root_path: Path | str) -> str | None:
     
     # Desencriptar el token
     try:
-        token_json = _unwrap_fernet_layers(encrypted_token)
+        token_json = unwrap_fernet_json_layers(encrypted_token)
         if not token_json:
             return None
         
