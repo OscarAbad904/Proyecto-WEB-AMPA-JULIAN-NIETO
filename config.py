@@ -4,6 +4,7 @@ Permite desencriptar variables sensibles del entorno utilizando una clave
 Fernet almacenada en `fernet.key` en la raíz del proyecto.
 """
 
+import json
 from dotenv import load_dotenv
 import os
 import sys
@@ -84,6 +85,37 @@ def decrypt_value(value: str | bytes | None) -> str | None:
     return _FERNET.decrypt(payload).decode()
 
 
+def _looks_like_fernet_token(text: str | None) -> bool:
+    """Detecta si una cadena parece un token Fernet por su prefijo."""
+    if not text:
+        return False
+    return text.lstrip().startswith("gAAAA")
+
+
+def _valid_json(text: str) -> bool:
+    """Comprueba si una cadena contiene JSON válido."""
+    try:
+        json.loads(text)
+        return True
+    except ValueError:
+        return False
+
+
+def _unwrap_fernet_layers(value: str | None, *, max_layers: int = 5) -> str | None:
+    """Desencripta hasta que ya no parezca un token Fernet o se agoten las capas."""
+    candidate = value
+    for _ in range(max_layers):
+        if not candidate or not _looks_like_fernet_token(candidate):
+            break
+        try:
+            candidate = decrypt_value(candidate)
+        except Exception:
+            return None
+    if candidate and _valid_json(candidate):
+        return candidate
+    return None
+
+
 # Variables de entorno principales
 SECRET_KEY = decrypt_env_var('SECRET_KEY')
 SHUTDOWN_SECRET_KEY = decrypt_env_var('SHUTDOWN_SECRET_KEY')
@@ -126,7 +158,7 @@ def ensure_google_drive_credentials_file(root_path: Path | str) -> str | None:
     
     # Desencriptar las credenciales
     try:
-        creds_json = decrypt_value(encrypted_creds)
+        creds_json = _unwrap_fernet_layers(encrypted_creds)
         if not creds_json:
             return None
         
@@ -167,7 +199,7 @@ def ensure_google_drive_token_file(root_path: Path | str) -> str | None:
     
     # Desencriptar el token
     try:
-        token_json = decrypt_value(encrypted_token)
+        token_json = _unwrap_fernet_layers(encrypted_token)
         if not token_json:
             return None
         
