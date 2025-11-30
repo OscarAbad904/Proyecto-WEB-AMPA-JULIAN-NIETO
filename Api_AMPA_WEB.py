@@ -65,15 +65,46 @@ from wtforms import (
 from wtforms.fields import DateField, EmailField, FileField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, URL
 
-from config import decrypt_value, encrypt_value, decrypt_env_var, ensure_google_drive_credentials_file, ensure_google_drive_token_file
+from config import decrypt_value, encrypt_value, decrypt_env_var, ensure_google_drive_credentials_file, ensure_google_drive_token_file, get_int_env
 from media_utils import upload_news_image_variants
 
 ROOT_PATH = Path(__file__).resolve().parent
+# Cargar variables de entorno inmediatamente para asegurar que están disponibles
+# antes de que se evalúen las clases de configuración
+load_dotenv(ROOT_PATH / ".env")
+
+
+def _get_env_with_optional_decrypt(var_name: str) -> str | None:
+    """Return env var value, attempting Fernet decrypt when needed."""
+    value = os.getenv(var_name)
+    if not value:
+        return None
+    try:
+        return decrypt_value(value)
+    except Exception:
+        return value
+
+
+def _normalize_db_uri(uri: str | None) -> str | None:
+    """Ensure postgres URLs use the SQLAlchemy psycopg2 prefix."""
+    if not uri:
+        return None
+    if uri.startswith("postgres://"):
+        return "postgresql+psycopg2://" + uri[len("postgres://"):]
+    if uri.startswith("postgresql://"):
+        return "postgresql+psycopg2://" + uri[len("postgresql://") :]
+    return uri
+
 DATA_PATH = Path(os.getenv("AMPA_DATA_DIR", ROOT_PATH / "Data"))
-DEFAULT_SQLALCHEMY_URI = os.getenv(
-    "SQLALCHEMY_DATABASE_URI",
-    os.getenv("DATABASE_URL", "postgresql+psycopg2://user:password@localhost:5432/ampa_db"),
+# Usar 'or' para manejar cadenas vacías que os.getenv devuelve si la variable existe pero está vacía
+DEFAULT_SQLALCHEMY_URI = (
+    _normalize_db_uri(
+        _get_env_with_optional_decrypt("SQLALCHEMY_DATABASE_URI")
+        or _get_env_with_optional_decrypt("DATABASE_URL")
+    )
+    or "postgresql+psycopg2://user:password@localhost:5432/ampa_db"
 )
+
 PRIVILEGED_ROLES = {
     "admin",
     "administrador",
@@ -86,16 +117,19 @@ PRIVILEGED_ROLES = {
 
 def _build_sqlalchemy_uri() -> str:
     """Obtiene la URI de base de datos priorizando PostgreSQL."""
-    uri = os.getenv("SQLALCHEMY_DATABASE_URI") or os.getenv("DATABASE_URL")
+    uri = _normalize_db_uri(
+        _get_env_with_optional_decrypt("SQLALCHEMY_DATABASE_URI")
+        or _get_env_with_optional_decrypt("DATABASE_URL")
+    )
 
     # Permite configurar PostgreSQL mediante variables POSTGRES_/PG*.
     if not uri:
         pg_host = os.getenv("POSTGRES_HOST") or os.getenv("PGHOST")
         pg_port = os.getenv("POSTGRES_PORT") or os.getenv("PGPORT") or "5432"
         pg_user = os.getenv("POSTGRES_USER") or os.getenv("PGUSER")
-        pg_password = os.getenv("POSTGRES_PASSWORD")
+        pg_password = _get_env_with_optional_decrypt("POSTGRES_PASSWORD")
         if pg_password is None:
-            pg_password = os.getenv("PGPASSWORD")
+            pg_password = _get_env_with_optional_decrypt("PGPASSWORD")
         pg_db = os.getenv("POSTGRES_DB") or os.getenv("PGDATABASE")
         if pg_host and pg_user and pg_db and pg_password is not None:
             uri = (
@@ -105,6 +139,10 @@ def _build_sqlalchemy_uri() -> str:
 
     if not uri:
         uri = DEFAULT_SQLALCHEMY_URI
+        
+    # Asegurar que nunca devolvemos una cadena vacía
+    if not uri:
+        uri = "postgresql+psycopg2://user:password@localhost:5432/ampa_db"
 
     return uri
 
@@ -124,7 +162,7 @@ class BaseConfig:
     SQLALCHEMY_DATABASE_URI = _SQLALCHEMY_URI
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
-    MAIL_PORT = int(os.getenv("MAIL_PORT", 587))
+    MAIL_PORT = get_int_env("MAIL_PORT", 587)
     MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "true").lower() in ("true", "1", "yes")
     MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
     # Intentar desencriptar la contraseña; si falla o no está encriptada, usar el valor directo
@@ -133,7 +171,7 @@ class BaseConfig:
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "")
     MAIL_CONTACT_RECIPIENT = os.getenv("MAIL_CONTACT_RECIPIENT", "")
     LOG_FILE = str(ROOT_PATH / "logs" / "ampa.log")
-    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+    LOG_LEVEL = os.getenv("LOG_LEVEL") or "INFO"
     GOOGLE_DRIVE_NEWS_FOLDER_ID = os.getenv("GOOGLE_DRIVE_NEWS_FOLDER_ID", "")
     GOOGLE_DRIVE_NEWS_FOLDER_NAME = os.getenv("GOOGLE_DRIVE_NEWS_FOLDER_NAME", "Noticias")
     GOOGLE_DRIVE_EVENTS_FOLDER_ID = os.getenv("GOOGLE_DRIVE_EVENTS_FOLDER_ID", "")
@@ -154,7 +192,11 @@ class BaseConfig:
         "",
     )
     NEWS_IMAGE_FORMAT = os.getenv("NEWS_IMAGE_FORMAT", "JPEG")
-    NEWS_IMAGE_QUALITY = int(os.getenv("NEWS_IMAGE_QUALITY", 80))
+    NEWS_IMAGE_QUALITY = get_int_env("NEWS_IMAGE_QUALITY", 80)
+    
+    # Google Calendar configuration
+    GOOGLE_CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID", "primary")
+    GOOGLE_CALENDAR_CACHE_TTL = get_int_env("GOOGLE_CALENDAR_CACHE_TTL", 600)  # 10 minutos
 
     @staticmethod
     def init_app(app: Flask) -> None:
@@ -169,7 +211,20 @@ class BaseConfig:
             maxBytes=10 * 1024 * 1024,
             backupCount=5,
         )
-        handler.setLevel(BaseConfig.LOG_LEVEL)
+        
+        # Configurar nivel de log de forma segura
+        log_level = BaseConfig.LOG_LEVEL
+        if not log_level or not isinstance(log_level, str) or not log_level.strip():
+            log_level = "INFO"
+        else:
+            log_level = log_level.upper()
+            
+        # Validar que el nivel existe
+        import logging
+        if log_level not in logging._nameToLevel:
+            log_level = "INFO"
+            
+        handler.setLevel(log_level)
         app.logger.addHandler(handler)
 
 
@@ -772,6 +827,12 @@ def eventos():
     return render_template("public/eventos.html")
 
 
+@public_bp.route("/calendario")
+def calendario():
+    """Vista pública del calendario de eventos del AMPA."""
+    return render_template("public/calendario.html")
+
+
 @public_bp.route("/eventos/<slug>")
 def evento_detalle(slug):
     return render_template("public/evento_detalle.html", slug=slug)
@@ -1115,6 +1176,100 @@ def publicaciones() -> tuple[dict[str, object], int]:
         "pagination": {"page": 1, "per_page": 10},
     }
     return payload, 200
+
+
+@api_bp.route("/calendario/eventos")
+def calendario_eventos():
+    """
+    Endpoint REST para obtener eventos del calendario de Google del AMPA.
+    
+    Parámetros opcionales:
+        - rango_inicial: Fecha de inicio (formato YYYY-MM-DD)
+        - rango_final: Fecha de fin (formato YYYY-MM-DD)
+        - limite: Número máximo de eventos a devolver (por defecto 50)
+    
+    Returns:
+        JSON con estructura:
+        {
+            "ok": true/false,
+            "eventos": [...],
+            "total": int,
+            "desde": str,
+            "hasta": str,
+            "cached": bool
+        }
+    """
+    from services.calendar_service import get_calendar_events
+    
+    # Obtener parámetros de la request
+    rango_inicial = request.args.get("rango_inicial")
+    rango_final = request.args.get("rango_final")
+    limite = request.args.get("limite", 50, type=int)
+    
+    # Convertir formato de fecha si se proporciona
+    time_min = None
+    time_max = None
+    
+    if rango_inicial:
+        try:
+            fecha_inicio = datetime.strptime(rango_inicial, "%Y-%m-%d")
+            time_min = fecha_inicio.isoformat() + "Z"
+        except ValueError:
+            return jsonify({
+                "ok": False,
+                "error": "Formato de rango_inicial inválido. Use YYYY-MM-DD",
+                "eventos": [],
+                "total": 0,
+            }), 400
+    
+    if rango_final:
+        try:
+            fecha_fin = datetime.strptime(rango_final, "%Y-%m-%d")
+            # Ajustar al final del día
+            fecha_fin = fecha_fin.replace(hour=23, minute=59, second=59)
+            time_max = fecha_fin.isoformat() + "Z"
+        except ValueError:
+            return jsonify({
+                "ok": False,
+                "error": "Formato de rango_final inválido. Use YYYY-MM-DD",
+                "eventos": [],
+                "total": 0,
+            }), 400
+    
+    # Obtener eventos del servicio de calendario
+    resultado = get_calendar_events(
+        time_min=time_min,
+        time_max=time_max,
+        max_results=limite,
+    )
+    
+    if resultado.get("ok"):
+        return jsonify(resultado), 200
+    else:
+        return jsonify(resultado), 503
+
+
+@api_bp.route("/calendario/limpiar-cache", methods=["POST"])
+@login_required
+def limpiar_cache_calendario():
+    """
+    Endpoint para limpiar la cache del calendario.
+    
+    Solo disponible para usuarios autenticados con permisos de administración.
+    """
+    if not _user_is_privileged(current_user):
+        return jsonify({
+            "ok": False,
+            "error": "No tienes permisos para realizar esta acción",
+        }), 403
+    
+    from services.calendar_service import clear_calendar_cache
+    clear_calendar_cache()
+    
+    return jsonify({
+        "ok": True,
+        "message": "Cache del calendario limpiada correctamente",
+    }), 200
 
 
 members_bp = Blueprint("members", __name__, template_folder="templates/members")

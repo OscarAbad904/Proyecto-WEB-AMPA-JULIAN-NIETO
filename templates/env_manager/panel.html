@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Configuración AMPA</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+    <link rel="stylesheet" href="/assets/css/env_manager.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="main-header">
+        <div class="header-content">
+            <div class="header-left">
+                <span class="logo-icon">⚙️</span>
+                <h1>Gestor de Configuración</h1>
+            </div>
+            <div class="header-right">
+                <span class="user-email">{{ email }}</span>
+                <button id="changePasswordBtn" class="btn-icon" title="Cambiar contraseña">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+                    </svg>
+                </button>
+                <a href="/logout" class="btn-icon" title="Cerrar sesión">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <h3>Grupos de Variables</h3>
+                {% for group_id, group in groups.items() %}
+                <a href="#{{ group_id }}" class="nav-item" data-group="{{ group_id }}">
+                    <span class="nav-icon">{{ group.title.split()[0] }}</span>
+                    <span class="nav-text">{{ group.title[2:] }}</span>
+                </a>
+                {% endfor %}
+            </nav>
+            
+            <div class="sidebar-actions">
+                <button id="testDbBtn" class="btn-secondary btn-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                    </svg>
+                    Probar BD
+                </button>
+                <button id="testCalendarBtn" class="btn-secondary btn-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    Probar Calendario
+                </button>
+                <button id="testMailBtn" class="btn-secondary btn-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                        <polyline points="22,6 12,13 2,6"></polyline>
+                    </svg>
+                    Probar Correo
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-header">
+                <h2>Variables de Entorno</h2>
+                <div class="header-actions">
+                    <button id="saveBtn" class="btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        <span class="btn-text">Guardar Cambios</span>
+                        <span class="btn-loading hidden">
+                            <svg class="spinner" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="31.4" stroke-dashoffset="10"></circle>
+                            </svg>
+                            Guardando...
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <form id="envForm">
+                {% for group_id, group in groups.items() %}
+                <section class="config-section" id="{{ group_id }}">
+                    <div class="section-header">
+                        <h3>{{ group.title }}</h3>
+                        <p>{{ group.description }}</p>
+                    </div>
+                    <div class="section-content">
+                        {% for var_name, var_config in group.vars.items() %}
+                        <div class="form-field" data-var="{{ var_name }}">
+                            <div class="field-header">
+                                <label for="field_{{ var_name }}">
+                                    {{ var_config.label }}
+                                    {% if var_config.required %}
+                                    <span class="required-badge">Requerido</span>
+                                    {% endif %}
+                                    {% if var_config.sensitive %}
+                                    <span class="sensitive-badge" title="Este valor se encripta">🔒</span>
+                                    {% endif %}
+                                </label>
+                                <button type="button" class="btn-help" data-var="{{ var_name }}" title="Ver ayuda">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            {% if var_config.options %}
+                            <select id="field_{{ var_name }}" name="{{ var_name }}" class="form-select">
+                                <option value="">-- Seleccionar --</option>
+                                {% for opt in var_config.options %}
+                                <option value="{{ opt }}">{{ opt }}</option>
+                                {% endfor %}
+                            </select>
+                            {% elif var_config.multiline %}
+                            <div class="textarea-wrapper">
+                                <textarea 
+                                    id="field_{{ var_name }}" 
+                                    name="{{ var_name }}"
+                                    rows="4"
+                                    placeholder="{{ var_config.default or 'Introduce el valor...' }}"
+                                    class="form-textarea{% if var_config.sensitive %} sensitive-field{% endif %}"
+                                ></textarea>
+                                {% if var_config.sensitive %}
+                                <button type="button" class="toggle-visibility" data-target="field_{{ var_name }}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <div class="input-wrapper">
+                                <input 
+                                    type="{{ 'password' if var_config.sensitive else 'text' }}"
+                                    id="field_{{ var_name }}" 
+                                    name="{{ var_name }}"
+                                    placeholder="{{ var_config.default or '' }}"
+                                    class="form-input{% if var_config.sensitive %} sensitive-field{% endif %}"
+                                >
+                                {% if var_config.sensitive %}
+                                <button type="button" class="toggle-visibility" data-target="field_{{ var_name }}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            
+                            <span class="field-name">{{ var_name }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endfor %}
+            </form>
+        </main>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="helpModalTitle">Ayuda</h3>
+                <button class="modal-close" aria-label="Cerrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="help-section">
+                    <h4>📋 Descripción</h4>
+                    <p id="helpDescription"></p>
+                </div>
+                <div class="help-section">
+                    <h4>🔧 Cómo obtener este valor</h4>
+                    <pre id="helpHowTo"></pre>
+                </div>
+                <div class="help-section">
+                    <h4>💡 Ejemplo</h4>
+                    <code id="helpExample"></code>
+                </div>
+                <div class="help-section warning-section" id="helpWarningSection">
+                    <h4>⚠️ Advertencia</h4>
+                    <p id="helpWarning"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Change Modal -->
+    <div id="passwordModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3>Cambiar Contraseña</h3>
+                <button class="modal-close" aria-label="Cerrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="passwordForm">
+                    <div class="form-group">
+                        <label for="newPassword">Nueva contraseña</label>
+                        <input type="password" id="newPassword" required minlength="8">
+                        <small>Mínimo 8 caracteres</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirmar contraseña</label>
+                        <input type="password" id="confirmPassword" required>
+                    </div>
+                    <div id="passwordError" class="error-message hidden"></div>
+                    <button type="submit" class="btn-primary btn-full">Cambiar Contraseña</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Store variables info (data attribute to avoid JS linter issues with Jinja2) -->
+    <div id="envData" data-env='{{ groups|tojson|safe }}' style="display:none;"></div>
+    <script src="/assets/js/env_manager.js"></script>
+</body>
+</html>
