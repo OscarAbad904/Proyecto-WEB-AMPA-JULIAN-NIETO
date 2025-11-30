@@ -42,21 +42,38 @@
         </div>
         <div class="contact-form fade-in">
           <h3 class="contact-form-title">Envíanos un Mensaje</h3>
-          <form onsubmit="handleContactForm(event)">
+          
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}" style="padding: 1rem; margin-bottom: 1rem; border-radius: 0.5rem; {% if category == 'success' %}background-color: #10b981; color: white;{% else %}background-color: #ef4444; color: white;{% endif %}">
+                  {{ message }}
+                </div>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+          
+          <form action="/contacto" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
             <label>Nombre completo</label>
-            <input type="text" required>
+            <input type="text" name="nombre" value="{{ form_data.nombre if form_data else '' }}" required maxlength="100">
+            
             <label>Email</label>
-            <input type="email" required>
+            <input type="email" name="email" value="{{ form_data.email if form_data else '' }}" required maxlength="150">
+            
             <label>Asunto</label>
-            <select>
-              <option>Consulta general</option>
-              <option>Propuesta de actividad</option>
-              <option>Sugerencia</option>
-              <option>Queja o incidencia</option>
-              <option>Voluntariado</option>
+            <select name="asunto" required>
+              <option value="Consulta general" {% if form_data and form_data.asunto == 'Consulta general' %}selected{% endif %}>Consulta general</option>
+              <option value="Propuesta de actividad" {% if form_data and form_data.asunto == 'Propuesta de actividad' %}selected{% endif %}>Propuesta de actividad</option>
+              <option value="Sugerencia" {% if form_data and form_data.asunto == 'Sugerencia' %}selected{% endif %}>Sugerencia</option>
+              <option value="Queja o incidencia" {% if form_data and form_data.asunto == 'Queja o incidencia' %}selected{% endif %}>Queja o incidencia</option>
+              <option value="Voluntariado" {% if form_data and form_data.asunto == 'Voluntariado' %}selected{% endif %}>Voluntariado</option>
             </select>
+            
             <label>Mensaje</label>
-            <textarea rows="5" required></textarea>
+            <textarea name="mensaje" rows="5" required minlength="10" maxlength="5000">{{ form_data.mensaje if form_data else '' }}</textarea>
+            
             <button type="submit">Enviar Mensaje</button>
           </form>
         </div>

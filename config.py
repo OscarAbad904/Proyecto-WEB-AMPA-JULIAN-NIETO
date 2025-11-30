@@ -58,9 +58,13 @@ def decrypt_env_var(var_name: str) -> str | None:
     if not encrypted_value:
         return None
     try:
-        return decrypt_value(encrypted_value)
+        decrypted = decrypt_value(encrypted_value)
+        if decrypted:
+            print(f"✓ Variable {var_name} desencriptada correctamente")
+        return decrypted
     except Exception as e:
-        print(f"Error desencriptando {var_name}: {e}")
+        print(f"⚠ Error desencriptando {var_name}: {type(e).__name__} - {e}")
+        print(f"  Usando valor sin encriptar como fallback")
         return None
 
 

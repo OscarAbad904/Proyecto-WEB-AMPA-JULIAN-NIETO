@@ -108,10 +108,8 @@ function filterNews(category) {
 }
 
 // Form handlers
-function handleContactForm(event) {
-    event.preventDefault();
-    alert('Gracias por tu mensaje. Nos pondremos en contacto contigo pronto.');
-}
+// El formulario de contacto ahora se envía de forma tradicional al backend
+// (sin preventDefault) para que el servidor maneje el envío de correo
 
 function handleEventForm(event) {
     event.preventDefault();

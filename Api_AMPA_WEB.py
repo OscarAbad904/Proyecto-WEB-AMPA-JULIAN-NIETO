@@ -123,12 +123,15 @@ class BaseConfig:
     SECURITY_PASSWORD_SALT = decrypt_env_var("SECURITY_PASSWORD_SALT") or os.getenv("SECURITY_PASSWORD_SALT", "salt-me")
     SQLALCHEMY_DATABASE_URI = _SQLALCHEMY_URI
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.example.com")
+    MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     MAIL_PORT = int(os.getenv("MAIL_PORT", 587))
     MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "true").lower() in ("true", "1", "yes")
     MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
-    MAIL_PASSWORD = decrypt_env_var("MAIL_PASSWORD") or os.getenv("MAIL_PASSWORD", "")
-    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "no-reply@ampa-jnt.es")
+    # Intentar desencriptar la contraseña; si falla o no está encriptada, usar el valor directo
+    _mail_password_encrypted = decrypt_env_var("MAIL_PASSWORD")
+    MAIL_PASSWORD = _mail_password_encrypted if _mail_password_encrypted is not None else os.getenv("MAIL_PASSWORD", "")
+    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "")
+    MAIL_CONTACT_RECIPIENT = os.getenv("MAIL_CONTACT_RECIPIENT", "")
     LOG_FILE = str(ROOT_PATH / "logs" / "ampa.log")
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
     GOOGLE_DRIVE_NEWS_FOLDER_ID = os.getenv("GOOGLE_DRIVE_NEWS_FOLDER_ID", "")
@@ -782,7 +785,75 @@ def documentos():
 @public_bp.route("/contacto", methods=["GET", "POST"])
 def contacto():
     if request.method == "POST":
-        current_app.logger.info("Contacto enviado desde la web pública")
+        from services.mail_service import send_contact_email
+        
+        # Leer datos del formulario
+        nombre = request.form.get("nombre", "").strip()
+        email = request.form.get("email", "").strip()
+        asunto = request.form.get("asunto", "").strip()
+        mensaje = request.form.get("mensaje", "").strip()
+        
+        # Validaciones básicas
+        errores = []
+        
+        if not nombre:
+            errores.append("El nombre es obligatorio")
+        elif len(nombre) > 100:
+            errores.append("El nombre es demasiado largo (máximo 100 caracteres)")
+        
+        if not email:
+            errores.append("El email es obligatorio")
+        elif len(email) > 150:
+            errores.append("El email es demasiado largo")
+        elif not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
+            errores.append("El formato del email no es válido")
+        
+        if not asunto:
+            errores.append("Debes seleccionar un asunto")
+        
+        if not mensaje:
+            errores.append("El mensaje es obligatorio")
+        elif len(mensaje) < 10:
+            errores.append("El mensaje es demasiado corto (mínimo 10 caracteres)")
+        elif len(mensaje) > 5000:
+            errores.append("El mensaje es demasiado largo (máximo 5000 caracteres)")
+        
+        # Si hay errores, mostrarlos
+        if errores:
+            for error in errores:
+                flash(error, "error")
+            return render_template(
+                "public/contacto.html",
+                form_data={"nombre": nombre, "email": email, "asunto": asunto, "mensaje": mensaje}
+            )
+        
+        # Intentar enviar el correo
+        datos_contacto = {
+            "nombre": nombre,
+            "email": email,
+            "asunto": asunto,
+            "mensaje": mensaje
+        }
+        
+        resultado = send_contact_email(datos_contacto, current_app.config)
+        
+        if resultado.get("ok"):
+            # Registrar el envío (sin el texto completo del mensaje por privacidad)
+            current_app.logger.info(
+                f"Correo de contacto enviado - Nombre: {nombre}, Email: {email}, Asunto: {asunto}"
+            )
+            flash("Tu mensaje ha sido enviado correctamente. Nos pondremos en contacto contigo pronto.", "success")
+            return redirect(url_for("public.contacto"))
+        else:
+            # Registrar el error
+            error_msg = resultado.get("error", "Error desconocido")
+            current_app.logger.error(f"Error al enviar correo de contacto: {error_msg}")
+            flash("No se ha podido enviar el mensaje. Por favor, inténtalo de nuevo más tarde.", "error")
+            return render_template(
+                "public/contacto.html",
+                form_data={"nombre": nombre, "email": email, "asunto": asunto, "mensaje": mensaje}
+            )
+    
     return render_template("public/contacto.html")
 
 
