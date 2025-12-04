@@ -318,19 +318,48 @@ if (__modalEl) {
 function buscarEnPagina() {
     const input = document.getElementById('buscadorAMPA');
     const texto = input.value.trim().toLowerCase();
-    // Elimina resaltados anteriores
-    document.querySelectorAll('.resaltado-busqueda').forEach(el => {
-        el.outerHTML = el.innerText;
+
+    document.querySelectorAll('.resaltado-busqueda').forEach(span => {
+        const textNode = document.createTextNode(span.textContent);
+        span.parentNode.replaceChild(textNode, span);
+        span.parentNode.normalize();
     });
+
     if (texto.length < 2) return;
-    // Busca en los elementos principales de contenido
-    const secciones = document.querySelectorAll('section, article, .card-hover, .news-item');
-    secciones.forEach(sec => {
-        let html = sec.innerHTML;
-        const regex = new RegExp(`(${texto.replace(/[.*+?^${}()|[\\]\\]/g, '\\\\$&')})`, 'gi');
-        html = html.replace(regex, '<span class="resaltado-busqueda" style="background:#fde68a;color:#1e293b;">$1</span>');
-        sec.innerHTML = html;
-    });
+
+    const regex = new RegExp(texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    const resaltar = (el) => {
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+
+        nodes.forEach(node => {
+            regex.lastIndex = 0;
+            const valor = node.nodeValue;
+            if (!valor || !regex.test(valor)) return;
+
+            const frag = document.createDocumentFragment();
+            let lastIndex = 0;
+            valor.replace(regex, (match, offset) => {
+                if (offset > lastIndex) {
+                    frag.appendChild(document.createTextNode(valor.slice(lastIndex, offset)));
+                }
+                const mark = document.createElement('span');
+                mark.className = 'resaltado-busqueda';
+                mark.style.background = '#fde68a';
+                mark.style.color = '#1e293b';
+                mark.textContent = match;
+                frag.appendChild(mark);
+                lastIndex = offset + match.length;
+            });
+            if (lastIndex < valor.length) {
+                frag.appendChild(document.createTextNode(valor.slice(lastIndex)));
+            }
+            node.parentNode.replaceChild(frag, node);
+        });
+    };
+
+    document.querySelectorAll('section, article, .card-hover, .news-item').forEach(resaltar);
 }
 
 // Añade efecto de scroll al header para sombra y fondo

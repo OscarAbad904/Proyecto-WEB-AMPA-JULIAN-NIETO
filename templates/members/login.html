@@ -12,11 +12,11 @@
         {{ form.hidden_tag() }}
         <div class="private-field">
           {{ form.email.label }}
-          {{ form.email(placeholder="correo@ejemplo.com") }}
+          {{ form.email(placeholder="correo@ejemplo.com", autocomplete="username") }}
         </div>
         <div class="private-field">
           {{ form.password.label }}
-          {{ form.password(placeholder="Tu contraseña") }}
+          {{ form.password(placeholder="Tu contraseña", autocomplete="current-password") }}
         </div>
         <label class="private-remember">
           {{ form.remember_me() }}

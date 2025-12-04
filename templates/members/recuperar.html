@@ -12,7 +12,7 @@
         <p class="section-subtitle">Introduce tu correo y enviaremos un código por SMS al teléfono asociado.</p>
         <form method="post" class="private-form">
           {{ email_form.hidden_tag() }}
-          {{ email_form.email.label }}{{ email_form.email() }}
+          {{ email_form.email.label }}{{ email_form.email(autocomplete="email") }}
           <input type="hidden" name="stage" value="email">
           {{ email_form.submit(class="btn full") }}
         </form>
@@ -20,10 +20,10 @@
         <p class="section-subtitle">Escribe el código SMS y fija tu nueva contraseña.</p>
         <form method="post" class="private-form">
           {{ reset_form.hidden_tag() }}
-          {{ reset_form.email.label }}{{ reset_form.email() }}
-          {{ reset_form.code.label }}{{ reset_form.code() }}
-          {{ reset_form.password.label }}{{ reset_form.password() }}
-          {{ reset_form.password_confirm.label }}{{ reset_form.password_confirm() }}
+          {{ reset_form.email.label }}{{ reset_form.email(autocomplete="email") }}
+          {{ reset_form.code.label }}{{ reset_form.code(autocomplete="one-time-code") }}
+          {{ reset_form.password.label }}{{ reset_form.password(autocomplete="new-password") }}
+          {{ reset_form.password_confirm.label }}{{ reset_form.password_confirm(autocomplete="new-password") }}
           <input type="hidden" name="stage" value="code">
           {{ reset_form.submit(class="btn full") }}
         </form>

@@ -1,21 +1,24 @@
 :root {
-  /* Paleta centralizada */
-  --color-bg-deep: #07111f;
-  --color-bg-dark: #132538;
-  --color-bg-mid: #1f3447;
-  --color-bg-soft: #96a4b2;
-  --color-panel: rgba(10, 19, 33, 0.92);
-  --color-panel-alt: rgba(20, 35, 52, 0.88);
-  --color-border: rgba(150, 164, 178, 0.35);
-  --color-text-base: #f5f7fb;
-  --color-text-soft: #cfd8e5;
-  --color-accent-warm: #ff8a4c;
-  --color-accent-bright: #ffd166;
-  --color-accent-cool: #7ed4ff;
+  /* Paleta moderna y vibrante */
+  --color-bg-deep: #0f0f1a;
+  --color-bg-dark: #1a1a2e;
+  --color-bg-mid: #25253d;
+  --color-bg-soft: #3d3d5c;
+  --color-panel: rgba(26, 26, 46, 0.95);
+  --color-panel-alt: rgba(37, 37, 61, 0.92);
+  --color-border: rgba(139, 92, 246, 0.25);
+  --color-text-base: #f8fafc;
+  --color-text-soft: #a1a1aa;
+  --color-accent-warm: #f97316;
+  --color-accent-bright: #fbbf24;
+  --color-accent-cool: #06b6d4;
+  --color-accent-primary: #8b5cf6;
+  --color-accent-secondary: #ec4899;
   --radius-lg: 16px;
   --radius-md: 12px;
-  --shadow-soft: 0 20px 40px rgba(3, 7, 18, 0.35);
-  --shadow-strong: 0 30px 60px rgba(3, 7, 18, 0.45);
+  --shadow-soft: 0 20px 40px rgba(0, 0, 0, 0.4);
+  --shadow-strong: 0 30px 60px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 40px rgba(139, 92, 246, 0.2);
 
   /* Aliases legacy */
   --bg: var(--color-bg-mid);
@@ -37,9 +40,10 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(120deg, var(--color-accent-bright), var(--color-accent-warm));
-  color: #0b1526;
+  background: linear-gradient(135deg, var(--color-accent-primary), var(--color-accent-secondary));
+  color: #ffffff;
   border: none;
+  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.35);
 }
 
 .chip {
@@ -47,14 +51,14 @@ body {
   align-items: center;
   padding: 0.25rem 0.65rem;
   border-radius: 999px;
-  background: rgba(255, 138, 76, 0.12);
-  color: #ffb280;
-  border: 1px solid rgba(255, 138, 76, 0.35);
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.35);
   font-size: 0.85rem;
 }
 
 .chip-live {
-  background: rgba(34, 197, 94, 0.14);
+  background: rgba(16, 185, 129, 0.14);
   color: #34d399;
-  border-color: rgba(34, 197, 94, 0.45);
+  border-color: rgba(16, 185, 129, 0.45);
 }
