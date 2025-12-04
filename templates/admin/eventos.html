@@ -2,9 +2,435 @@
 
 {% block title %}Admin Eventos · AMPA Julián Nieto{% endblock %}
 
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  <style>
+    .admin-events {
+      padding-bottom: 4rem;
+    }
+    .event-actions {
+      margin-top: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .event-hero {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 138, 76, 0.1));
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 1.3rem;
+      padding: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.2rem;
+      color: var(--color-text-base);
+      box-shadow: 0 20px 35px rgba(3, 7, 18, 0.35);
+    }
+    .event-hero-content {
+      max-width: 70%;
+    }
+    .event-hero h2 {
+      font-size: clamp(2rem, 2vw, 2.5rem);
+      margin-bottom: 0.35rem;
+    }
+    .event-hero p {
+      margin-bottom: 0.5rem;
+      color: var(--color-text-soft);
+    }
+    .event-hero-meta {
+      display: flex;
+      gap: 0.8rem;
+      font-size: 0.95rem;
+      flex-wrap: wrap;
+      color: var(--color-text-soft);
+    }
+    .event-hero-cta {
+      margin-left: auto;
+    }
+    .event-actions-info {
+      display: flex;
+      gap: 1.6rem;
+      font-size: 0.95rem;
+      color: var(--color-text-soft);
+    }
+    .event-footer {
+      margin-top: 3rem;
+      border-radius: 1.3rem;
+      border: 1px dashed var(--color-border);
+      padding: 2rem;
+      background: rgba(15, 23, 42, 0.7);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .event-footer ul {
+      padding-left: 1rem;
+      margin: 0.5rem 0 0 0;
+      color: var(--color-text-soft);
+    }
+    .event-footer ul li {
+      margin-bottom: 0.35rem;
+    }
+    .event-footer-actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .event-footer .btn-ghost {
+      border-color: rgba(255, 255, 255, 0.35);
+      color: rgba(255, 255, 255, 0.8);
+    }
+    .event-grid {
+      margin-top: 2rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.2rem;
+    }
+    .event-card {
+      background: var(--color-panel);
+      border: 1px solid var(--color-border);
+      border-radius: 1.1rem;
+      overflow: hidden;
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+      min-height: 330px;
+    }
+    .event-card-cover {
+      width: 100%;
+      min-height: 160px;
+      background-size: cover;
+      background-position: center;
+    }
+    .event-card-body {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      flex: 1;
+    }
+    .event-card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+    }
+    .event-card-title {
+      margin: 0;
+      font-size: 1.3rem;
+      color: var(--color-text-base);
+    }
+    .event-card-desc {
+      margin: 0;
+      line-height: 1.5;
+      color: var(--color-text-soft);
+      min-height: 3rem;
+      overflow: hidden;
+    }
+    .event-card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      font-size: 0.9rem;
+      color: var(--color-text-soft);
+    }
+    .event-empty {
+      margin-top: 1rem;
+      padding: 2rem;
+      border-radius: 1rem;
+      border: 1px dashed var(--color-border);
+      background: rgba(255, 255, 255, 0.03);
+      text-align: center;
+      color: var(--color-text-soft);
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 50;
+    }
+    .modal.is-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 7, 18, 0.8);
+      backdrop-filter: blur(4px);
+    }
+    .modal-panel {
+      position: relative;
+      background: var(--color-panel);
+      border-radius: 1.2rem;
+      border: 1px solid var(--color-border);
+      padding: 2rem;
+      width: min(600px, calc(100% - 2rem));
+      max-height: 90vh;
+      overflow: auto;
+      box-shadow: var(--shadow-strong);
+      z-index: 2;
+    }
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.6rem;
+      color: var(--color-text-soft);
+      cursor: pointer;
+      line-height: 1;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+    .modal-panel .field {
+      margin-bottom: 0.75rem;
+    }
+    .event-modal-form .field-row {
+      gap: 0.9rem;
+    }
+    .event-modal-form .field-row > div {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .modal-panel .btn-primary {
+      min-width: 160px;
+      width: auto;
+    }
+    @media (max-width: 640px) {
+      .event-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .event-card-meta {
+        flex-direction: column;
+      }
+    }
+  </style>
+{% endblock %}
+
 {% block content %}
-  <section class="container">
-    <h1>Gestionar eventos</h1>
-    <p>Exportación ICS y control de asistentes.</p>
+  <section class="admin-wrapper admin-events">
+    <div class="admin-header">
+      <p class="admin-kicker">Calendario · Administración</p>
+      <h1 class="admin-title">Gestionar eventos</h1>
+      <p class="admin-subtitle">Define fecha, categoría y texto de eventos que más adelante podremos sincronizar con el calendario público.</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-stack">
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="event-hero">
+      <div class="event-hero-content">
+        <p class="eyebrow">Calendario oficial</p>
+        <h2>Gestión centralizada de eventos</h2>
+        <p>Define las fechas, la categoría y la portada de cada actividad y compártela cuando quieras con la comunidad educativa.</p>
+        <div class="event-hero-meta">
+          <span>Sincroniza con Google Calendar cuando estés listo</span>
+          <span>Solo administradores pueden publicar</span>
+        </div>
+      </div>
+      <div class="event-hero-cta">
+        <button class="btn-primary open-event-modal-btn" id="open-event-modal" type="button">Crear Evento</button>
+      </div>
+    </div>
+    {% set total_events = events|length %}
+    {% set published_events = events|selectattr('status', 'equalto', 'published')|list|length %}
+    {% set next_event = events[0] if events else None %}
+    <div class="event-actions">
+      <div class="event-actions-info">
+        <span>{{ total_events }} eventos guardados</span>
+        <span>{{ published_events }} publicados</span>
+        {% if next_event %}
+          <span>Próximo: {{ next_event.title }} · {{ next_event.start_at.strftime('%d/%m/%Y %H:%M') }}</span>
+        {% else %}
+          <span>No hay eventos programados</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="event-grid">
+      {% if events %}
+        {% for event in events %}
+          <article class="event-card">
+            <div
+              class="event-card-cover"
+              style="background-image: url('{{ event.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}');"
+            ></div>
+            <div class="event-card-body">
+              <div class="event-card-header">
+                <span class="chip {% if event.status == 'published' %}chip-live{% endif %}">
+                  {{ 'Publicada' if event.status == 'published' else 'Borrador' }}
+                </span>
+                <span class="muted">
+                  {{ category_labels.get(event.category, event.category or 'General') }}
+                </span>
+              </div>
+              <h3 class="event-card-title">{{ event.title }}</h3>
+              <p class="event-card-desc">
+                {{ event.description_html|striptags|truncate(140) }}
+              </p>
+              <div class="event-card-meta">
+                <span>
+                  {{ event.start_at.strftime('%d/%m/%Y %H:%M') if event.start_at else 'Fecha pendiente' }}
+                </span>
+                <span>
+                  {{ event.end_at.strftime('%d/%m/%Y %H:%M') if event.end_at else 'Sin fin' }}
+                </span>
+              </div>
+              <div class="event-card-meta">
+                <span>{{ event.location or 'Sin ubicación definida' }}</span>
+                {% if event.capacity %}
+                  <span>{{ event.capacity }} plazas</span>
+                {% endif %}
+              </div>
+            </div>
+          </article>
+        {% endfor %}
+      {% else %}
+        <div class="event-empty">
+          <p class="muted">Todavía no hay eventos programados. Usa el botón superior para crear el primero.</p>
+        </div>
+      {% endif %}
+    </div>
+    <div class="event-footer">
+      <div>
+        <p style="margin: 0;"><strong>Encabezados, imágenes y categorías</strong> definen cómo se presentará cada evento en el calendario público. Guarda primero y publica después cuando la información esté completa.</p>
+        <ul>
+          <li>Utiliza imágenes de portada que se puedan mostrar también en redes sociales.</li>
+          <li>Cambia el estado a “Publicada” solo cuando todo esté confirmado.</li>
+          <li>Los eventos sin ubicación quedan marcados para revisar antes de compartir.</li>
+        </ul>
+      </div>
+      <div class="event-footer-actions">
+        <button type="button" class="btn-ghost open-event-modal-btn">Crear otro evento</button>
+        <a href="{{ url_for('admin.dashboard_admin') }}" class="btn-ghost">Volver al panel</a>
+      </div>
+    </div>
   </section>
+
+  <div class="modal" id="event-modal" aria-hidden="true">
+    <div class="modal-backdrop" tabindex="-1"></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <h2 id="modal-title" style="margin: 0;">Nuevo evento</h2>
+        <button type="button" class="modal-close" id="close-event-modal" aria-label="Cerrar">×</button>
+      </div>
+      <form method="post" class="admin-form event-modal-form" novalidate>
+        {{ form.csrf_token }}
+        <div class="field">
+          {{ form.title.label }}
+          {{ form.title(placeholder="Fiesta de Navidad solidaria") }}
+        </div>
+        <div class="field">
+          {{ form.category.label }}
+          {{ form.category() }}
+        </div>
+        <div class="field">
+          {{ form.description.label }}
+          {{ form.description() }}
+        </div>
+        <div class="field field-row">
+          <div>
+            {{ form.start_at.label }}
+            {{ form.start_at() }}
+          </div>
+          <div>
+            {{ form.end_at.label }}
+            {{ form.end_at() }}
+          </div>
+        </div>
+        <div class="field field-row">
+          <div>
+            {{ form.location.label }}
+            {{ form.location(placeholder="Sala multiusos, patio central...") }}
+          </div>
+          <div>
+            {{ form.capacity.label }}
+            {{ form.capacity(placeholder="45") }}
+          </div>
+        </div>
+        <div class="field">
+          {{ form.cover_image.label }}
+          {{ form.cover_image(placeholder="https://drive.google.com/...") }}
+        </div>
+        <div class="field">
+          {{ form.status.label }}
+          {{ form.status() }}
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-ghost" id="cancel-event-modal">Cancelar</button>
+          {{ form.submit(class="btn-primary") }}
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const modal = document.getElementById("event-modal");
+      if (!modal) {
+        return;
+      }
+      const openButtons = document.querySelectorAll(".open-event-modal-btn");
+      const closeBtn = document.getElementById("close-event-modal");
+      const cancelBtn = document.getElementById("cancel-event-modal");
+      const backdrop = modal.querySelector(".modal-backdrop");
+
+      const toggleModal = (show) => {
+        modal.classList.toggle("is-open", show);
+        modal.setAttribute("aria-hidden", show ? "false" : "true");
+        document.body.style.overflow = show ? "hidden" : "";
+      };
+
+      const closeModal = () => toggleModal(false);
+
+      openButtons.forEach((btn) => {
+        btn.addEventListener("click", () => toggleModal(true));
+      });
+      if (closeBtn) {
+        closeBtn.addEventListener("click", closeModal);
+      }
+      if (cancelBtn) {
+        cancelBtn.addEventListener("click", closeModal);
+      }
+      if (backdrop) {
+        backdrop.addEventListener("click", closeModal);
+      }
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeModal();
+        }
+      });
+    });
+  </script>
 {% endblock %}

@@ -79,6 +79,7 @@ def upgrade():
     sa.Column('location', sa.String(length=255), nullable=True),
     sa.Column('capacity', sa.Integer(), nullable=True),
     sa.Column('cover_image', sa.String(length=255), nullable=True),
+    sa.Column('category', sa.String(length=64), nullable=True),
     sa.Column('status', sa.String(length=32), nullable=False),
     sa.Column('organizer_id', sa.Integer(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
