@@ -20,12 +20,79 @@
     {% block head %}{% endblock %}
   </head>
   <body>
+    <!-- Page Loading Spinner -->
+    <div class="page-loader" id="pageLoader">
+      <div class="page-loader__content">
+        <div class="page-loader__spinner"></div>
+      </div>
+    </div>
+
     {% include 'includes/_nav.html' %}
     <main class="layout">
       {% block content %}{% endblock %}
     </main>
     {% include 'includes/_footer.html' %}
     <script defer src="{{ url_for('static', filename='js/theme.js') }}"></script>
+    
+    <!-- Page Loader Script -->
+    <script>
+      (function() {
+        const loader = document.getElementById('pageLoader');
+        
+        // Ocultar loader cuando la página esté completamente cargada
+        window.addEventListener('load', function() {
+          loader.classList.remove('active');
+        });
+        
+        // Mostrar loader al hacer clic en enlaces internos
+        document.addEventListener('click', function(e) {
+          const link = e.target.closest('a');
+          if (!link) return;
+          
+          const href = link.getAttribute('href');
+          
+          // Ignorar enlaces externos, anclas, javascript:, mailto:, tel:
+          if (!href || 
+              href.startsWith('#') || 
+              href.startsWith('javascript:') ||
+              href.startsWith('mailto:') ||
+              href.startsWith('tel:') ||
+              link.target === '_blank' ||
+              link.hasAttribute('download') ||
+              e.ctrlKey || e.metaKey || e.shiftKey) {
+            return;
+          }
+          
+          // Ignorar enlaces externos
+          try {
+            const url = new URL(href, window.location.origin);
+            if (url.origin !== window.location.origin) return;
+          } catch (err) {
+            // Si no es una URL válida, continuar
+          }
+          
+          // Mostrar el loader
+          loader.classList.add('active');
+        });
+        
+        // Mostrar loader al enviar formularios (excepto AJAX)
+        document.addEventListener('submit', function(e) {
+          const form = e.target;
+          // Si el formulario no tiene data-no-loader, mostrar el loader
+          if (!form.hasAttribute('data-no-loader') && !form.hasAttribute('data-ajax')) {
+            loader.classList.add('active');
+          }
+        });
+        
+        // Ocultar loader si el usuario vuelve atrás con el navegador
+        window.addEventListener('pageshow', function(e) {
+          if (e.persisted) {
+            loader.classList.remove('active');
+          }
+        });
+      })();
+    </script>
+    
     {% block scripts %}{% endblock %}
   </body>
 </html>

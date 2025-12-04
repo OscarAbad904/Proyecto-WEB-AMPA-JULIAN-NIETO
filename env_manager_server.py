@@ -21,7 +21,10 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 from dotenv import dotenv_values, load_dotenv
 
 # Importaciones del proyecto AMPA
-from Api_AMPA_WEB import create_app as create_ampa_app, db, User, Role, make_lookup_hash
+from app import create_app as create_ampa_app
+from app.extensions import db
+from app.models import User, Role
+from app.utils import make_lookup_hash
 from config import (
     encrypt_value,
     decrypt_value,

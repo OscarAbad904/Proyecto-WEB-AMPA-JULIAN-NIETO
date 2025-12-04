@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es" class="scroll-smooth">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,15 +11,119 @@
     <script src="{{ url_for('static', filename='js/AMPA.js') }}" defer></script>
     {% block head %}{% endblock %}
 </head>
+
 <body>
-<!-- Header -->
+    <!-- Page Loading Spinner -->
+    <div class="page-loader" id="pageLoader">
+        <div class="page-loader__spinner"></div>
+    </div>
+    <style>
+        .page-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(11, 21, 38, 0.92);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease, visibility 0.25s ease;
+        }
+
+        .page-loader.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .page-loader__spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.15);
+            border-left-color: #ff8a4c;
+            border-radius: 50%;
+            animation: pageLoaderSpin 0.7s linear infinite;
+        }
+
+        @keyframes pageLoaderSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+    <script>
+        (function () {
+            var loader = document.getElementById('pageLoader');
+
+            // Ocultar loader cuando la página esté cargada
+            window.addEventListener('load', function () {
+                loader.classList.remove('active');
+            });
+
+            // Mostrar loader al hacer clic en enlaces internos
+            document.addEventListener('click', function (e) {
+                var link = e.target.closest('a');
+                if (!link) return;
+
+                var href = link.getAttribute('href');
+
+                // Ignorar enlaces especiales
+                if (!href ||
+                    href.startsWith('#') ||
+                    href.startsWith('javascript:') ||
+                    href.startsWith('mailto:') ||
+                    href.startsWith('tel:') ||
+                    link.target === '_blank' ||
+                    link.hasAttribute('download') ||
+                    link.onclick ||
+                    e.ctrlKey || e.metaKey || e.shiftKey) {
+                    return;
+                }
+
+                // Ignorar enlaces externos
+                try {
+                    var url = new URL(href, window.location.origin);
+                    if (url.origin !== window.location.origin) return;
+                } catch (err) { }
+
+                // Mostrar el loader
+                loader.classList.add('active');
+            });
+
+            // Mostrar loader al enviar formularios
+            document.addEventListener('submit', function (e) {
+                var form = e.target;
+                if (!form.hasAttribute('data-no-loader') && !form.hasAttribute('data-ajax')) {
+                    loader.classList.add('active');
+                }
+            });
+
+            // Ocultar loader si el usuario vuelve atrás
+            window.addEventListener('pageshow', function (e) {
+                if (e.persisted) {
+                    loader.classList.remove('active');
+                }
+            });
+        })();
+    </script>
+
+    <!-- Header -->
+
     <header class="header-fixed">
         <nav class="container-nav">
             <div class="header-flex">
                 <div class="header-top">
                     <div class="header-logo-group">
                         <div class="logo-bg">
-                            <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Logo AMPA Julián Nieto Tapia" class="logo-img" />
+                            <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}"
+                                alt="Logo AMPA Julián Nieto Tapia" class="logo-img" />
                         </div>
                         <span class="header-title-group">
                             <span class="header-title-ampa">AMPA</span>
@@ -27,17 +132,20 @@
                     </div>
                     <div class="header-utilities">
                         <div class="buscador-desktop">
-                            <input type="text" placeholder="Buscar..." class="buscador-input" id="buscadorAMPA" oninput="buscarEnPagina()" />
+                            <input type="text" placeholder="Buscar..." class="buscador-input" id="buscadorAMPA"
+                                oninput="buscarEnPagina()" />
                         </div>
                         <div class="nav-auth">
                             {% if current_user.is_authenticated %}
-                                {% if can_manage_members and request.endpoint in ['public.noticias', 'public.eventos', 'public.documentos'] %}
-                                    <a href="{{ url_for('admin.posts') }}" class="nav-auth-btn nav-auth-btn--edit">Edición</a>
-                                {% endif %}
-                                <span class="nav-user-name">Bienvenido, {{ current_user.username }}</span>
-                                <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout">Cerrar sesión</a>
+                            {% if can_manage_members and request.endpoint in ['public.noticias', 'public.eventos',
+                            'public.documentos'] %}
+                            <a href="{{ url_for('admin.posts') }}" class="nav-auth-btn nav-auth-btn--edit">Edición</a>
+                            {% endif %}
+                            <span class="nav-user-name">Bienvenido, {{ current_user.username }}</span>
+                            <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout">Cerrar
+                                sesión</a>
                             {% else %}
-                                <button type="button" class="nav-auth-btn" onclick="toggleLoginModal(true)">Login</button>
+                            <button type="button" class="nav-auth-btn" onclick="toggleLoginModal(true)">Login</button>
                             {% endif %}
                         </div>
                     </div>
@@ -51,15 +159,16 @@
                         <a href="{{ url_for('public.contacto') }}" class="nav-link">Contacto</a>
                         <a href="{{ url_for('public.faq') }}" class="nav-link">FAQ</a>
                         {% if current_user.is_authenticated %}
-                            <a href="{{ url_for('members.dashboard') }}" class="nav-link">Área privada</a>
-                            {% if can_manage_members %}
-                                <a href="{{ url_for('members.register') }}" class="nav-link">Crear cuenta</a>
-                            {% endif %}
+                        <a href="{{ url_for('members.dashboard') }}" class="nav-link">Área privada</a>
+                        {% if can_manage_members %}
+                        <a href="{{ url_for('members.register') }}" class="nav-link">Crear cuenta</a>
+                        {% endif %}
                         {% endif %}
                     </div>
                     <button class="menu-mobile-btn" onclick="toggleMobileMenu()">
                         <svg class="menu-mobile-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
                     </button>
                 </div>
@@ -69,27 +178,36 @@
             <div id="mobile-menu" class="mobile-menu">
                 <div class="mobile-menu-links">
                     <a href="{{ url_for('public.home') }}" class="nav-link" onclick="toggleMobileMenu()">Inicio</a>
-                    <a href="{{ url_for('public.quienes_somos') }}" class="nav-link" onclick="toggleMobileMenu()">Quiénes Somos</a>
-                    <a href="{{ url_for('public.noticias') }}" class="nav-link" onclick="toggleMobileMenu()">Noticias</a>
+                    <a href="{{ url_for('public.quienes_somos') }}" class="nav-link"
+                        onclick="toggleMobileMenu()">Quiénes Somos</a>
+                    <a href="{{ url_for('public.noticias') }}" class="nav-link"
+                        onclick="toggleMobileMenu()">Noticias</a>
                     <a href="{{ url_for('public.eventos') }}" class="nav-link" onclick="toggleMobileMenu()">Eventos</a>
-                    <a href="{{ url_for('public.calendario') }}" class="nav-link" onclick="toggleMobileMenu()">Calendario</a>
-                    <a href="{{ url_for('public.documentos') }}" class="nav-link" onclick="toggleMobileMenu()">Documentos</a>
-                    <a href="{{ url_for('public.contacto') }}" class="nav-link" onclick="toggleMobileMenu()">Contacto</a>
+                    <a href="{{ url_for('public.calendario') }}" class="nav-link"
+                        onclick="toggleMobileMenu()">Calendario</a>
+                    <a href="{{ url_for('public.documentos') }}" class="nav-link"
+                        onclick="toggleMobileMenu()">Documentos</a>
+                    <a href="{{ url_for('public.contacto') }}" class="nav-link"
+                        onclick="toggleMobileMenu()">Contacto</a>
                     <a href="{{ url_for('public.faq') }}" class="nav-link" onclick="toggleMobileMenu()">FAQ</a>
                     {% if current_user.is_authenticated %}
-                        <a href="{{ url_for('members.dashboard') }}" class="nav-link" onclick="toggleMobileMenu()">Área privada</a>
-                        {% if can_manage_members %}
-                            <a href="{{ url_for('members.register') }}" class="nav-link" onclick="toggleMobileMenu()">Crear cuenta</a>
-                        {% endif %}
+                    <a href="{{ url_for('members.dashboard') }}" class="nav-link" onclick="toggleMobileMenu()">Área
+                        privada</a>
+                    {% if can_manage_members %}
+                    <a href="{{ url_for('members.register') }}" class="nav-link" onclick="toggleMobileMenu()">Crear
+                        cuenta</a>
+                    {% endif %}
                     {% endif %}
                     <div class="mobile-auth">
                         {% if current_user.is_authenticated %}
-                            <span>Hola, {{ current_user.username }}</span>
-                            <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout" onclick="toggleMobileMenu()">Cerrar sesión</a>
+                        <span>Hola, {{ current_user.username }}</span>
+                        <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout"
+                            onclick="toggleMobileMenu()">Cerrar sesión</a>
                         {% else %}
-                            <button type="button" class="nav-auth-btn" onclick="toggleMobileMenu(); toggleLoginModal(true);">
-                                Login
-                            </button>
+                        <button type="button" class="nav-auth-btn"
+                            onclick="toggleMobileMenu(); toggleLoginModal(true);">
+                            Login
+                        </button>
                         {% endif %}
                     </div>
                 </div>
@@ -101,13 +219,14 @@
         {% block content %}{% endblock %}
     </main>
 
-<footer class="footer">
+    <footer class="footer">
         <div class="container">
             <div class="footer-grid">
                 <div>
                     <div class="footer-logo-group">
                         <div class="footer-logo-bg">
-                            <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Logo AMPA Julián Nieto Tapia" class="footer-logo-img" />
+                            <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}"
+                                alt="Logo AMPA Julián Nieto Tapia" class="footer-logo-img" />
                         </div>
                         <span class="footer-logo-title-group">
                             <span class="footer-logo-title-ampa">AMPA</span>
@@ -136,10 +255,10 @@
                         <a href="{{ url_for('public.contacto') }}" class="footer-link">Contacto</a>
                         <a href="{{ url_for('public.faq') }}" class="footer-link">FAQ</a>
                         {% if current_user.is_authenticated %}
-                            <a href="{{ url_for('members.dashboard') }}" class="footer-link">Área privada</a>
-                            {% if can_manage_members %}
-                                <a href="{{ url_for('members.register') }}" class="footer-link">Crear cuenta</a>
-                            {% endif %}
+                        <a href="{{ url_for('members.dashboard') }}" class="footer-link">Área privada</a>
+                        {% if can_manage_members %}
+                        <a href="{{ url_for('members.register') }}" class="footer-link">Crear cuenta</a>
+                        {% endif %}
                         {% endif %}
                     </div>
                 </div>
@@ -157,10 +276,11 @@
                 <p>&copy; {{ current_year }} AMPA CEIP Julián Nieto Tapia. Todos los derechos reservados.</p>
             </div>
         </div>
-</footer>
+    </footer>
     <div id="login-modal" class="login-modal" aria-hidden="true">
         <div class="login-modal-dialog">
-            <button class="login-modal-close" type="button" aria-label="Cerrar" onclick="toggleLoginModal(false)">×</button>
+            <button class="login-modal-close" type="button" aria-label="Cerrar"
+                onclick="toggleLoginModal(false)">×</button>
             <p class="eyebrow">Área privada</p>
             <h2>Acceder</h2>
             <p class="section-subtitle">Introduce tus credenciales para entrar en la zona de socios.</p>
@@ -185,21 +305,116 @@
         </div>
     </div>
     <style>
-        .nav-auth { display:flex; align-items:center; gap:0.75rem; margin-left:1rem; }
-        .nav-auth-btn { background:#1f3ba2; color:#fff; border:none; border-radius:999px; padding:0.35rem 0.9rem; font-weight:600; cursor:pointer; text-decoration:none; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; min-width:96px; }
-        .nav-auth-btn--edit { background:#ff8a4c; color:#0b1526; box-shadow:0 12px 24px rgba(255,138,76,0.35); }
-        .nav-auth-btn--logout { background:#1f3ba2; order:1; }
-        .nav-auth-btn:hover { opacity:0.9; }
-        .nav-user-name { font-weight:600; color:#ffffff; white-space:nowrap; order:2; }
-        .mobile-auth { display:flex; flex-direction:column; gap:0.5rem; margin-top:1rem; }
-        .login-modal { position:fixed; inset:0; background:rgba(15,23,42,0.55); display:none; align-items:center; justify-content:center; padding:1.5rem; z-index:1200; }
-        .login-modal.open { display:flex; }
-        .login-modal-dialog { background:#0f172a; width:100%; max-width:520px; border-radius:24px; padding:2.5rem; box-shadow:0 55px 100px rgba(15,23,42,0.45), inset 0 1px 0 rgba(255,255,255,0.05); position:relative; color:#fff; }
-        .login-modal-dialog .private-field label { color:#e2e8f0; }
-        .login-modal-dialog input, .login-modal-dialog .btn-primary { border-radius:999px; }
-        .login-modal-dialog input { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#fff; }
-        .login-modal-dialog input::placeholder { color:rgba(255,255,255,0.6); }
-        .login-modal-close { position:absolute; top:1rem; right:1rem; border:none; background:rgba(255,255,255,0.1); border-radius:999px; width:36px; height:36px; font-size:1.1rem; cursor:pointer; color:#fff; }
+        .nav-auth {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-left: 1rem;
+        }
+
+        .nav-auth-btn {
+            background: #1f3ba2;
+            color: #fff;
+            border: none;
+            border-radius: 999px;
+            padding: 0.35rem 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 96px;
+        }
+
+        .nav-auth-btn--edit {
+            background: #ff8a4c;
+            color: #0b1526;
+            box-shadow: 0 12px 24px rgba(255, 138, 76, 0.35);
+        }
+
+        .nav-auth-btn--logout {
+            background: #1f3ba2;
+            order: 1;
+        }
+
+        .nav-auth-btn:hover {
+            opacity: 0.9;
+        }
+
+        .nav-user-name {
+            font-weight: 600;
+            color: #ffffff;
+            white-space: nowrap;
+            order: 2;
+        }
+
+        .mobile-auth {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .login-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            z-index: 1200;
+        }
+
+        .login-modal.open {
+            display: flex;
+        }
+
+        .login-modal-dialog {
+            background: #0f172a;
+            width: 100%;
+            max-width: 520px;
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 55px 100px rgba(15, 23, 42, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            position: relative;
+            color: #fff;
+        }
+
+        .login-modal-dialog .private-field label {
+            color: #e2e8f0;
+        }
+
+        .login-modal-dialog input,
+        .login-modal-dialog .btn-primary {
+            border-radius: 999px;
+        }
+
+        .login-modal-dialog input {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+
+        .login-modal-dialog input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .login-modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            width: 36px;
+            height: 36px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            color: #fff;
+        }
     </style>
     <script>
         function toggleLoginModal(show) {
@@ -224,4 +439,5 @@
     </script>
     {% block scripts %}{% endblock %}
 </body>
+
 </html>
