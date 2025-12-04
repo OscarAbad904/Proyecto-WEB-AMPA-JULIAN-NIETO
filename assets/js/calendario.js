@@ -92,7 +92,7 @@ async function loadCalendarEvents() {
       
       // Mostrar indicador si los datos vienen de cache del servidor
       if (data.cached) {
-        console.log('Eventos cargados desde cache del servidor');
+        // noop: se muestra badge de cache sin log de depuracion
       }
     } else {
       throw new Error(data.error || 'Error al cargar eventos');

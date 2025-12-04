@@ -65,7 +65,8 @@ def decrypt_env_var(var_name: str) -> str | None:
     try:
         decrypted = decrypt_value(encrypted_value)
         if decrypted:
-            print(f"[OK] Variable {var_name} desencriptada correctamente")
+            # Silenciar logs de éxito para evitar ruido en consola
+            pass
         return decrypted
     except Exception as e:
         print(f"[!] Error desencriptando {var_name}: {type(e).__name__} - {e}")

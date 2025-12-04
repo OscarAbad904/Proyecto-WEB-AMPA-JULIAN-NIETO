@@ -11,11 +11,11 @@
         {{ form.hidden_tag() }}
         <div class="private-field">
           {{ form.username.label }}
-          {{ form.username(placeholder="Nombre de usuario") }}
+          {{ form.username(placeholder="Nombre de usuario", autocomplete="username") }}
         </div>
         <div class="private-field">
           {{ form.email.label }}
-          {{ form.email(placeholder="correo@ejemplo.com") }}
+          {{ form.email(placeholder="correo@ejemplo.com", autocomplete="email") }}
         </div>
         <div class="private-field">
           {{ form.role.label }}
@@ -23,11 +23,11 @@
         </div>
         <div class="private-field">
           {{ form.password.label }}
-          {{ form.password(placeholder="Contraseña") }}
+          {{ form.password(placeholder="Contraseña", autocomplete="new-password") }}
         </div>
         <div class="private-field">
           {{ form.password_confirm.label }}
-          {{ form.password_confirm(placeholder="Repite la contraseña") }}
+          {{ form.password_confirm(placeholder="Repite la contraseña", autocomplete="new-password") }}
         </div>
         {{ form.submit(class_="btn-primary", disabled=True) }}
       </form>
