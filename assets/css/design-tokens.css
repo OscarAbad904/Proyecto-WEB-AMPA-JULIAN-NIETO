@@ -4,173 +4,173 @@
    ============================================ */
 
 :root {
-    /* ========================================
+   /* ========================================
      COLORES - Paleta principal
      ======================================== */
 
-    /* Fondos */
-    --color-bg-deep: #0a0a0f;
-    --color-bg-dark: #12121a;
-    --color-bg-mid: #1a1a2e;
-    --color-bg-soft: #2d2d44;
+   /* Fondos */
+   --color-bg-deep: #f0f4f8;
+   --color-bg-dark: #f8fafc;
+   --color-bg-mid: #ffffff;
+   --color-bg-soft: #e8f0f7;
 
-    /* Superficies (paneles, cards) */
-    --color-surface: rgba(18, 18, 26, 0.85);
-    --color-surface-alt: rgba(26, 26, 46, 0.75);
-    --color-surface-hover: rgba(139, 92, 246, 0.08);
+   /* Superficies (paneles, cards) */
+   --color-surface: rgba(255, 255, 255, 0.95);
+   --color-surface-alt: rgba(248, 250, 252, 0.9);
+   --color-surface-hover: rgba(139, 92, 246, 0.05);
 
-    /* Bordes */
-    --color-border: rgba(139, 92, 246, 0.2);
-    --color-border-focus: rgba(139, 92, 246, 0.5);
+   /* Bordes */
+   --color-border: rgba(139, 92, 246, 0.15);
+   --color-border-focus: rgba(139, 92, 246, 0.4);
 
-    /* Texto */
-    --color-text: #f8fafc;
-    --color-text-muted: #a1a1aa;
-    --color-text-soft: #71717a;
+   /* Texto */
+   --color-text: #1e293b;
+   --color-text-muted: #64748b;
+   --color-text-soft: #94a3b8;
 
-    /* Acentos primarios */
-    --color-primary: #8b5cf6;
-    --color-primary-hover: #7c3aed;
-    --color-primary-light: rgba(139, 92, 246, 0.15);
+   /* Acentos primarios */
+   --color-primary: #8b5cf6;
+   --color-primary-hover: #7c3aed;
+   --color-primary-light: rgba(139, 92, 246, 0.15);
 
-    /* Acentos secundarios */
-    --color-secondary: #ec4899;
-    --color-accent: #f97316;
-    --color-accent-bright: #fbbf24;
-    --color-accent-cool: #06b6d4;
+   /* Acentos secundarios */
+   --color-secondary: #ec4899;
+   --color-accent: #f97316;
+   --color-accent-bright: #fbbf24;
+   --color-accent-cool: #06b6d4;
 
-    /* Estados */
-    --color-success: #10b981;
-    --color-warning: #f59e0b;
-    --color-error: #ef4444;
-    --color-info: #3b82f6;
+   /* Estados */
+   --color-success: #10b981;
+   --color-warning: #f59e0b;
+   --color-error: #ef4444;
+   --color-info: #3b82f6;
 
-    /* ========================================
+   /* ========================================
      GRADIENTES
      ======================================== */
-    --gradient-primary: linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #f97316 100%);
-    --gradient-secondary: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
-    --gradient-warm: linear-gradient(135deg, #fbbf24 0%, #f97316 100%);
-    --gradient-surface: linear-gradient(180deg, var(--color-bg-deep) 0%, var(--color-bg-dark) 50%, var(--color-bg-mid) 100%);
+   --gradient-primary: linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #f97316 100%);
+   --gradient-secondary: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
+   --gradient-warm: linear-gradient(135deg, #fbbf24 0%, #f97316 100%);
+   --gradient-surface: linear-gradient(180deg, #f8fafc 0%, #ffffff 50%, #f0f4f8 100%);
 
-    /* ========================================
+   /* ========================================
      ESPACIADO (escala de 4px)
      ======================================== */
-    --space-0: 0;
-    --space-1: 0.25rem;
-    /* 4px */
-    --space-2: 0.5rem;
-    /* 8px */
-    --space-3: 0.75rem;
-    /* 12px */
-    --space-4: 1rem;
-    /* 16px */
-    --space-5: 1.25rem;
-    /* 20px */
-    --space-6: 1.5rem;
-    /* 24px */
-    --space-8: 2rem;
-    /* 32px */
-    --space-10: 2.5rem;
-    /* 40px */
-    --space-12: 3rem;
-    /* 48px */
-    --space-16: 4rem;
-    /* 64px */
-    --space-20: 5rem;
-    /* 80px */
+   --space-0: 0;
+   --space-1: 0.25rem;
+   /* 4px */
+   --space-2: 0.5rem;
+   /* 8px */
+   --space-3: 0.75rem;
+   /* 12px */
+   --space-4: 1rem;
+   /* 16px */
+   --space-5: 1.25rem;
+   /* 20px */
+   --space-6: 1.5rem;
+   /* 24px */
+   --space-8: 2rem;
+   /* 32px */
+   --space-10: 2.5rem;
+   /* 40px */
+   --space-12: 3rem;
+   /* 48px */
+   --space-16: 4rem;
+   /* 64px */
+   --space-20: 5rem;
+   /* 80px */
 
-    /* ========================================
+   /* ========================================
      BORDES
      ======================================== */
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 16px;
-    --radius-xl: 24px;
-    --radius-2xl: 32px;
-    --radius-full: 9999px;
+   --radius-sm: 6px;
+   --radius-md: 10px;
+   --radius-lg: 16px;
+   --radius-xl: 24px;
+   --radius-2xl: 32px;
+   --radius-full: 9999px;
 
-    /* ========================================
+   /* ========================================
      SOMBRAS
      ======================================== */
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.4);
-    --shadow-xl: 0 24px 56px rgba(0, 0, 0, 0.5);
-    --shadow-glow: 0 0 30px rgba(139, 92, 246, 0.25);
-    --shadow-glow-lg: 0 0 50px rgba(139, 92, 246, 0.35);
+   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+   --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.1);
+   --shadow-xl: 0 24px 56px rgba(0, 0, 0, 0.12);
+   --shadow-glow: 0 0 30px rgba(139, 92, 246, 0.15);
+   --shadow-glow-lg: 0 0 50px rgba(139, 92, 246, 0.2);
 
-    /* ========================================
+   /* ========================================
      TIPOGRAFÍA
      ======================================== */
-    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
-    /* Tamaños de fuente */
-    --text-xs: 0.75rem;
-    /* 12px */
-    --text-sm: 0.875rem;
-    /* 14px */
-    --text-base: 1rem;
-    /* 16px */
-    --text-lg: 1.125rem;
-    /* 18px */
-    --text-xl: 1.25rem;
-    /* 20px */
-    --text-2xl: 1.5rem;
-    /* 24px */
-    --text-3xl: 2rem;
-    /* 32px */
-    --text-4xl: 2.5rem;
-    /* 40px */
-    --text-5xl: 3rem;
-    /* 48px */
+   /* Tamaños de fuente */
+   --text-xs: 0.75rem;
+   /* 12px */
+   --text-sm: 0.875rem;
+   /* 14px */
+   --text-base: 1rem;
+   /* 16px */
+   --text-lg: 1.125rem;
+   /* 18px */
+   --text-xl: 1.25rem;
+   /* 20px */
+   --text-2xl: 1.5rem;
+   /* 24px */
+   --text-3xl: 2rem;
+   /* 32px */
+   --text-4xl: 2.5rem;
+   /* 40px */
+   --text-5xl: 3rem;
+   /* 48px */
 
-    /* Pesos de fuente */
-    --font-normal: 400;
-    --font-medium: 500;
-    --font-semibold: 600;
-    --font-bold: 700;
-    --font-extrabold: 800;
+   /* Pesos de fuente */
+   --font-normal: 400;
+   --font-medium: 500;
+   --font-semibold: 600;
+   --font-bold: 700;
+   --font-extrabold: 800;
 
-    /* Altura de línea */
-    --leading-tight: 1.25;
-    --leading-normal: 1.5;
-    --leading-relaxed: 1.75;
+   /* Altura de línea */
+   --leading-tight: 1.25;
+   --leading-normal: 1.5;
+   --leading-relaxed: 1.75;
 
-    /* ========================================
+   /* ========================================
      TRANSICIONES
      ======================================== */
-    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+   --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+   --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* ========================================
+   /* ========================================
      Z-INDEX
      ======================================== */
-    --z-dropdown: 100;
-    --z-sticky: 200;
-    --z-header: 500;
-    --z-modal-backdrop: 900;
-    --z-modal: 1000;
-    --z-toast: 1100;
-    --z-loader: 9999;
+   --z-dropdown: 100;
+   --z-sticky: 200;
+   --z-header: 500;
+   --z-modal-backdrop: 900;
+   --z-modal: 1000;
+   --z-toast: 1100;
+   --z-loader: 9999;
 
-    /* ========================================
+   /* ========================================
      LAYOUT
      ======================================== */
-    --header-height: 6rem;
-    --footer-min-height: 18rem;
-    --container-max: 1280px;
-    --container-narrow: 720px;
+   --header-height: 6rem;
+   --footer-min-height: 18rem;
+   --container-max: 1280px;
+   --container-narrow: 720px;
 
-    /* ========================================
+   /* ========================================
      ALIASES (compatibilidad legacy)
      ======================================== */
-    --color-panel: var(--color-surface);
-    --color-panel-alt: var(--color-surface-alt);
-    --color-accent-warm: var(--color-accent);
-    --color-text-base: var(--color-text);
+   --color-panel: var(--color-surface);
+   --color-panel-alt: var(--color-surface-alt);
+   --color-accent-warm: var(--color-accent);
+   --color-text-base: var(--color-text);
 }
 
 /* ========================================

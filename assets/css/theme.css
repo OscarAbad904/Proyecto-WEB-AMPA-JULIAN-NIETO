@@ -1,14 +1,14 @@
 :root {
-  /* Paleta moderna y vibrante */
-  --color-bg-deep: #0f0f1a;
-  --color-bg-dark: #1a1a2e;
-  --color-bg-mid: #25253d;
-  --color-bg-soft: #3d3d5c;
-  --color-panel: rgba(26, 26, 46, 0.95);
-  --color-panel-alt: rgba(37, 37, 61, 0.92);
-  --color-border: rgba(139, 92, 246, 0.25);
-  --color-text-base: #f8fafc;
-  --color-text-soft: #a1a1aa;
+  /* Paleta moderna y vibrante - Tema Claro */
+  --color-bg-deep: #f0f4f8;
+  --color-bg-dark: #f8fafc;
+  --color-bg-mid: #ffffff;
+  --color-bg-soft: #e8f0f7;
+  --color-panel: rgba(255, 255, 255, 0.95);
+  --color-panel-alt: rgba(248, 250, 252, 0.92);
+  --color-border: rgba(139, 92, 246, 0.15);
+  --color-text-base: #1e293b;
+  --color-text-soft: #64748b;
   --color-accent-warm: #f97316;
   --color-accent-bright: #fbbf24;
   --color-accent-cool: #06b6d4;
@@ -16,9 +16,9 @@
   --color-accent-secondary: #ec4899;
   --radius-lg: 16px;
   --radius-md: 12px;
-  --shadow-soft: 0 20px 40px rgba(0, 0, 0, 0.4);
-  --shadow-strong: 0 30px 60px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 40px rgba(139, 92, 246, 0.2);
+  --shadow-soft: 0 20px 40px rgba(0, 0, 0, 0.08);
+  --shadow-strong: 0 30px 60px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 40px rgba(139, 92, 246, 0.12);
 
   /* Aliases legacy */
   --bg: var(--color-bg-mid);

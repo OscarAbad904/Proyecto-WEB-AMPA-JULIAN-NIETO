@@ -10,7 +10,7 @@
   --cal-success: #22c55e;
   --cal-warning: #f59e0b;
   --cal-today: rgba(255, 138, 76, 0.15);
-  --cal-hover: rgba(255, 255, 255, 0.05);
+  --cal-hover: rgb(225 186 186 / 19%);
   --cal-selected: rgba(126, 212, 255, 0.2);
   --cal-event: #ff8a4c;
   --cal-meeting: #7ed4ff;
@@ -21,7 +21,6 @@
 /* Sección principal */
 .calendar-section {
   padding: 2rem 0 4rem;
-  background: linear-gradient(180deg, rgba(7,17,31,0.95) 0%, rgba(15,28,43,0.92) 100%);
   min-height: calc(100vh - var(--header-height) - var(--footer-min-height));
 }
 
@@ -60,7 +59,7 @@
 .calendar-title {
   font-size: 2.25rem;
   font-weight: 800;
-  color: #fff;
+  color: #4f4f4f;
   margin: 0 0 0.5rem 0;
   line-height: 1.2;
 }
@@ -139,7 +138,7 @@
 .calendar-current-month {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #fff;
+  color: #434343;
   min-width: 200px;
   text-align: center;
   margin: 0;

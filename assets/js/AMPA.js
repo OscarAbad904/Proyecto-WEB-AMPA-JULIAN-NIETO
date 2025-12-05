@@ -56,10 +56,11 @@ function randomizeHeroShapes() {
         const rotation = rand(-10, 10);
         shape.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
 
-        const duration = rand(11, 16);
+        const duration = rand(10, 14);
         shape.style.setProperty('--hero-duration', `${duration}s`);
 
-        shape.style.animation = `rise var(--hero-duration, 12s) linear 1 forwards`;
+        shape.style.animation = `rise var(--hero-duration, 12s) 1 forwards`;
+        shape.style.animationTimingFunction = 'cubic-bezier(0.4, 0, 0.2, 1)';
         shape.classList.add('ready');
         shape.style.visibility = 'visible';
 
