@@ -67,3 +67,8 @@ def register_context(app: Flask) -> None:
             "header_login_form": LoginForm(),
             "can_manage_members": can_manage_members,
         }
+
+
+# WSGI callable expected by servers that import `app:app` (e.g. Render default)
+app = create_app(os.getenv("FLASK_ENV", "production"))
+__all__ = ["create_app", "app"]

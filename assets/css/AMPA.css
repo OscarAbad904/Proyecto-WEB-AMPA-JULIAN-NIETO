@@ -877,6 +877,42 @@ body.menu-open {
   background: linear-gradient(135deg, var(--color-accent-cool), var(--color-accent-bright));
 }
 
+.about-contact-card {
+  background: var(--color-panel);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .about-contact-card {
+    max-width: 520px;
+    margin-inline: auto;
+  }
+}
+
+.about-contact-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+.about-contact-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.about-contact-item .about-contact-label,
+.about-contact-item .about-contact-value {
+  text-align: center;
+}
+
 .about-stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1482,12 +1518,12 @@ body.menu-open {
 
   /* Enlaces Rápidos - alineado a la derecha */
   .footer-grid>div:nth-child(2) {
-    text-align: right;
+    text-align: center;
   }
 
   /* Recursos - alineado a la izquierda */
   .footer-grid>div:nth-child(3) {
-    text-align: left;
+    text-align: center;
   }
 
   /* Contacto - centrado y ocupa ambas columnas */
