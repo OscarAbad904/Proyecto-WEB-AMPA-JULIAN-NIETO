@@ -13,6 +13,6 @@ app = create_app(os.getenv("FLASK_ENV", "development"))
 
 if __name__ == "__main__":
     # Ejecutar la aplicación
-    port = get_int_env("PORT", 5000)
+    port = get_int_env("PORT", 5050)
     print(f"🚀 Iniciando servidor en el puerto {port}...")
     app.run(host="0.0.0.0", port=port)
