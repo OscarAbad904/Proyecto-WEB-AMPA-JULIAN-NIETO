@@ -1,9 +1,9 @@
 :root {
-  --bg: #f7f9f8;
+  --bg: #f8fafc;
   --card: #ffffff;
-  --text: #1c1c1c;
-  --accent: #ff8b5f;
-  --muted: #6b6b6b;
+  --text: #1e293b;
+  --accent: #8b5cf6;
+  --muted: #64748b;
   font-family: "Inter", system-ui, sans-serif;
 }
 
@@ -34,7 +34,7 @@ body {
 
 .hero {
   padding: 6rem 0;
-  background: linear-gradient(135deg, #fefefe, #dff2e1);
+  background: linear-gradient(135deg, #f0f9ff, #e0f2fe, #dbeafe);
 }
 
 .layout {
@@ -73,7 +73,7 @@ body {
   border-radius: 12px;
   background: var(--card);
   padding: 1.25rem;
-  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 40px rgba(139, 92, 246, 0.08);
 }
 
 .btn,
