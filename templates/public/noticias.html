@@ -3,336 +3,505 @@
 {% block title %}Noticias · AMPA Julián Nieto{% endblock %}
 
 {% block content %}
-  <section class="news-section" data-can-reorder="{{ 'true' if can_manage_members else 'false' }}">
-    <div class="container">
-      <div class="news-header fade-in">
-        <div>
-          <h1 class="news-title">Últimas Noticias</h1>
-          <p class="news-subtitle">Lo más reciente del AMPA, actividades, comunicados y reuniones.</p>
-        </div>
-      </div>
-
-      {% if latest_three %}
-        <div class="news-grid dynamic-news">
-          {% for post in latest_three %}
-            <article class="news-card fade-in news-open-modal layout-{{ post.tags or 'full' }}"
-                     data-index="{{ loop.index0 }}"
-                     data-id="{{ post.id }}"
-                     data-title="{{ post.title }}"
-                     data-date="{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}"
-                     data-category="{{ post.category or 'general' }}"
-                     data-cover="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
-                     data-modalcover="{{ post.modal_image or post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
-                     data-layout="{{ post.tags or 'full' }}"
-                     data-content='{{ post.body_html|tojson }}'>
-              <div class="news-card-cover">
-                <img src="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
-                     alt="Portada"
-                     referrerpolicy="no-referrer" />
-              </div>
-              <div class="news-card-body">
-                <h3 class="news-card-title">{{ post.title }}</h3>
-                <p class="news-card-desc">{{ (post.excerpt or '')[:200] }}{% if (post.excerpt or '')|length > 200 %}…{% endif %}</p>
-                <span class="news-card-date">{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}</span>
-              </div>
-            </article>
-          {% endfor %}
-        </div>
-      {% endif %}
-
-      <div class="news-articles" style="margin-top: 2rem;">
-        <h3 class="news-title fade-in">Noticias y Novedades</h3>
-        <div class="news-filter fade-in" id="news-filter">
-          <button class="news-filter-btn active" data-filter="all">Todas</button>
-          <button class="news-filter-btn" data-filter="actividades">Actividades</button>
-          <button class="news-filter-btn" data-filter="comunicados">Comunicados</button>
-          <button class="news-filter-btn" data-filter="reuniones">Reuniones</button>
-          <button class="news-filter-btn" data-filter="general">General</button>
-        </div>
-
-        {% for post in posts %}
-          <article class="news-article fade-in news-item"
-                   data-category="{{ post.category or 'general' }}"
-                   data-id="{{ post.id }}"
-                   data-title="{{ post.title }}"
-                   data-date="{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}"
-                   data-cover="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
-                   data-modalcover="{{ post.modal_image or post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
-                   data-layout="{{ post.tags or 'full' }}"
-                   data-content='{{ post.body_html|tojson }}'>
-            <div class="news-article-header">
-              <div>
-                <h3 class="news-article-title">{{ post.title }}</h3>
-                <span class="news-article-category">{{ post.category or 'General' }} · {{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}</span>
-              </div>
-              <div class="news-article-icon">📰</div>
-            </div>
-            <p class="news-article-desc">{{ (post.excerpt or '')[:260] }}{% if (post.excerpt or '')|length > 260 %}…{% endif %}</p>
-          </article>
-        {% endfor %}
+<section class="news-section" data-can-reorder="{{ 'true' if can_manage_members else 'false' }}">
+  <div class="container">
+    <div class="news-header fade-in">
+      <div>
+        <h1 class="news-title">Últimas Noticias</h1>
+        <p class="news-subtitle">Lo más reciente del AMPA, actividades, comunicados y reuniones.</p>
       </div>
     </div>
-  </section>
 
-  <div class="news-modal" id="news-modal" aria-hidden="true">
-    <div class="news-modal-backdrop"></div>
-    <div class="news-modal-dialog">
-      <button class="news-modal-close" type="button" aria-label="Cerrar" id="news-modal-close">×</button>
-      <figure class="news-modal-cover">
-        <img id="modal-image" src="" alt="Imagen de portada" referrerpolicy="no-referrer" />
-      </figure>
-      <div class="news-modal-body">
-        <p class="news-modal-meta" id="modal-meta"></p>
-        <h2 id="modal-title"></h2>
-        <div id="modal-content"></div>
+    {% if latest_three %}
+    <div class="news-grid dynamic-news">
+      {% for post in latest_three %}
+      <article class="news-card fade-in news-open-modal layout-{{ post.tags or 'full' }}" data-index="{{ loop.index0 }}"
+        data-id="{{ post.id }}" data-title="{{ post.title }}"
+        data-date="{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}"
+        data-category="{{ post.category or 'general' }}"
+        data-cover="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
+        data-modalcover="{{ post.modal_image or post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
+        data-layout="{{ post.tags or 'full' }}" data-content='{{ post.body_html|tojson }}'>
+        <div class="news-card-cover">
+          <img src="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}" alt="Portada"
+            referrerpolicy="no-referrer" />
+        </div>
+        <div class="news-card-body">
+          <h3 class="news-card-title">{{ post.title }}</h3>
+          <p class="news-card-desc">{{ (post.excerpt or '')[:200] }}{% if (post.excerpt or '')|length > 200 %}…{% endif
+            %}</p>
+          <span class="news-card-date">{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha'
+            }}</span>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="news-articles" style="margin-top: 2rem;">
+      <h3 class="news-title fade-in">Noticias y Novedades</h3>
+      <div class="news-filter fade-in" id="news-filter">
+        <button class="news-filter-btn active" data-filter="all">Todas</button>
+        <button class="news-filter-btn" data-filter="actividades">Actividades</button>
+        <button class="news-filter-btn" data-filter="comunicados">Comunicados</button>
+        <button class="news-filter-btn" data-filter="reuniones">Reuniones</button>
+        <button class="news-filter-btn" data-filter="general">General</button>
       </div>
+
+      {% for post in posts %}
+      <article class="news-article fade-in news-item" data-category="{{ post.category or 'general' }}"
+        data-id="{{ post.id }}" data-title="{{ post.title }}"
+        data-date="{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}"
+        data-cover="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
+        data-modalcover="{{ post.modal_image or post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
+        data-layout="{{ post.tags or 'full' }}" data-content='{{ post.body_html|tojson }}'>
+        <div class="news-article-header">
+          <div>
+            <h3 class="news-article-title">{{ post.title }}</h3>
+            <span class="news-article-category">{{ post.category or 'General' }} · {{
+              post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}</span>
+          </div>
+          <div class="news-article-icon">📰</div>
+        </div>
+        <p class="news-article-desc">{{ (post.excerpt or '')[:260] }}{% if (post.excerpt or '')|length > 260 %}…{% endif
+          %}</p>
+      </article>
+      {% endfor %}
     </div>
   </div>
+</section>
 
-  <style>
-    .news-card { display:flex; flex-direction:column; gap:0.6rem; height:100%; }
-    .news-card.layout-left { flex-direction:row; align-items:stretch; }
-    .news-card.layout-right { flex-direction:row-reverse; align-items:stretch; }
-    .news-card.layout-bottom { flex-direction:column-reverse; }
-    .news-card-cover { width:100%; aspect-ratio: 4 / 3; max-height: 220px; border-radius:0.8rem; background: linear-gradient(145deg, rgba(150,164,178,0.3), rgba(7,17,31,0.95)); margin:0; border:1px solid var(--color-border); box-shadow:0 10px 22px rgba(3,7,18,0.28); overflow:hidden; display:flex; flex: 0 0 auto; }
-    .news-card.layout-left .news-card-cover,
-    .news-card.layout-right .news-card-cover { flex: 0 0 35%; max-width:45%; min-width:45%; aspect-ratio: 4 / 3; }
-    .news-card-cover img { width:100%; height:100%; object-fit: cover; display:block; }
-    .news-card-body { flex:1 1 auto; display:flex; flex-direction:column; gap:0.35rem; }
-    .news-card.layout-left .news-card-body,
-    .news-card.layout-right .news-card-body { flex:1 1 65%; min-width:0; }
-    .news-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:1200; }
-    .news-modal.open { display:flex; }
-    .news-modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.6); }
-    .news-modal-dialog { position:relative; background: var(--color-panel); border-radius: 16px; border:1px solid var(--color-border); max-width: 1600px; width: min(90vw, 1600px); max-height: 90vh; box-shadow:0 30px 60px rgba(3,7,18,0.6); overflow:hidden; display:flex; flex-direction:column; }
-    .news-modal-dialog.layout-left { flex-direction:row; }
-    .news-modal-dialog.layout-right { flex-direction:row-reverse; }
-    .news-modal-dialog.layout-bottom { flex-direction:column-reverse; }
-    .news-modal-dialog.layout-none .news-modal-cover { display:none; }
-    .news-modal-close { position:absolute; top:0.75rem; right:0.75rem; border:none; background: rgba(255,255,255,0.08); color: var(--color-text-base); width:36px; height:36px; border-radius: 999px; font-size: 1.1rem; cursor:pointer; }
-    .news-modal-cover { margin:1rem; margin-bottom:0; width:auto; aspect-ratio: 16 / 9; overflow:hidden; border:1px solid var(--color-border); border-radius:14px; background: linear-gradient(120deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)); flex: 0 0 auto; }
-    .news-modal-dialog.layout-left .news-modal-cover,
-    .news-modal-dialog.layout-right .news-modal-cover { flex: 0 0 30%; max-width:30%; min-width:30%; aspect-ratio: 16 / 9; margin-bottom:1rem; }
-    .news-modal-dialog.layout-left .news-modal-body,
-    .news-modal-dialog.layout-right .news-modal-body { flex:1 1 70%; min-width:0; }
-    .news-modal-dialog.layout-bottom .news-modal-cover { margin: 0 1rem 1rem 1rem; }
-    .news-modal-cover img { width:100%; height:100%; object-fit:cover; display:block; }
-    .news-modal-body { padding: 1.25rem 1.5rem 1.5rem; overflow:auto; flex:1; scrollbar-color: rgba(255,255,255,0.3) rgba(255,255,255,0.06); scrollbar-width: thin; }
-    .news-modal-meta { color: var(--color-text-soft); margin:0 0 0.25rem; }
-    .news-modal-body::-webkit-scrollbar { width: 10px; }
-    .news-modal-body::-webkit-scrollbar-track { background: rgba(255,255,255,0.06); border-radius: 12px; }
-    .news-modal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.28); border-radius: 12px; border: 2px solid rgba(255,255,255,0.06); }
-    .news-modal-dialog:not(.layout-left):not(.layout-right):not(.layout-bottom):not(.layout-none) .news-modal-cover {
-      width: calc(100% - 2rem);
-      max-width: 960px;
-      max-height: 60vh;
-      height: auto;
-      margin: 1rem auto 0;
+<div class="news-modal" id="news-modal" aria-hidden="true">
+  <div class="news-modal-backdrop"></div>
+  <div class="news-modal-dialog">
+    <button class="news-modal-close" type="button" aria-label="Cerrar" id="news-modal-close">×</button>
+    <figure class="news-modal-cover">
+      <img id="modal-image" src="" alt="Imagen de portada" referrerpolicy="no-referrer" />
+    </figure>
+    <div class="news-modal-body">
+      <p class="news-modal-meta" id="modal-meta"></p>
+      <h2 id="modal-title"></h2>
+      <div id="modal-content"></div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .news-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    height: 100%;
+  }
+
+  .news-card.layout-bottom {
+    flex-direction: column-reverse;
+  }
+
+  .news-card-cover {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    max-height: 220px;
+    border-radius: 0.8rem;
+    background: linear-gradient(145deg, rgba(150, 164, 178, 0.3), rgba(7, 17, 31, 0.95));
+    margin: 0;
+    border: 1px solid var(--color-border);
+    box-shadow: 0 10px 22px rgba(3, 7, 18, 0.28);
+    overflow: hidden;
+    display: flex;
+    flex: 0 0 auto;
+  }
+
+  .news-card-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .news-card-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  @media (min-width: 768px) {
+    .news-card.layout-left {
+      flex-direction: row;
+      align-items: stretch;
     }
-    .dynamic-news.reorderable .news-card { cursor: grab; }
-    .dynamic-news.reorderable .news-card:active { cursor: grabbing; }
-    .news-card.dragging { opacity: 0.65; transform: scale(0.99); }
-  </style>
 
-  <script>
-    /* eslint-disable */
-    document.addEventListener('DOMContentLoaded', () => {
-      const modal = document.getElementById('news-modal');
-      const modalImg = document.getElementById('modal-image');
-      const modalTitle = document.getElementById('modal-title');
-      const modalMeta = document.getElementById('modal-meta');
-      const modalContent = document.getElementById('modal-content');
-      const closeBtn = document.getElementById('news-modal-close');
-      const modalDialog = document.querySelector('.news-modal-dialog');
-      const newsSection = document.querySelector('[data-can-reorder]');
-      const canReorder = newsSection ? newsSection.getAttribute('data-can-reorder') === 'true' : false;
-      const featuredOrderEndpoint = "{{ url_for('admin.update_featured_order') }}";
-      let isDraggingCard = false;
-      const defaultImage = "{{ url_for('static', filename='images/Logo_AMPA.png') }}";
-      
-      // Apply transition delay to news cards
-      document.querySelectorAll('.news-card[data-index]').forEach((el) => {
-        const index = parseInt(el.getAttribute('data-index'), 10);
-        el.style.transitionDelay = (index * 0.08) + 's';
-      });
-      const drivePatterns = [
-        /https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\//,
-        /https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\/view/,
-        /https?:\/\/drive\.google\.com\/open\?id=([^&]+)/,
-        /https?:\/\/drive\.google\.com\/uc\?id=([^&]+)/,
-        /https?:\/\/drive\.googleusercontent\.com\/d\/([^/]+)/,
-        /https?:\/\/drive\.google\.com\/uc\?export=view&?id=([^&]+)/,
-      ];
+    .news-card.layout-right {
+      flex-direction: row-reverse;
+      align-items: stretch;
+    }
 
-      function extractDriveId(url) {
-        if (!url) return null;
-        for (const pattern of drivePatterns) {
-          const match = url.match(pattern);
-          if (match && match[1]) return match[1];
+    .news-card.layout-left .news-card-cover,
+    .news-card.layout-right .news-card-cover {
+      flex: 0 0 35%;
+      max-width: 45%;
+      min-width: 45%;
+      aspect-ratio: 4 / 3;
+    }
+
+    .news-card.layout-left .news-card-body,
+    .news-card.layout-right .news-card-body {
+      flex: 1 1 65%;
+      min-width: 0;
+    }
+  }
+
+  .news-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+  }
+
+  .news-modal.open {
+    display: flex;
+  }
+
+  .news-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+  }
+
+  .news-modal-dialog {
+    position: relative;
+    background: var(--color-panel);
+    border-radius: 16px;
+    border: 1px solid var(--color-border);
+    max-width: 1600px;
+    width: min(90vw, 1600px);
+    max-height: 90vh;
+    box-shadow: 0 30px 60px rgba(3, 7, 18, 0.6);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .news-modal-dialog.layout-left {
+    flex-direction: row;
+  }
+
+  .news-modal-dialog.layout-right {
+    flex-direction: row-reverse;
+  }
+
+  .news-modal-dialog.layout-bottom {
+    flex-direction: column-reverse;
+  }
+
+  .news-modal-dialog.layout-none .news-modal-cover {
+    display: none;
+  }
+
+  .news-modal-close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--color-text-base);
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+
+  .news-modal-cover {
+    margin: 1rem;
+    margin-bottom: 0;
+    width: auto;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+    flex: 0 0 auto;
+  }
+
+  .news-modal-dialog.layout-left .news-modal-cover,
+  .news-modal-dialog.layout-right .news-modal-cover {
+    flex: 0 0 30%;
+    max-width: 30%;
+    min-width: 30%;
+    aspect-ratio: 16 / 9;
+    margin-bottom: 1rem;
+  }
+
+  .news-modal-dialog.layout-left .news-modal-body,
+  .news-modal-dialog.layout-right .news-modal-body {
+    flex: 1 1 70%;
+    min-width: 0;
+  }
+
+  .news-modal-dialog.layout-bottom .news-modal-cover {
+    margin: 0 1rem 1rem 1rem;
+  }
+
+  .news-modal-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .news-modal-body {
+    padding: 1.25rem 1.5rem 1.5rem;
+    overflow: auto;
+    flex: 1;
+    scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.06);
+    scrollbar-width: thin;
+  }
+
+  .news-modal-meta {
+    color: var(--color-text-soft);
+    margin: 0 0 0.25rem;
+  }
+
+  .news-modal-body::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .news-modal-body::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+  }
+
+  .news-modal-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.28);
+    border-radius: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .news-modal-dialog:not(.layout-left):not(.layout-right):not(.layout-bottom):not(.layout-none) .news-modal-cover {
+    width: calc(100% - 2rem);
+    max-width: 960px;
+    max-height: 60vh;
+    height: auto;
+    margin: 1rem auto 0;
+  }
+
+  .dynamic-news.reorderable .news-card {
+    cursor: grab;
+  }
+
+  .dynamic-news.reorderable .news-card:active {
+    cursor: grabbing;
+  }
+
+  .news-card.dragging {
+    opacity: 0.65;
+    transform: scale(0.99);
+  }
+</style>
+
+<script>
+  /* eslint-disable */
+  document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('news-modal');
+    const modalImg = document.getElementById('modal-image');
+    const modalTitle = document.getElementById('modal-title');
+    const modalMeta = document.getElementById('modal-meta');
+    const modalContent = document.getElementById('modal-content');
+    const closeBtn = document.getElementById('news-modal-close');
+    const modalDialog = document.querySelector('.news-modal-dialog');
+    const newsSection = document.querySelector('[data-can-reorder]');
+    const canReorder = newsSection ? newsSection.getAttribute('data-can-reorder') === 'true' : false;
+    const featuredOrderEndpoint = "{{ url_for('admin.update_featured_order') }}";
+    let isDraggingCard = false;
+    const defaultImage = "{{ url_for('static', filename='images/Logo_AMPA.png') }}";
+
+    // Apply transition delay to news cards
+    document.querySelectorAll('.news-card[data-index]').forEach((el) => {
+      const index = parseInt(el.getAttribute('data-index'), 10);
+      el.style.transitionDelay = (index * 0.08) + 's';
+    });
+    const drivePatterns = [
+      /https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\//,
+      /https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\/view/,
+      /https?:\/\/drive\.google\.com\/open\?id=([^&]+)/,
+      /https?:\/\/drive\.google\.com\/uc\?id=([^&]+)/,
+      /https?:\/\/drive\.googleusercontent\.com\/d\/([^/]+)/,
+      /https?:\/\/drive\.google\.com\/uc\?export=view&?id=([^&]+)/,
+    ];
+
+    function extractDriveId(url) {
+      if (!url) return null;
+      for (const pattern of drivePatterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) return match[1];
+      }
+      try {
+        const parsed = new URL(url);
+        const id = parsed.searchParams.get('id');
+        if (id) return id;
+      } catch (e) {
+        // ignore parse errors
+      }
+      return null;
+    }
+
+    function normalizeDriveUrl(url) {
+      const id = extractDriveId(url);
+      if (id) return { url: `https://drive.google.com/uc?export=view&id=${id}`, id };
+      return { url: url || defaultImage, id: null };
+    }
+
+    function addDriveFallback(imgEl) {
+      imgEl?.addEventListener('error', () => {
+        const driveId = imgEl.dataset.driveId;
+        const applied = imgEl.dataset.fallbackApplied;
+        if (driveId && applied !== 'thumb') {
+          imgEl.dataset.fallbackApplied = 'thumb';
+          imgEl.src = `https://drive.google.com/thumbnail?id=${driveId}&sz=w1200`;
+          return;
         }
-        try {
-          const parsed = new URL(url);
-          const id = parsed.searchParams.get('id');
-          if (id) return id;
-        } catch (e) {
-          // ignore parse errors
+        if (driveId && applied !== 'alt') {
+          imgEl.dataset.fallbackApplied = 'alt';
+          imgEl.src = `https://lh3.googleusercontent.com/d/${driveId}=w1200`;
+          return;
         }
-        return null;
-      }
-
-      function normalizeDriveUrl(url) {
-        const id = extractDriveId(url);
-        if (id) return { url: `https://drive.google.com/uc?export=view&id=${id}`, id };
-        return { url: url || defaultImage, id: null };
-      }
-
-      function addDriveFallback(imgEl) {
-        imgEl?.addEventListener('error', () => {
-          const driveId = imgEl.dataset.driveId;
-          const applied = imgEl.dataset.fallbackApplied;
-          if (driveId && applied !== 'thumb') {
-            imgEl.dataset.fallbackApplied = 'thumb';
-            imgEl.src = `https://drive.google.com/thumbnail?id=${driveId}&sz=w1200`;
-            return;
-          }
-          if (driveId && applied !== 'alt') {
-            imgEl.dataset.fallbackApplied = 'alt';
-            imgEl.src = `https://lh3.googleusercontent.com/d/${driveId}=w1200`;
-            return;
-          }
-          imgEl.src = defaultImage;
-        });
-      }
-
-      function setImageWithFallback(imgEl, rawUrl) {
-        if (!imgEl) return;
-        const { url, id } = normalizeDriveUrl(rawUrl);
-        imgEl.dataset.driveId = id || '';
-        imgEl.dataset.fallbackApplied = '';
-        imgEl.src = url;
-      }
-
-      function setModalLayout(layout) {
-        if (!modalDialog) return;
-        const mode = layout || 'full';
-        modalDialog.classList.remove('layout-left', 'layout-right', 'layout-bottom', 'layout-none');
-        modalDialog.classList.add(`layout-${mode}`);
-        const cover = modalDialog.querySelector('.news-modal-cover');
-        if (cover) cover.style.display = mode === 'none' ? 'none' : 'block';
-      }
-
-      function openModal(data) {
-        const modalCover = data.modalcover || data.cover || defaultImage;
-        setImageWithFallback(modalImg, modalCover);
-        modalTitle.textContent = data.title || '';
-        modalMeta.textContent = `${data.category || 'General'} · ${data.date || 'Sin fecha'}`;
-        modalContent.innerHTML = data.content || '';
-        setModalLayout(data.layout);
-        modal.classList.add('open');
-        modal.setAttribute('aria-hidden', 'false');
-      }
-
-      function closeModal() {
-        modal.classList.remove('open');
-        modal.setAttribute('aria-hidden', 'true');
-      }
-
-      document.querySelectorAll('.news-open-modal, .news-item').forEach((el) => {
-        el.addEventListener('click', () => {
-          if (isDraggingCard) return;
-          const data = el.dataset;
-          openModal({
-            cover: data.cover,
-            modalcover: data.modalcover,
-            title: data.title,
-            date: data.date,
-            category: data.category,
-            layout: data.layout,
-            content: data.content ? JSON.parse(data.content) : ''
-          });
-        });
+        imgEl.src = defaultImage;
       });
+    }
 
-      addDriveFallback(modalImg);
-      document.querySelectorAll('.news-card-cover img').forEach((imgEl) => {
-        const cover = imgEl.closest('[data-cover]')?.dataset.cover || imgEl.getAttribute('src') || defaultImage;
-        addDriveFallback(imgEl);
-        setImageWithFallback(imgEl, cover);
-      });
+    function setImageWithFallback(imgEl, rawUrl) {
+      if (!imgEl) return;
+      const { url, id } = normalizeDriveUrl(rawUrl);
+      imgEl.dataset.driveId = id || '';
+      imgEl.dataset.fallbackApplied = '';
+      imgEl.src = url;
+    }
 
-      function persistFeaturedOrder(order) {
-        if (!canReorder || !featuredOrderEndpoint) return;
-        fetch(featuredOrderEndpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'same-origin',
-          body: JSON.stringify({ order }),
-        }).catch((error) => {
-          console.error('Error actualizando el orden de noticias', error);
-        });
-      }
+    function setModalLayout(layout) {
+      if (!modalDialog) return;
+      const mode = layout || 'full';
+      modalDialog.classList.remove('layout-left', 'layout-right', 'layout-bottom', 'layout-none');
+      modalDialog.classList.add(`layout-${mode}`);
+      const cover = modalDialog.querySelector('.news-modal-cover');
+      if (cover) cover.style.display = mode === 'none' ? 'none' : 'block';
+    }
 
-      function saveFeaturedOrder(grid) {
-        const order = Array.from(grid.querySelectorAll('.news-card')).map((card) => card.dataset.id);
-        persistFeaturedOrder(order);
-      }
+    function openModal(data) {
+      const modalCover = data.modalcover || data.cover || defaultImage;
+      setImageWithFallback(modalImg, modalCover);
+      modalTitle.textContent = data.title || '';
+      modalMeta.textContent = `${data.category || 'General'} · ${data.date || 'Sin fecha'}`;
+      modalContent.innerHTML = data.content || '';
+      setModalLayout(data.layout);
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+    }
 
-      function enableReorder() {
-        const grid = document.querySelector('.dynamic-news');
-        if (!grid || !canReorder) return;
-        grid.classList.add('reorderable');
-        let dragged = null;
+    function closeModal() {
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+    }
 
-        grid.querySelectorAll('.news-card').forEach((card) => {
-          card.setAttribute('draggable', 'true');
-          card.addEventListener('dragstart', (e) => {
-            dragged = card;
-            isDraggingCard = true;
-            card.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-          });
-          card.addEventListener('dragend', () => {
-            card.classList.remove('dragging');
-            setTimeout(() => { isDraggingCard = false; }, 50);
-            saveFeaturedOrder(grid);
-          });
-        });
-
-        grid.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          const target = e.target.closest('.news-card');
-          if (!dragged || !target || dragged === target) return;
-          const cards = Array.from(grid.querySelectorAll('.news-card'));
-          const draggedIndex = cards.indexOf(dragged);
-          const targetIndex = cards.indexOf(target);
-          if (draggedIndex < targetIndex) {
-            grid.insertBefore(dragged, target.nextSibling);
-          } else {
-            grid.insertBefore(dragged, target);
-          }
-        });
-      }
-
-      enableReorder();
-
-      closeBtn?.addEventListener('click', closeModal);
-      modal?.addEventListener('click', (e) => { if (e.target === modal || e.target === modal.querySelector('.news-modal-backdrop')) closeModal(); });
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
-
-      const filterButtons = document.querySelectorAll('#news-filter .news-filter-btn');
-      const items = document.querySelectorAll('.news-item');
-      filterButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const filter = btn.dataset.filter;
-          filterButtons.forEach(b => b.classList.toggle('active', b === btn));
-          items.forEach(item => {
-            const category = item.dataset.category || 'general';
-            item.style.display = (filter === 'all' || category === filter) ? '' : 'none';
-          });
+    document.querySelectorAll('.news-open-modal, .news-item').forEach((el) => {
+      el.addEventListener('click', () => {
+        if (isDraggingCard) return;
+        const data = el.dataset;
+        openModal({
+          cover: data.cover,
+          modalcover: data.modalcover,
+          title: data.title,
+          date: data.date,
+          category: data.category,
+          layout: data.layout,
+          content: data.content ? JSON.parse(data.content) : ''
         });
       });
     });
-  </script>
+
+    addDriveFallback(modalImg);
+    document.querySelectorAll('.news-card-cover img').forEach((imgEl) => {
+      const cover = imgEl.closest('[data-cover]')?.dataset.cover || imgEl.getAttribute('src') || defaultImage;
+      addDriveFallback(imgEl);
+      setImageWithFallback(imgEl, cover);
+    });
+
+    function persistFeaturedOrder(order) {
+      if (!canReorder || !featuredOrderEndpoint) return;
+      fetch(featuredOrderEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ order }),
+      }).catch((error) => {
+        console.error('Error actualizando el orden de noticias', error);
+      });
+    }
+
+    function saveFeaturedOrder(grid) {
+      const order = Array.from(grid.querySelectorAll('.news-card')).map((card) => card.dataset.id);
+      persistFeaturedOrder(order);
+    }
+
+    function enableReorder() {
+      const grid = document.querySelector('.dynamic-news');
+      if (!grid || !canReorder) return;
+      grid.classList.add('reorderable');
+      let dragged = null;
+
+      grid.querySelectorAll('.news-card').forEach((card) => {
+        card.setAttribute('draggable', 'true');
+        card.addEventListener('dragstart', (e) => {
+          dragged = card;
+          isDraggingCard = true;
+          card.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        card.addEventListener('dragend', () => {
+          card.classList.remove('dragging');
+          setTimeout(() => { isDraggingCard = false; }, 50);
+          saveFeaturedOrder(grid);
+        });
+      });
+
+      grid.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const target = e.target.closest('.news-card');
+        if (!dragged || !target || dragged === target) return;
+        const cards = Array.from(grid.querySelectorAll('.news-card'));
+        const draggedIndex = cards.indexOf(dragged);
+        const targetIndex = cards.indexOf(target);
+        if (draggedIndex < targetIndex) {
+          grid.insertBefore(dragged, target.nextSibling);
+        } else {
+          grid.insertBefore(dragged, target);
+        }
+      });
+    }
+
+    enableReorder();
+
+    closeBtn?.addEventListener('click', closeModal);
+    modal?.addEventListener('click', (e) => { if (e.target === modal || e.target === modal.querySelector('.news-modal-backdrop')) closeModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+    const filterButtons = document.querySelectorAll('#news-filter .news-filter-btn');
+    const items = document.querySelectorAll('.news-item');
+    filterButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const filter = btn.dataset.filter;
+        filterButtons.forEach(b => b.classList.toggle('active', b === btn));
+        items.forEach(item => {
+          const category = item.dataset.category || 'general';
+          item.style.display = (filter === 'all' || category === filter) ? '' : 'none';
+        });
+      });
+    });
+  });
+</script>
 {% endblock %}
