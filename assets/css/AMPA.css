@@ -368,7 +368,7 @@ footer {
   animation: fadeDown 0.4s cubic-bezier(.4, 0, .2, 1);
   background: rgba(255, 255, 255, 0.98);
   border-radius: 0 0 1rem 1rem;
-  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
 }
 
 .mobile-menu-links {
@@ -527,24 +527,22 @@ body.menu-open {
 }
 
 .hero-logo-bg {
-  width: clamp(10rem, 24vw, 15rem);
-  height: clamp(10rem, 24vw, 15rem);
+  width: clamp(10rem, 24vw, 25rem);
+  height: clamp(10rem, 24vw, 25rem);
   margin: 0 auto 1rem auto;
-  background: linear-gradient(145deg, #ffffff, #e2e8f0);
-  border: 5px solid #a8b3c3b5;
-  border-radius: 20%;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  box-shadow: 0 25px 45px rgba(0, 0, 0, 0.12);
+  /* box-shadow: 0 25px 45px rgba(0, 0, 0, 0.12); */
   aspect-ratio: 1 / 1;
 }
 
 .hero-logo-img {
   object-fit: contain;
-  width: 85%;
+  width: 100%;
   height: auto;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.32));
 }
 
 .hero-title {
@@ -701,11 +699,11 @@ body.menu-open {
 
 @media (max-width: 768px) {
   .hero-logo-floating {
-    margin-top: 5rem;
+    margin-top: 1rem;
   }
 
   .hero-logo-bg {
-    margin-top: 5rem;
+    margin-top: 1;
     width: clamp(9rem, 60vw, 13rem);
     height: clamp(9rem, 60vw, 13rem);
   }
@@ -775,6 +773,13 @@ body.menu-open {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   display: flex;
+}
+
+@media (min-width: 768px) {
+  .news-card-cover {
+    aspect-ratio: auto;
+    height: 13.5rem;
+  }
 }
 
 .news-card-cover img {
@@ -1666,7 +1671,6 @@ body.menu-open {
 }
 
 .header-fixed.scrolled {
-  background: linear-gradient(180deg, rgba(7, 17, 31, 0.98), rgba(13, 27, 43, 0.94));
   box-shadow: 0 12px 38px 0 rgba(3, 7, 18, 0.65);
 }
 
@@ -1717,9 +1721,8 @@ body.menu-open {
 
 .mobile-menu {
   animation: fadeDown 0.4s cubic-bezier(.4, 0, .2, 1);
-  background: linear-gradient(180deg, rgba(7, 17, 31, 0.96), rgba(13, 27, 43, 0.93));
   border-radius: 0 0 1rem 1rem;
-  box-shadow: 0 16px 45px 0 rgba(3, 7, 18, 0.55);
+  box-shadow: none;
 }
 
 @keyframes fadeDown {
