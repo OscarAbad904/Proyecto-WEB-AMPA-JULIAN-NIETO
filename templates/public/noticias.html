@@ -101,7 +101,6 @@
   .news-card-cover {
     width: 100%;
     aspect-ratio: 4 / 3;
-    max-height: 220px;
     border-radius: 0.8rem;
     background: linear-gradient(145deg, rgba(150, 164, 178, 0.3), rgba(7, 17, 31, 0.95));
     margin: 0;
@@ -110,6 +109,7 @@
     overflow: hidden;
     display: flex;
     flex: 0 0 auto;
+    min-height: 11rem;
   }
 
   .news-card-cover img {
@@ -117,6 +117,13 @@
     height: 100%;
     object-fit: cover;
     display: block;
+  }
+
+  @media (min-width: 1024px) {
+    .news-card-cover {
+      aspect-ratio: auto;
+      height: 15rem;
+    }
   }
 
   .news-card-body {
@@ -279,6 +286,34 @@
     background: rgba(255, 255, 255, 0.28);
     border-radius: 12px;
     border: 2px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* En móvil vertical, siempre apilar con la imagen arriba */
+  @media (max-width: 640px) and (orientation: portrait) {
+    .news-modal-dialog,
+    .news-modal-dialog.layout-left,
+    .news-modal-dialog.layout-right,
+    .news-modal-dialog.layout-bottom {
+      flex-direction: column;
+    }
+
+    .news-modal-dialog.layout-left .news-modal-cover,
+    .news-modal-dialog.layout-right .news-modal-cover,
+    .news-modal-dialog.layout-bottom .news-modal-cover {
+      flex: 0 0 auto;
+      max-width: none;
+      min-width: 0;
+    }
+
+    .news-modal-cover {
+      align-self: stretch;
+      margin: 0.75rem 0.75rem 0.5rem 0.75rem;
+      aspect-ratio: 16 / 9;
+    }
+
+    .news-modal-body {
+      padding: 0.75rem 1rem 1.25rem;
+    }
   }
 
   .news-modal-dialog:not(.layout-left):not(.layout-right):not(.layout-bottom):not(.layout-none) .news-modal-cover {
