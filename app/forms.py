@@ -190,3 +190,64 @@ class EventForm(FlaskForm):
         default="draft",
     )
     submit = SubmitField("Guardar evento")
+
+
+class CommissionForm(FlaskForm):
+    name = StringField("Nombre de la comision", validators=[DataRequired(), Length(max=255)])
+    description = TextAreaField("Descripcion y objetivos", validators=[Optional()])
+    is_active = BooleanField("Comision activa", default=True)
+    submit = SubmitField("Guardar comision")
+
+
+class CommissionMemberForm(FlaskForm):
+    user_id = SelectField("Seleccionar socio", coerce=int, validators=[DataRequired()])
+    role = SelectField(
+        "Rol en la comision",
+        choices=[
+            ("coordinador", "Coordinador"),
+            ("vocal", "Vocal"),
+            ("miembro", "Miembro"),
+        ],
+        validators=[DataRequired()],
+    )
+    is_active = BooleanField("Activo", default=True)
+    submit = SubmitField("Guardar miembro")
+
+
+class CommissionProjectForm(FlaskForm):
+    title = StringField("Titulo del proyecto", validators=[DataRequired(), Length(max=255)])
+    description = TextAreaField("Descripcion", validators=[Optional()])
+    status = SelectField(
+        "Estado",
+        choices=[
+            ("pendiente", "Pendiente"),
+            ("en_progreso", "En progreso"),
+            ("completado", "Completado"),
+            ("en_pausa", "En pausa"),
+        ],
+        default="pendiente",
+    )
+    start_date = DateField("Fecha de inicio", format="%Y-%m-%d", validators=[Optional()])
+    end_date = DateField("Fecha de fin", format="%Y-%m-%d", validators=[Optional()])
+    responsible_id = SelectField("Responsable principal", coerce=int, validators=[Optional()])
+    submit = SubmitField("Guardar proyecto")
+
+
+class CommissionMeetingForm(FlaskForm):
+    title = StringField("Titulo de la reunion", validators=[DataRequired(), Length(max=255)])
+    description = TextAreaField("Descripcion / agenda", validators=[Optional()])
+    start_at = StringField(
+        "Inicio",
+        validators=[DataRequired()],
+        render_kw={"type": "datetime-local"},
+    )
+    end_at = StringField(
+        "Fin",
+        validators=[DataRequired()],
+        render_kw={"type": "datetime-local"},
+    )
+    location = StringField("Ubicacion", validators=[Optional(), Length(max=255)])
+    minutes_document_id = SelectField(
+        "Acta vinculada (opcional)", coerce=int, validators=[Optional()], choices=[]
+    )
+    submit = SubmitField("Guardar reunion")

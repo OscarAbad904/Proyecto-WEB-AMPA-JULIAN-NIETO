@@ -62,10 +62,30 @@ def register_context(app: Flask) -> None:
     def inject_globals():
         from flask_login import current_user
         can_manage_members = user_is_privileged(current_user)
+        can_manage_posts = current_user.is_authenticated and current_user.has_permission("manage_posts")
+        can_manage_events = current_user.is_authenticated and current_user.has_permission("manage_events")
+        can_view_commissions = (
+            current_user.is_authenticated and current_user.has_permission("view_commissions")
+        )
+        can_manage_commissions = (
+            current_user.is_authenticated and current_user.has_permission("manage_commissions")
+        )
+        can_manage_permissions = (
+            current_user.is_authenticated
+            and (
+                current_user.has_permission("manage_permissions")
+                or user_is_privileged(current_user)
+            )
+        )
         return {
             "current_year": datetime.utcnow().year,
             "header_login_form": LoginForm(),
             "can_manage_members": can_manage_members,
+            "can_manage_posts": can_manage_posts,
+            "can_manage_events": can_manage_events,
+            "can_view_commissions": can_view_commissions,
+            "can_manage_commissions": can_manage_commissions,
+            "can_manage_permissions": can_manage_permissions,
         }
 
 

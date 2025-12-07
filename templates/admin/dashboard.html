@@ -14,6 +14,13 @@
         <h3>Contenidos</h3>
         <p>Noticias, eventos y sugerencias</p>
       </div>
+      {% if can_manage_commissions %}
+      <div class="card">
+        <h3>Comisiones del AMPA</h3>
+        <p>Gestiona comisiones, miembros y reuniones</p>
+        <a class="btn-link" href="{{ url_for('admin.commissions_index') }}">Ir a comisiones</a>
+      </div>
+      {% endif %}
     </div>
   </section>
 {% endblock %}

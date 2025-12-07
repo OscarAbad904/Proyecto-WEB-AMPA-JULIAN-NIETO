@@ -1,6 +1,8 @@
 :root {
   --header-height: 7rem;
   /* altura aproximada del header sticky */
+  --page-top-overlap: 1rem;
+  /* solapa el main bajo el header para que los fondos se toquen */
   --footer-min-height: 18rem;
   /* altura minima del footer */
   /* Colores claros con buen contraste */
@@ -47,6 +49,8 @@ main.page-content {
   /* ocupa el espacio disponible entre header y footer */
   display: flex;
   flex-direction: column;
+  margin-top: calc(-1 * var(--page-top-overlap));
+  padding-top: var(--page-top-overlap);
   min-height: 0;
   /* permite que los hijos flex ajusten su altura sin forzar scroll extra */
 }
@@ -279,25 +283,22 @@ footer {
 .logo-bg {
   width: 5rem;
   height: 5rem;
-  background: linear-gradient(145deg, #f8fafc, #e2e8f0);
-  border: 3px solid #6a798eb5;
-  border-radius: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
   transition: box-shadow var(--transition-fast);
 }
 
 .logo-bg:hover {
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.32));
 }
 
 .logo-img {
   object-fit: contain;
   width: 4rem;
   height: 4rem;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.32));
 }
 
 .header-title {
@@ -529,7 +530,7 @@ body.menu-open {
 .hero-logo-bg {
   width: clamp(10rem, 24vw, 25rem);
   height: clamp(10rem, 24vw, 25rem);
-  margin: 0 auto 1rem auto;
+  margin: auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -540,8 +541,8 @@ body.menu-open {
 
 .hero-logo-img {
   object-fit: contain;
-  width: 100%;
-  height: auto;
+  width: 90%;
+  height: 90%;
   filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.32));
 }
 
@@ -698,9 +699,6 @@ body.menu-open {
 }
 
 @media (max-width: 768px) {
-  .hero-logo-floating {
-    margin-top: 1rem;
-  }
 
   .hero-logo-bg {
     margin-top: 1;
@@ -723,7 +721,7 @@ body.menu-open {
 
 /* SECCION NOTICIAS */
 .news-section {
-  width: min(1100px, 94vw);
+  width: min(90%, 82vw);
   margin-inline: auto;
   padding: 3.5rem 0 2.75rem;
 }
@@ -1604,14 +1602,11 @@ body.menu-open {
 .footer-logo-bg {
   width: 5rem;
   height: 5rem;
-  background: linear-gradient(145deg, #ffffff, #e2e8f0);
-  border: 3px solid #6a798eb5;
   border-radius: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
 }
 
 .footer-logo-text {
@@ -1752,12 +1747,11 @@ body.menu-open {
 
 /* Sombra sutil al pasar el mouse por el header-logo */
 .logo-bg {
-  box-shadow: 0 4px 18px 0 rgba(3, 7, 18, 0.45);
   transition: box-shadow 0.2s;
 }
 
 .logo-bg:hover {
-  box-shadow: 0 10px 30px 0 rgba(3, 7, 18, 0.6);
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.32));
 }
 
 /* Animacion de entrada para el header */
@@ -2050,6 +2044,7 @@ section {
   width: 4rem;
   height: 4rem;
   object-fit: contain;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.32));
 }
 
 .footer-logo-title-group {

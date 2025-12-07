@@ -4,17 +4,51 @@ from datetime import datetime, timedelta
 import secrets
 
 from app.extensions import db
-from app.models import User, Role, Membership, Suggestion, Comment, Vote, user_is_privileged
+from app.models import (
+    User,
+    Role,
+    Membership,
+    Suggestion,
+    Comment,
+    Vote,
+    Document,
+    Commission,
+    CommissionMembership,
+    CommissionProject,
+    CommissionMeeting,
+    user_is_privileged,
+)
 from app.forms import (
-    LoginForm, RegisterForm, NewMemberForm, RecoverForm, ResetPasswordForm,
-    SuggestionForm, CommentForm, VoteForm
+    LoginForm,
+    RegisterForm,
+    NewMemberForm,
+    RecoverForm,
+    ResetPasswordForm,
+    SuggestionForm,
+    CommentForm,
+    VoteForm,
+    CommissionMemberForm,
+    CommissionProjectForm,
+    CommissionMeetingForm,
 )
 from app.utils import (
     make_lookup_hash, generate_confirmation_token, _generate_password,
-    _generate_member_number, _send_sms_code
+    _generate_member_number, _send_sms_code, _parse_datetime_local
 )
 
 members_bp = Blueprint("members", __name__, template_folder="../../templates/members")
+
+
+def _get_commission_and_membership(slug: str):
+    commission = Commission.query.filter_by(slug=slug).first_or_404()
+    membership = CommissionMembership.query.filter_by(
+        commission_id=commission.id, user_id=current_user.id, is_active=True
+    ).first()
+    return commission, membership
+
+
+def _user_is_commission_coordinator(membership: CommissionMembership | None) -> bool:
+    return bool(membership and membership.role == "coordinador")
 
 
 @members_bp.route("/login", methods=["GET", "POST"])
@@ -290,3 +324,263 @@ def votar_sugerencia(suggestion_id: int):
         db.session.commit()
         flash("Voto registrado", "success")
     return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion_id))
+
+
+@members_bp.route("/comisiones")
+@login_required
+def commissions():
+    scope = request.args.get("scope", "mis")
+    can_view_all = current_user.has_permission("view_commissions")
+    member_memberships = (
+        CommissionMembership.query.filter_by(user_id=current_user.id, is_active=True)
+        .join(Commission)
+        .filter(Commission.is_active.is_(True))
+        .all()
+    )
+    memberships_map = {m.commission_id: m for m in member_memberships}
+
+    if not can_view_all and not memberships_map:
+        abort(403)
+
+    if scope == "todas" and not can_view_all:
+        scope = "mis"
+
+    query = Commission.query.filter_by(is_active=True)
+    if scope != "todas" or not can_view_all:
+        commission_ids = list(memberships_map.keys())
+        query = query.filter(Commission.id.in_(commission_ids)) if commission_ids else query.filter(Commission.id == -1)
+
+    commissions = query.order_by(Commission.name.asc()).all()
+
+    return render_template(
+        "members/comisiones.html",
+        commissions=commissions,
+        memberships=memberships_map,
+        scope=scope,
+        can_view_all=can_view_all,
+    )
+
+
+@members_bp.route("/comisiones/<slug>")
+@login_required
+def commission_detail(slug: str):
+    commission, membership = _get_commission_and_membership(slug)
+    can_view_commission = bool(membership) or current_user.has_permission("view_commissions") or user_is_privileged(current_user)
+    if not can_view_commission:
+        abort(403)
+
+    members = (
+        commission.memberships.filter_by(is_active=True)
+        .order_by(CommissionMembership.role.asc())
+        .all()
+    )
+    projects = commission.projects.order_by(CommissionProject.created_at.desc()).all()
+    now_dt = datetime.utcnow()
+    upcoming_meetings = (
+        commission.meetings.filter(CommissionMeeting.end_at >= now_dt)
+        .order_by(CommissionMeeting.start_at.asc())
+        .all()
+    )
+    past_meetings = (
+        commission.meetings.filter(CommissionMeeting.end_at < now_dt)
+        .order_by(CommissionMeeting.start_at.desc())
+        .all()
+    )
+
+    is_coordinator = bool(membership and membership.role == "coordinador")
+    can_manage_members = current_user.has_permission("manage_commission_members") and (
+        is_coordinator or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+    )
+    can_manage_projects = current_user.has_permission("manage_commission_projects") and (
+        is_coordinator or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+    )
+    can_manage_meetings = current_user.has_permission("manage_commission_meetings") and (
+        is_coordinator or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+    )
+    can_edit_commission = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+
+    return render_template(
+        "members/comision_detalle.html",
+        commission=commission,
+        membership=membership,
+        members=members,
+        projects=projects,
+        upcoming_meetings=upcoming_meetings,
+        past_meetings=past_meetings,
+        is_coordinator=is_coordinator,
+        can_manage_members=can_manage_members,
+        can_manage_projects=can_manage_projects,
+        can_manage_meetings=can_manage_meetings,
+        can_edit_commission=can_edit_commission,
+    )
+
+
+@members_bp.route("/comisiones/<slug>/miembros/nuevo", methods=["GET", "POST"])
+@login_required
+def commission_member_new(slug: str):
+    commission, membership = _get_commission_and_membership(slug)
+    is_coord = _user_is_commission_coordinator(membership)
+    if not (current_user.has_permission("manage_commission_members") and (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user))):
+        abort(403)
+
+    form = CommissionMemberForm()
+    form.user_id.choices = [(u.id, u.username) for u in User.query.filter_by(is_active=True).order_by(User.username.asc())]
+
+    if form.validate_on_submit():
+        existing = CommissionMembership.query.filter_by(
+            commission_id=commission.id, user_id=form.user_id.data
+        ).first()
+        if existing:
+            existing.role = form.role.data
+            existing.is_active = form.is_active.data
+        else:
+            membership_obj = CommissionMembership(
+                commission_id=commission.id,
+                user_id=form.user_id.data,
+                role=form.role.data,
+                is_active=form.is_active.data,
+            )
+            db.session.add(membership_obj)
+        db.session.commit()
+        flash("Miembro guardado en la comisión", "success")
+        return redirect(url_for("members.commission_detail", slug=slug))
+
+    return render_template("members/comision_miembro_form.html", form=form, commission=commission)
+
+
+@members_bp.route("/comisiones/<slug>/miembros/<int:membership_id>/desactivar", methods=["POST"])
+@login_required
+def commission_member_disable(slug: str, membership_id: int):
+    commission, membership = _get_commission_and_membership(slug)
+    is_coord = _user_is_commission_coordinator(membership)
+    if not (current_user.has_permission("manage_commission_members") and (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user))):
+        abort(403)
+
+    target = CommissionMembership.query.filter_by(id=membership_id, commission_id=commission.id).first_or_404()
+    target.is_active = False
+    db.session.commit()
+    flash("Miembro desactivado", "info")
+    return redirect(url_for("members.commission_detail", slug=slug))
+
+
+@members_bp.route("/comisiones/<slug>/proyectos/nuevo", methods=["GET", "POST"])
+@members_bp.route("/comisiones/<slug>/proyectos/<int:project_id>/editar", methods=["GET", "POST"])
+@login_required
+def commission_project_form(slug: str, project_id: int | None = None):
+    commission, membership = _get_commission_and_membership(slug)
+    is_coord = _user_is_commission_coordinator(membership)
+    if not (current_user.has_permission("manage_commission_projects") and (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user))):
+        abort(403)
+
+    project = CommissionProject.query.filter_by(id=project_id, commission_id=commission.id).first() if project_id else None
+    form = CommissionProjectForm(obj=project)
+    user_choices = [(u.id, u.username) for u in User.query.filter_by(is_active=True).order_by(User.username.asc())]
+    form.responsible_id.choices = [(0, "Sin responsable")] + user_choices
+
+    if form.validate_on_submit():
+        responsible_id = form.responsible_id.data or None
+        if responsible_id == 0:
+            responsible_id = None
+        if project:
+            project.title = form.title.data
+            project.description_html = form.description.data
+            project.status = form.status.data
+            project.start_date = form.start_date.data
+            project.end_date = form.end_date.data
+            project.responsible_id = responsible_id
+        else:
+            project = CommissionProject(
+                commission_id=commission.id,
+                title=form.title.data,
+                description_html=form.description.data,
+                status=form.status.data,
+                start_date=form.start_date.data,
+                end_date=form.end_date.data,
+                responsible_id=responsible_id,
+            )
+            db.session.add(project)
+        db.session.commit()
+        flash("Proyecto guardado", "success")
+        return redirect(url_for("members.commission_detail", slug=slug))
+
+    if request.method == "GET" and project:
+        form.responsible_id.data = project.responsible_id or 0
+
+    return render_template(
+        "members/comision_proyecto_form.html",
+        form=form,
+        commission=commission,
+        project=project,
+    )
+
+
+@members_bp.route("/comisiones/<slug>/reuniones/nueva", methods=["GET", "POST"])
+@members_bp.route("/comisiones/<slug>/reuniones/<int:meeting_id>/editar", methods=["GET", "POST"])
+@login_required
+def commission_meeting_form(slug: str, meeting_id: int | None = None):
+    commission, membership = _get_commission_and_membership(slug)
+    is_coord = _user_is_commission_coordinator(membership)
+    if not (current_user.has_permission("manage_commission_meetings") and (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user))):
+        abort(403)
+
+    meeting = CommissionMeeting.query.filter_by(id=meeting_id, commission_id=commission.id).first() if meeting_id else None
+    form = CommissionMeetingForm(obj=meeting)
+    document_choices = [(0, "Sin acta")] + [
+        (doc.id, doc.title or f"Documento {doc.id}") for doc in Document.query.order_by(Document.created_at.desc()).all()
+    ]
+    form.minutes_document_id.choices = document_choices
+
+    if form.validate_on_submit():
+        start_at = _parse_datetime_local(form.start_at.data)
+        end_at = _parse_datetime_local(form.end_at.data)
+        if not start_at or not end_at or end_at <= start_at:
+            flash("Fechas de inicio y fin deben ser válidas y fin posterior a inicio.", "warning")
+            return render_template(
+                "members/comision_reunion_form.html",
+                form=form,
+                commission=commission,
+                meeting=meeting,
+            )
+        minutes_document_id = form.minutes_document_id.data or None
+        if minutes_document_id == 0:
+            minutes_document_id = None
+
+        if meeting:
+            meeting.title = form.title.data
+            meeting.description_html = form.description.data
+            meeting.start_at = start_at
+            meeting.end_at = end_at
+            meeting.location = form.location.data
+            meeting.minutes_document_id = minutes_document_id
+        else:
+            meeting = CommissionMeeting(
+                commission_id=commission.id,
+                title=form.title.data,
+                description_html=form.description.data,
+                start_at=start_at,
+                end_at=end_at,
+                location=form.location.data,
+                minutes_document_id=minutes_document_id,
+            )
+            db.session.add(meeting)
+        db.session.commit()
+        flash("Reunión guardada", "success")
+        return redirect(url_for("members.commission_detail", slug=slug))
+
+    if request.method == "GET" and meeting:
+        form.minutes_document_id.data = meeting.minutes_document_id or 0
+        form.start_at.data = meeting.start_at.strftime("%Y-%m-%dT%H:%M")
+        form.end_at.data = meeting.end_at.strftime("%Y-%m-%dT%H:%M")
+
+    return render_template(
+        "members/comision_reunion_form.html",
+        form=form,
+        commission=commission,
+        meeting=meeting,
+    )
+
+
+@members_bp.route("/calendario")
+@login_required
+def calendar():
+    return render_template("members/calendario.html")

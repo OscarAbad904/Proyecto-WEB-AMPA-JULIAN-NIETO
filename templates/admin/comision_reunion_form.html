@@ -1,0 +1,52 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Reunión | {{ commission.name }}{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+{% endblock %}
+
+{% block content %}
+<section class="admin-wrapper">
+  <div class="admin-header">
+    <p class="admin-kicker">Comisiones · Administración</p>
+    <h1 class="admin-title">{{ meeting.title if meeting else "Nueva reunión" }}</h1>
+    <p class="admin-subtitle">Programa horarios, ubicación y documentación clave para {{ commission.name }}.</p>
+  </div>
+  <div class="admin-card">
+    <form method="post" class="admin-form">
+      {{ form.hidden_tag() }}
+      <div class="field">
+        {{ form.title.label }}
+        {{ form.title(placeholder="Título de la reunión") }}
+      </div>
+      <div class="field">
+        {{ form.description.label }}
+        {{ form.description(rows="4", placeholder="Temas a tratar y objetivos") }}
+      </div>
+      <div class="field-row">
+        <div class="field">
+          {{ form.start_at.label }}
+          {{ form.start_at() }}
+        </div>
+        <div class="field">
+          {{ form.end_at.label }}
+          {{ form.end_at() }}
+        </div>
+      </div>
+      <div class="field">
+        {{ form.location.label }}
+        {{ form.location(placeholder="Sala, enlace o ubicación") }}
+      </div>
+      <div class="field">
+        {{ form.minutes_document_id.label }}
+        {{ form.minutes_document_id(placeholder="ID de Drive o enlace a acta") }}
+      </div>
+      <div class="admin-actions">
+        {{ form.submit(class="btn-primary") }}
+        <a class="btn-link" href="{{ url_for('admin.commissions_index') }}">Volver</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

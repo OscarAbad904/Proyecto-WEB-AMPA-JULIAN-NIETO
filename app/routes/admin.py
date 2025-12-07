@@ -4,9 +4,32 @@ from datetime import datetime
 import re
 
 from app.extensions import db, csrf
-from app.models import Post, Event, user_is_privileged, _generate_unique_event_slug
-from app.forms import PostForm, EventForm, EVENT_CATEGORY_LABELS
-from app.utils import slugify, _normalize_drive_url, _parse_datetime_local
+from app.models import (
+    Post,
+    Event,
+    User,
+    Document,
+    Commission,
+    CommissionMembership,
+    CommissionProject,
+    CommissionMeeting,
+    Role,
+    Permission,
+    RolePermission,
+    user_is_privileged,
+    _generate_unique_event_slug,
+    _generate_unique_commission_slug,
+)
+from app.forms import (
+    PostForm,
+    EventForm,
+    CommissionForm,
+    CommissionMemberForm,
+    CommissionProjectForm,
+    CommissionMeetingForm,
+    EVENT_CATEGORY_LABELS,
+)
+from app.utils import slugify, _normalize_drive_url, _parse_datetime_local, make_lookup_hash
 from app.media_utils import upload_news_image_variants, delete_news_images
 
 admin_bp = Blueprint("admin", __name__, template_folder="../../templates/admin")
@@ -21,7 +44,7 @@ def dashboard_admin():
 @admin_bp.route("/posts", methods=["GET", "POST"])
 @login_required
 def posts():
-    if not user_is_privileged(current_user):
+    if not current_user.has_permission("manage_posts"):
         abort(403)
 
     form = PostForm()
@@ -162,7 +185,7 @@ def posts():
 @csrf.exempt
 @login_required
 def update_featured_order():
-    if not user_is_privileged(current_user):
+    if not current_user.has_permission("manage_posts"):
         abort(403)
 
     payload = request.get_json(silent=True) or {}
@@ -206,7 +229,7 @@ def update_featured_order():
 @admin_bp.route("/posts/<int:post_id>/delete", methods=["POST"])
 @login_required
 def delete_post(post_id: int):
-    if not user_is_privileged(current_user):
+    if not current_user.has_permission("manage_posts"):
         abort(403)
     post = Post.query.get_or_404(post_id)
     
@@ -226,7 +249,7 @@ def delete_post(post_id: int):
 @admin_bp.route("/eventos", methods=["GET", "POST"])
 @login_required
 def admin_eventos():
-    if not user_is_privileged(current_user):
+    if not current_user.has_permission("manage_events"):
         abort(403)
 
     form = EventForm()
@@ -272,6 +295,360 @@ def admin_eventos():
         form=form,
         events=events,
         category_labels=EVENT_CATEGORY_LABELS,
+    )
+
+
+@admin_bp.route("/comisiones")
+@login_required
+def commissions_index():
+    if not (current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
+        abort(403)
+
+    commissions = Commission.query.order_by(Commission.created_at.desc()).all()
+    stats = {}
+    now_dt = datetime.utcnow()
+    for commission in commissions:
+        stats[commission.id] = {
+            "miembros": commission.memberships.filter_by(is_active=True).count(),
+            "proyectos": commission.projects.count(),
+            "proximas_reuniones": commission.meetings.filter(CommissionMeeting.start_at >= now_dt).count(),
+        }
+
+    return render_template("admin/comisiones.html", commissions=commissions, stats=stats)
+
+
+@admin_bp.route("/comisiones/nueva", methods=["GET", "POST"])
+@admin_bp.route("/comisiones/<int:commission_id>/editar", methods=["GET", "POST"])
+@login_required
+def commission_edit(commission_id: int | None = None):
+    if not (current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
+        abort(403)
+
+    commission = Commission.query.get_or_404(commission_id) if commission_id else None
+    form = CommissionForm(obj=commission)
+    if request.method == "GET" and commission:
+        form.description.data = commission.description_html
+        form.is_active.data = commission.is_active
+
+    if form.validate_on_submit():
+        if commission:
+            commission.name = form.name.data.strip()
+            commission.description_html = form.description.data
+            commission.is_active = bool(form.is_active.data)
+            if not commission.slug:
+                commission.slug = _generate_unique_commission_slug(commission.name)
+        else:
+            commission = Commission(
+                name=form.name.data.strip(),
+                slug=_generate_unique_commission_slug(form.name.data),
+                description_html=form.description.data,
+                is_active=bool(form.is_active.data),
+            )
+            db.session.add(commission)
+        db.session.commit()
+        flash("Comisión guardada correctamente.", "success")
+        return redirect(url_for("admin.commissions_index"))
+
+    return render_template("admin/comision_form.html", form=form, commission=commission)
+
+
+@admin_bp.route("/comisiones/<int:commission_id>/miembros", methods=["GET", "POST"])
+@login_required
+def commission_members(commission_id: int):
+    if not (current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
+        abort(403)
+    commission = Commission.query.get_or_404(commission_id)
+    form = CommissionMemberForm()
+    form.user_id.choices = [(u.id, u.username) for u in User.query.filter_by(is_active=True).order_by(User.username.asc())]
+    members = commission.memberships.order_by(CommissionMembership.created_at.desc()).all()
+
+    if form.validate_on_submit():
+        existing = CommissionMembership.query.filter_by(
+            commission_id=commission.id, user_id=form.user_id.data
+        ).first()
+        if existing:
+            existing.role = form.role.data
+            existing.is_active = form.is_active.data
+        else:
+            db.session.add(
+                CommissionMembership(
+                    commission_id=commission.id,
+                    user_id=form.user_id.data,
+                    role=form.role.data,
+                    is_active=form.is_active.data,
+                )
+            )
+        db.session.commit()
+        flash("Miembro actualizado", "success")
+        return redirect(url_for("admin.commission_members", commission_id=commission.id))
+
+    return render_template(
+        "admin/comision_miembros.html",
+        commission=commission,
+        members=members,
+        form=form,
+    )
+
+
+@admin_bp.route("/comisiones/<int:commission_id>/miembros/<int:membership_id>/desactivar", methods=["POST"])
+@login_required
+def commission_member_disable_admin(commission_id: int, membership_id: int):
+    if not (current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
+        abort(403)
+    membership = CommissionMembership.query.filter_by(id=membership_id, commission_id=commission_id).first_or_404()
+    membership.is_active = False
+    db.session.commit()
+    flash("Miembro desactivado", "info")
+    return redirect(url_for("admin.commission_members", commission_id=commission_id))
+
+
+@admin_bp.route("/comisiones/<int:commission_id>/proyectos/nuevo", methods=["GET", "POST"])
+@admin_bp.route("/comisiones/<int:commission_id>/proyectos/<int:project_id>/editar", methods=["GET", "POST"])
+@login_required
+def commission_project_edit(commission_id: int, project_id: int | None = None):
+    if not (current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
+        abort(403)
+    commission = Commission.query.get_or_404(commission_id)
+    project = CommissionProject.query.filter_by(id=project_id, commission_id=commission.id).first() if project_id else None
+    form = CommissionProjectForm(obj=project)
+    user_choices = [(u.id, u.username) for u in User.query.filter_by(is_active=True).order_by(User.username.asc())]
+    form.responsible_id.choices = [(0, "Sin responsable")] + user_choices
+
+    if form.validate_on_submit():
+        responsible_id = form.responsible_id.data or None
+        if responsible_id == 0:
+            responsible_id = None
+        if project:
+            project.title = form.title.data
+            project.description_html = form.description.data
+            project.status = form.status.data
+            project.start_date = form.start_date.data
+            project.end_date = form.end_date.data
+            project.responsible_id = responsible_id
+        else:
+            project = CommissionProject(
+                commission_id=commission.id,
+                title=form.title.data,
+                description_html=form.description.data,
+                status=form.status.data,
+                start_date=form.start_date.data,
+                end_date=form.end_date.data,
+                responsible_id=responsible_id,
+            )
+            db.session.add(project)
+        db.session.commit()
+        flash("Proyecto guardado", "success")
+        return redirect(url_for("admin.commissions_index"))
+
+    if request.method == "GET" and project:
+        form.responsible_id.data = project.responsible_id or 0
+
+    return render_template(
+        "admin/comision_proyecto_form.html",
+        form=form,
+        commission=commission,
+        project=project,
+    )
+
+
+@admin_bp.route("/comisiones/<int:commission_id>/reuniones/nueva", methods=["GET", "POST"])
+@admin_bp.route("/comisiones/<int:commission_id>/reuniones/<int:meeting_id>/editar", methods=["GET", "POST"])
+@login_required
+def commission_meeting_edit(commission_id: int, meeting_id: int | None = None):
+    if not (current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
+        abort(403)
+    commission = Commission.query.get_or_404(commission_id)
+    meeting = CommissionMeeting.query.filter_by(id=meeting_id, commission_id=commission.id).first() if meeting_id else None
+    form = CommissionMeetingForm(obj=meeting)
+    document_choices = [(0, "Sin acta")] + [
+        (doc.id, doc.title or f"Documento {doc.id}") for doc in Document.query.order_by(Document.created_at.desc()).all()
+    ]
+    form.minutes_document_id.choices = document_choices
+
+    if form.validate_on_submit():
+        start_at = _parse_datetime_local(form.start_at.data)
+        end_at = _parse_datetime_local(form.end_at.data)
+        if not start_at or not end_at or end_at <= start_at:
+            flash("Revisa las fechas de inicio y fin", "warning")
+            return render_template(
+                "admin/comision_reunion_form.html",
+                form=form,
+                commission=commission,
+                meeting=meeting,
+            )
+        minutes_document_id = form.minutes_document_id.data or None
+        if minutes_document_id == 0:
+            minutes_document_id = None
+        if meeting:
+            meeting.title = form.title.data
+            meeting.description_html = form.description.data
+            meeting.start_at = start_at
+            meeting.end_at = end_at
+            meeting.location = form.location.data
+            meeting.minutes_document_id = minutes_document_id
+        else:
+            meeting = CommissionMeeting(
+                commission_id=commission.id,
+                title=form.title.data,
+                description_html=form.description.data,
+                start_at=start_at,
+                end_at=end_at,
+                location=form.location.data,
+                minutes_document_id=minutes_document_id,
+            )
+            db.session.add(meeting)
+        db.session.commit()
+        flash("Reunion guardada", "success")
+        return redirect(url_for("admin.commissions_index"))
+
+    if request.method == "GET" and meeting:
+        form.minutes_document_id.data = meeting.minutes_document_id or 0
+        form.start_at.data = meeting.start_at.strftime("%Y-%m-%dT%H:%M")
+        form.end_at.data = meeting.end_at.strftime("%Y-%m-%dT%H:%M")
+
+    return render_template(
+        "admin/comision_reunion_form.html",
+        form=form,
+        commission=commission,
+        meeting=meeting,
+    )
+
+
+@admin_bp.route("/permisos", methods=["GET", "POST"])
+@login_required
+def permissions():
+    if not (current_user.has_permission("manage_permissions") or user_is_privileged(current_user)):
+        abort(403)
+
+    default_roles = [
+        "Admin",
+        "Presidencia",
+        "Vicepresidencia",
+        "Secretaría",
+        "Vicesecretaría",
+        "Tesorería",
+        "Vicetesorería",
+        "Vocal",
+        "Socio",
+    ]
+    # Aseguramos que los roles básicos existen para poder asignar permisos
+    created_roles = 0
+    for role_name in default_roles:
+        lookup = make_lookup_hash(role_name)
+        if not Role.query.filter_by(name_lookup=lookup).first():
+            db.session.add(Role(name=role_name))
+            created_roles += 1
+    if created_roles:
+        db.session.commit()
+
+    roles = Role.query.order_by(Role.name_lookup.asc()).all()
+    permissions_list = Permission.query.order_by(Permission.key.asc()).all()
+    existing = {(rp.role_id, rp.permission_id): rp.allowed for rp in RolePermission.query.all()}
+
+    # UI metadata to group and label permissions
+    permission_meta = {
+        "manage_posts": {
+            "label": "Gestionar noticias",
+            "description": "Crear, editar, publicar o eliminar noticias del tablón.",
+            "section": "Noticias",
+        },
+        "manage_events": {
+            "label": "Gestionar eventos",
+            "description": "Crear, editar y programar eventos del calendario interno.",
+            "section": "Eventos",
+        },
+        "view_commissions": {
+            "label": "Ver comisiones",
+            "description": "Acceder al listado y ficha de comisiones.",
+            "section": "Comisiones",
+        },
+        "manage_commissions": {
+            "label": "Crear/editar comisiones",
+            "description": "Crear o editar comisiones desde el panel de administración.",
+            "section": "Comisiones",
+        },
+        "manage_commission_members": {
+            "label": "Gestionar miembros",
+            "description": "Añadir o desactivar miembros de una comisión.",
+            "section": "Comisiones",
+        },
+        "manage_commission_projects": {
+            "label": "Gestionar proyectos",
+            "description": "Crear y actualizar proyectos asociados a una comisión.",
+            "section": "Comisiones",
+        },
+        "manage_commission_meetings": {
+            "label": "Gestionar reuniones",
+            "description": "Crear y actualizar reuniones de comisión.",
+            "section": "Comisiones",
+        },
+        "manage_permissions": {
+            "label": "Gestionar permisos",
+            "description": "Administrar permisos por rol.",
+            "section": "Sistema",
+        },
+        "view_all_commission_calendar": {
+            "label": "Ver todas las reuniones",
+            "description": "Acceso a reuniones de cualquier comisión en el calendario interno.",
+            "section": "Comisiones",
+        },
+    }
+
+    sections_order = ["Noticias", "Eventos", "Comisiones", "Sistema", "Otros"]
+    grouped_permissions: list[tuple[str, list[dict]]] = []
+    section_map: dict[str, list[dict]] = {}
+
+    for perm in permissions_list:
+        meta = permission_meta.get(perm.key, {})
+        if meta.get("section"):
+            section = meta["section"]
+        elif perm.key.startswith(("manage_post", "view_post")):
+            section = "Noticias"
+        elif perm.key.startswith(("manage_event", "view_event")):
+            section = "Eventos"
+        elif perm.key.startswith(("view_commission", "manage_commission")):
+            section = "Comisiones"
+        else:
+            section = "Otros"
+        entry = {
+            "permission": perm,
+            "label": meta.get("label") or perm.name or perm.key,
+            "description": meta.get("description") or perm.description or "",
+        }
+        section_map.setdefault(section, []).append(entry)
+
+    for section in sections_order:
+        if section in section_map:
+            grouped_permissions.append((section, section_map[section]))
+    # include any remaining section buckets not in the predefined order
+    for section, items in section_map.items():
+        if section not in sections_order:
+            grouped_permissions.append((section, items))
+
+    if request.method == "POST":
+        changes = 0
+        for role in roles:
+            for permission in permissions_list:
+                field_name = f"perm_{role.id}_{permission.id}"
+                allowed = request.form.get(field_name) == "on"
+                rp = RolePermission.query.filter_by(role_id=role.id, permission_id=permission.id).first()
+                if rp:
+                    if rp.allowed != allowed:
+                        rp.allowed = allowed
+                        changes += 1
+                elif allowed:
+                    db.session.add(RolePermission(role_id=role.id, permission_id=permission.id, allowed=allowed))
+                    changes += 1
+        db.session.commit()
+        flash("Permisos actualizados", "success" if changes else "info")
+        return redirect(url_for("admin.permissions"))
+
+    return render_template(
+        "admin/permisos.html",
+        roles=roles,
+        permissions=permissions_list,
+        existing=existing,
+        grouped_permissions=grouped_permissions,
     )
 
 

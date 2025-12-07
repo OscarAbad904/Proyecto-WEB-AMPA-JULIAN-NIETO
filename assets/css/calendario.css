@@ -20,7 +20,7 @@
 
 /* Sección principal */
 .calendar-section {
-  padding: 2rem 0 4rem;
+  padding: 0.5rem 0 2rem;
   min-height: calc(100vh - var(--header-height) - var(--footer-min-height));
 }
 
@@ -37,8 +37,8 @@
   justify-content: space-between;
   align-items: flex-end;
   gap: 1.5rem;
-  margin-bottom: 2rem;
-  padding-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -112,7 +112,7 @@
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .calendar-nav-btn {
@@ -387,13 +387,13 @@
   flex-shrink: 0;
   width: 70px;
   font-size: 0.875rem;
-  color: var(--color-text-soft);
+  color: #1057c1;
   text-align: right;
 }
 
 .event-list-time .time-end {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgb(45 45 45 / 67%);
 }
 
 .event-list-content {
@@ -404,7 +404,7 @@
 .event-list-title {
   font-size: 1rem;
   font-weight: 600;
-  color: #fff;
+  color: #323232;
   margin: 0 0 0.25rem 0;
   white-space: nowrap;
   overflow: hidden;
@@ -456,7 +456,7 @@
   gap: 0.5rem;
   font-size: 1rem;
   font-weight: 700;
-  color: #fff;
+  color: #585858;
   margin: 0 0 1rem 0;
 }
 
@@ -515,7 +515,7 @@
 .upcoming-event-title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #fff;
+  color: #6a6969;
   margin: 0 0 0.25rem 0;
   white-space: nowrap;
   overflow: hidden;

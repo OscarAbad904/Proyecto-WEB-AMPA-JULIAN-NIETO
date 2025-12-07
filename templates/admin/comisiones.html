@@ -1,0 +1,121 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Comisiones | Admin{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  <style>
+    .commission-admin { padding-bottom: 4rem; }
+    .commission-top { display:flex; gap: 1rem; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom: 1.25rem; }
+    .commission-summary { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.85rem; flex:1; }
+    .summary-card { background: linear-gradient(135deg, #0f172a, #0b1629); color:#e2e8f0; border-radius: 1rem; padding: 1rem 1.1rem; border:1px solid rgba(255,255,255,0.08); box-shadow: 0 18px 32px rgba(15,23,42,0.22); }
+    .summary-label { margin:0; letter-spacing:0.05em; text-transform: uppercase; font-size: 0.82rem; color:#cbd5e1; }
+    .summary-value { margin:0.15rem 0; font-size: 1.7rem; font-weight: 800; color:#fff; }
+    .summary-helper { margin:0; color:#cbd5e1; font-size:0.95rem; }
+    .commission-top .btn-primary { width:auto; min-width: 190px; }
+    .commission-grid { margin-top: 1rem; display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+    .commission-card { display:flex; flex-direction:column; gap: 0.65rem; }
+    .commission-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap: 0.75rem; }
+    .commission-title { margin: 0; letter-spacing: -0.02em; }
+    .commission-desc { margin:0; color:#475569; line-height: 1.5; min-height: 3rem; }
+    .commission-meta { display:flex; flex-wrap:wrap; gap:0.65rem; }
+    .commission-meta span { background:#f8fafc; border:1px solid #e2e8f0; border-radius: 0.85rem; padding: 0.5rem 0.75rem; color:#0f172a; font-weight:600; }
+    .commission-meta strong { display:block; font-size: 1.2rem; color:#0f172a; margin-bottom: 0.1rem; }
+    .commission-actions { display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:auto; }
+    .commission-actions .btn-link { background:#f8fafc; border:1px solid #e2e8f0; border-radius: 0.75rem; padding: 0.5rem 0.85rem; text-decoration:none; font-weight:700; color:#0f172a; display:inline-flex; align-items:center; gap:0.35rem; }
+    .commission-actions .btn-link:hover { background:#eef2ff; }
+    .commission-empty { grid-column: 1 / -1; text-align:center; color:#475569; }
+    .commission-empty .btn-primary { width:auto; margin-top: 0.85rem; }
+    @media (max-width: 640px) {
+      .commission-top { flex-direction:column; align-items:stretch; }
+      .commission-top .btn-primary { width:100%; }
+    }
+  </style>
+{% endblock %}
+
+{% set totals = namespace(miembros=0, proyectos=0, reuniones=0) %}
+{% for data in stats.values() %}
+  {% set totals.miembros = totals.miembros + (data.get('miembros', 0)) %}
+  {% set totals.proyectos = totals.proyectos + (data.get('proyectos', 0)) %}
+  {% set totals.reuniones = totals.reuniones + (data.get('proximas_reuniones', 0)) %}
+{% endfor %}
+{% set active_commissions = commissions | selectattr('is_active') | list | length %}
+
+{% block content %}
+<section class="admin-wrapper commission-admin">
+  <div class="admin-header">
+    <p class="admin-kicker">Administración</p>
+    <h1 class="admin-title">Comisiones del AMPA</h1>
+    <p class="admin-subtitle">Gestiona las comisiones, sus miembros, proyectos y reuniones con el mismo lenguaje visual que noticias y calendario.</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-stack">
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="commission-top">
+    <div class="commission-summary">
+      <div class="summary-card">
+        <p class="summary-label">Comisiones activas</p>
+        <p class="summary-value">{{ active_commissions }} / {{ commissions|length }}</p>
+        <p class="summary-helper">En marcha ahora mismo</p>
+      </div>
+      <div class="summary-card">
+        <p class="summary-label">Personas implicadas</p>
+        <p class="summary-value">{{ totals.miembros }}</p>
+        <p class="summary-helper">Miembros activos</p>
+      </div>
+      <div class="summary-card">
+        <p class="summary-label">Proyectos y reuniones</p>
+        <p class="summary-value">{{ totals.proyectos }} · {{ totals.reuniones }}</p>
+        <p class="summary-helper">Proyectos · Próximas reuniones</p>
+      </div>
+    </div>
+    <a class="btn-primary" href="{{ url_for('admin.commission_edit') }}">Nueva comisión</a>
+  </div>
+
+  <div class="commission-grid">
+    {% for commission in commissions %}
+      {% set commission_stats = stats.get(commission.id, {}) %}
+      <article class="commission-card admin-card">
+        <div class="commission-card-head">
+          <div>
+            <p class="muted" style="margin:0;">{{ commission.created_at.strftime('%d/%m/%Y') if commission.created_at else "Sin fecha" }}</p>
+            <h3 class="commission-title">{{ commission.name }}</h3>
+          </div>
+          <span class="chip {% if commission.is_active %}chip-live{% else %}chip-off{% endif %}">
+            {{ "Activa" if commission.is_active else "Inactiva" }}
+          </span>
+        </div>
+        {% if commission.description_html %}
+          <p class="commission-desc">{{ commission.description_html|striptags|truncate(170) }}</p>
+        {% else %}
+          <p class="commission-desc muted">Aún no hay descripción guardada.</p>
+        {% endif %}
+        <div class="commission-meta">
+          <span><strong>{{ commission_stats.get("miembros", 0) }}</strong>Miembros</span>
+          <span><strong>{{ commission_stats.get("proyectos", 0) }}</strong>Proyectos</span>
+          <span><strong>{{ commission_stats.get("proximas_reuniones", 0) }}</strong>Próximas reuniones</span>
+        </div>
+        <div class="commission-actions">
+          <a class="btn-link" href="{{ url_for('admin.commission_edit', commission_id=commission.id) }}">Editar</a>
+          <a class="btn-link" href="{{ url_for('admin.commission_members', commission_id=commission.id) }}">Miembros</a>
+          <a class="btn-link" href="{{ url_for('admin.commission_project_edit', commission_id=commission.id) }}">Proyecto</a>
+          <a class="btn-link" href="{{ url_for('admin.commission_meeting_edit', commission_id=commission.id) }}">Reunión</a>
+        </div>
+      </article>
+    {% else %}
+      <div class="commission-empty admin-card">
+        <p style="margin:0;">Todavía no hay comisiones registradas.</p>
+        <a class="btn-primary" href="{{ url_for('admin.commission_edit') }}">Crear la primera comisión</a>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

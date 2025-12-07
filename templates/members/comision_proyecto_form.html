@@ -1,0 +1,49 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Proyecto | {{ commission.name }}{% endblock %}
+
+{% block content %}
+<section class="page-section">
+  <div class="container">
+    <header class="section-header">
+      <p class="eyebrow">Comisión</p>
+      <h1 class="section-title">{{ project.title if project else "Nuevo proyecto" }}</h1>
+    </header>
+    <div class="card">
+      <form method="post">
+        {{ form.hidden_tag() }}
+        <div class="form-group">
+          {{ form.title.label(class="form-label") }}
+          {{ form.title(class="form-control") }}
+        </div>
+        <div class="form-group">
+          {{ form.description.label(class="form-label") }}
+          {{ form.description(class="form-control", rows="5") }}
+        </div>
+        <div class="form-group">
+          {{ form.status.label(class="form-label") }}
+          {{ form.status(class="form-control") }}
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            {{ form.start_date.label(class="form-label") }}
+            {{ form.start_date(class="form-control") }}
+          </div>
+          <div class="form-group">
+            {{ form.end_date.label(class="form-label") }}
+            {{ form.end_date(class="form-control") }}
+          </div>
+        </div>
+        <div class="form-group">
+          {{ form.responsible_id.label(class="form-label") }}
+          {{ form.responsible_id(class="form-control") }}
+        </div>
+        <div class="form-actions">
+          {{ form.submit(class="btn-primary") }}
+          <a class="btn-link" href="{{ url_for('members.commission_detail', slug=commission.slug) }}">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}
