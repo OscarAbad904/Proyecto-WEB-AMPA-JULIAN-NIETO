@@ -1,0 +1,145 @@
+{% extends "public/layout.html" %}
+
+{% block title %}{{ commission.name }} | Comisiones{% endblock %}
+
+{% block content %}
+<section class="page-section">
+  <div class="container">
+    <header class="section-header">
+      <div>
+        <p class="eyebrow">Comision</p>
+        <h1 class="section-title">{{ commission.name }}</h1>
+        {% if membership %}
+        <p class="section-subtitle">Tu rol: {{ membership.role }}</p>
+        {% endif %}
+      </div>
+      <div class="header-actions">
+        {% if can_edit_commission %}
+        <a class="btn-link" href="{{ url_for('admin.commission_edit', commission_id=commission.id) }}">Editar ficha</a>
+        {% endif %}
+      </div>
+    </header>
+
+    <div class="card">
+      <h3>Descripcion y objetivos</h3>
+      <div class="rich-text">
+        {% if commission.description_html %}
+          {{ commission.description_html | safe }}
+        {% else %}
+          <p>Sin descripcion.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-header">
+          <h3>Miembros</h3>
+          {% if can_manage_members %}
+          <a class="btn-link" href="{{ url_for('members.commission_member_new', slug=commission.slug) }}">Añadir miembro</a>
+          {% endif %}
+        </div>
+        <ul class="list">
+          {% for member in members %}
+          <li class="list-item">
+            <div>
+              <strong>{{ member.user.username }}</strong>
+              <span class="badge">{{ member.role }}</span>
+            </div>
+            {% if can_manage_members and member.is_active %}
+            <form method="post" action="{{ url_for('members.commission_member_disable', slug=commission.slug, membership_id=member.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn-link danger">Desactivar</button>
+            </form>
+            {% endif %}
+          </li>
+          {% else %}
+          <li>No hay miembros activos.</li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Proyectos</h3>
+          {% if can_manage_projects %}
+          <a class="btn-link" href="{{ url_for('members.commission_project_form', slug=commission.slug) }}">Nuevo proyecto</a>
+          {% endif %}
+        </div>
+        <div class="stack">
+          {% for project in projects %}
+          <article class="compact">
+            <div class="meta">
+              <span class="badge">{{ project.status }}</span>
+              {% if project.responsible %}
+              <span>Responsable: {{ project.responsible.username }}</span>
+              {% endif %}
+            </div>
+            <h4>{{ project.title }}</h4>
+            {% if project.description_html %}
+            <p>{{ project.description_html | striptags }}</p>
+            {% endif %}
+            <p class="small">
+              {% if project.start_date %}Inicio: {{ project.start_date.strftime("%d/%m/%Y") }}{% endif %}
+              {% if project.end_date %} · Fin: {{ project.end_date.strftime("%d/%m/%Y") }}{% endif %}
+            </p>
+            {% if can_manage_projects %}
+            <a class="btn-link" href="{{ url_for('members.commission_project_form', slug=commission.slug, project_id=project.id) }}">Editar</a>
+            {% endif %}
+          </article>
+          {% else %}
+          <p>No hay proyectos registrados.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Reuniones</h3>
+        {% if can_manage_meetings %}
+        <a class="btn-link" href="{{ url_for('members.commission_meeting_form', slug=commission.slug) }}">Nueva reunion</a>
+        {% endif %}
+      </div>
+      <div class="stack">
+        <h4>Proximas</h4>
+        {% for meeting in upcoming_meetings %}
+        <article class="compact">
+          <div class="meta">
+            <span class="badge">Proxima</span>
+            <span>{{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</span>
+            {% if meeting.location %}<span>{{ meeting.location }}</span>{% endif %}
+          </div>
+          <h4>{{ meeting.title }}</h4>
+          {% if can_manage_meetings %}
+          <a class="btn-link" href="{{ url_for('members.commission_meeting_form', slug=commission.slug, meeting_id=meeting.id) }}">Editar</a>
+          {% endif %}
+        </article>
+        {% else %}
+        <p>No hay reuniones proximas.</p>
+        {% endfor %}
+
+        <h4>Historial</h4>
+        {% for meeting in past_meetings %}
+        <article class="compact">
+          <div class="meta">
+            <span class="badge muted">Pasada</span>
+            <span>{{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</span>
+            {% if meeting.location %}<span>{{ meeting.location }}</span>{% endif %}
+          </div>
+          <h4>{{ meeting.title }}</h4>
+          {% if meeting.minutes_document %}
+          <a class="btn-link" href="{{ meeting.minutes_document.file_path }}">Acta</a>
+          {% endif %}
+          {% if can_manage_meetings %}
+          <a class="btn-link" href="{{ url_for('members.commission_meeting_form', slug=commission.slug, meeting_id=meeting.id) }}">Editar</a>
+          {% endif %}
+        </article>
+        {% else %}
+        <p>No hay reuniones previas.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

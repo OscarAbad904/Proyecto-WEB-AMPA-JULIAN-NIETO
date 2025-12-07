@@ -1,0 +1,40 @@
+{% extends "public/layout.html" %}
+
+{% block title %}{{ "Editar comisión" if commission else "Nueva comisión" }}{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+{% endblock %}
+
+{% block content %}
+<section class="admin-wrapper">
+  <div class="admin-header">
+    <p class="admin-kicker">Comisiones · Administración</p>
+    <h1 class="admin-title">{{ "Editar comisión" if commission else "Crear nueva comisión" }}</h1>
+    <p class="admin-subtitle">Define el nombre, activa la comisión y describe su propósito para el equipo.</p>
+  </div>
+  <div class="admin-card">
+    <form method="post" class="admin-form">
+      {{ form.hidden_tag() }}
+      <div class="field">
+        {{ form.name.label }}
+        {{ form.name(placeholder="Nombre de la comisión") }}
+      </div>
+      <div class="field">
+        {{ form.description.label }}
+        {{ form.description(rows="5", placeholder="Propósito, líneas de trabajo o alcance") }}
+      </div>
+      <div class="field">
+        <label class="checkbox-inline">
+          {{ form.is_active() }}
+          <span>Activa</span>
+        </label>
+      </div>
+      <div class="admin-actions">
+        {{ form.submit(class="btn-primary") }}
+        <a class="btn-link" href="{{ url_for('admin.commissions_index') }}">Volver</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Añadir miembro | {{ commission.name }}{% endblock %}
+
+{% block content %}
+<section class="page-section">
+  <div class="container">
+    <header class="section-header">
+      <p class="eyebrow">Comisión</p>
+      <h1 class="section-title">Añadir miembro a {{ commission.name }}</h1>
+    </header>
+    <div class="card">
+      <form method="post">
+        {{ form.hidden_tag() }}
+        <div class="form-group">
+          {{ form.user_id.label(class="form-label") }}
+          {{ form.user_id(class="form-control") }}
+        </div>
+        <div class="form-group">
+          {{ form.role.label(class="form-label") }}
+          {{ form.role(class="form-control") }}
+        </div>
+        <div class="form-group checkbox">
+          <label>{{ form.is_active() }} Activo</label>
+        </div>
+        <div class="form-actions">
+          {{ form.submit(class="btn-primary") }}
+          <a class="btn-link" href="{{ url_for('members.commission_detail', slug=commission.slug) }}">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

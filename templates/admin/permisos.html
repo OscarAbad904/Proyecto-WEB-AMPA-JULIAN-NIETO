@@ -1,0 +1,91 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Permisos por rol{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  <style>
+    .permissions-grid { margin-top: 1rem; display:flex; flex-direction:column; gap: 1rem; }
+    .permissions-table th, .permissions-table td { text-align: center; }
+    .permissions-table th:first-child, .permissions-table td:first-child { text-align: left; }
+    .permissions-table small { color:#64748b; display:block; }
+    .permissions-actions { display:flex; gap:0.75rem; flex-wrap:wrap; margin-top: 1rem; }
+    .permissions-actions .btn-primary { width:auto; min-width: 180px; }
+    .permissions-table th div { white-space: normal; }
+    .perm-section-title { margin:0 0 0.35rem; color:#0f172a; letter-spacing:0.08em; font-size: 0.85rem; text-transform: uppercase; }
+    .perm-section-desc { margin:0 0 0.4rem; color:#475569; }
+    .role-col { min-width: 120px; }
+  </style>
+{% endblock %}
+
+{% block content %}
+<section class="admin-wrapper">
+  <div class="admin-header">
+    <p class="admin-kicker">Configuración · Administración</p>
+    <h1 class="admin-title">Permisos por rol</h1>
+    <p class="admin-subtitle">Activa o desactiva permisos disponibles para cada rol de la plataforma.</p>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-stack">
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <form method="post" class="permissions-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if grouped_permissions %}
+      {% for section, perms in grouped_permissions %}
+      <div class="admin-card">
+        <p class="perm-section-title">{{ section }}</p>
+        <p class="perm-section-desc">Marca qué roles pueden ver o gestionar esta sección.</p>
+        <div class="table-responsive">
+          <table class="admin-table permissions-table">
+            <thead>
+              <tr>
+                <th style="min-width: 220px;">Permiso</th>
+                {% for role in roles %}
+                <th class="role-col">{{ role.name }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in perms %}
+              {% set perm = item.permission %}
+              {% set checked = None %}
+              <tr>
+                <td>
+                  <strong>{{ item.label }}</strong>
+                  {% if item.description %}<small>{{ item.description }}</small>{% endif %}
+                </td>
+                {% for role in roles %}
+                {% set checked = existing.get((role.id, perm.id), False) %}
+                <td>
+                  <label class="checkbox-inline" style="justify-content:center;" aria-label="{{ item.label }} para {{ role.name }}">
+                    <input type="checkbox" name="perm_{{ role.id }}_{{ perm.id }}" {% if checked %}checked{% endif %}>
+                  </label>
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="admin-card">
+        <p class="muted" style="margin:0;">No hay permisos definidos en el sistema.</p>
+      </div>
+    {% endif %}
+    <div class="permissions-actions">
+      <button type="submit" class="btn-primary">Guardar cambios</button>
+      <a class="btn-link" href="{{ url_for('admin.dashboard_admin') }}">Cancelar</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

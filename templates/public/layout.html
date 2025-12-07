@@ -11,6 +11,12 @@
     <script src="{{ url_for('static', filename='js/AMPA.js') }}" defer></script>
     {% block head %}{% endblock %}
 </head>
+<style>
+  .page-loader {
+    background: #f4f6fb;
+    color: #0d1224;
+  }
+</style>
 
 <body>
     <!-- Page Loading Spinner -->
@@ -26,7 +32,7 @@
             bottom: 0;
             width: 100vw;
             height: 100vh;
-            background: rgba(11, 21, 38, 0.92);
+            background: rgba(240, 240, 240, 0.5);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             display: flex;
@@ -122,7 +128,7 @@
                 <div class="header-top">
                     <div class="header-logo-group">
                         <div class="logo-bg">
-                            <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}"
+                            <img src="{{ url_for('static', filename='images/navidad/Logo_AMPA_64x64.png') }}"
                                 alt="Logo AMPA Julián Nieto Tapia" class="logo-img" />
                         </div>
                         <span class="header-title-group">
@@ -137,9 +143,10 @@
                         </div>
                         <div class="nav-auth">
                             {% if current_user.is_authenticated %}
-                            {% if can_manage_members and request.endpoint in ['public.noticias', 'public.eventos',
-                            'public.documentos'] %}
+                            {% if request.endpoint and request.endpoint.startswith('public.noticias') and can_manage_posts %}
                             <a href="{{ url_for('admin.posts') }}" class="nav-auth-btn nav-auth-btn--edit">Edición</a>
+                            {% elif request.endpoint and request.endpoint.startswith('public.eventos') and can_manage_events %}
+                            <a href="{{ url_for('admin.admin_eventos') }}" class="nav-auth-btn nav-auth-btn--edit">Edición</a>
                             {% endif %}
                             <span class="nav-user-name">Bienvenido, {{ current_user.username }}</span>
                             <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout">Cerrar
@@ -162,6 +169,12 @@
                         <a href="{{ url_for('members.dashboard') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('members.') %} active{% endif %}">Área privada</a>
                         {% if can_manage_members %}
                         <a href="{{ url_for('members.register') }}" class="nav-link{% if request.endpoint == 'members.register' %} active{% endif %}">Crear cuenta</a>
+                        {% endif %}
+                        {% if can_manage_commissions %}
+                        <a href="{{ url_for('admin.commissions_index') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('admin.commissions') %} active{% endif %}">Comisiones</a>
+                        {% endif %}
+                        {% if can_manage_permissions %}
+                        <a href="{{ url_for('admin.permissions') }}" class="nav-link{% if request.endpoint == 'admin.permissions' %} active{% endif %}">Permisos</a>
                         {% endif %}
                         {% endif %}
                     </div>
@@ -197,6 +210,12 @@
                     <a href="{{ url_for('members.register') }}" class="nav-link{% if request.endpoint == 'members.register' %} active{% endif %}" onclick="toggleMobileMenu()">Crear
                         cuenta</a>
                     {% endif %}
+                    {% if can_manage_commissions %}
+                    <a href="{{ url_for('admin.commissions_index') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('admin.commissions') %} active{% endif %}" onclick="toggleMobileMenu()">Comisiones</a>
+                    {% endif %}
+                    {% if can_manage_permissions %}
+                    <a href="{{ url_for('admin.permissions') }}" class="nav-link{% if request.endpoint == 'admin.permissions' %} active{% endif %}" onclick="toggleMobileMenu()">Permisos</a>
+                    {% endif %}
                     {% endif %}
                     <div class="mobile-auth">
                         {% if current_user.is_authenticated %}
@@ -225,7 +244,7 @@
                 <div>
                     <div class="footer-logo-group">
                         <div class="footer-logo-bg">
-                            <img src="{{ url_for('static', filename='images/Logo_AMPA.png') }}"
+                            <img src="{{ url_for('static', filename='images/navidad/Logo_AMPA_64x64.png') }}"
                                 alt="Logo AMPA Julián Nieto Tapia" class="footer-logo-img" />
                         </div>
                         <span class="footer-logo-title-group">

@@ -1,0 +1,45 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Comisiones | AMPA Julián Nieto{% endblock %}
+
+{% block content %}
+<section class="page-section">
+  <div class="container">
+    <header class="section-header">
+      <p class="eyebrow">Área privada</p>
+      <div>
+        <h1 class="section-title">Comisiones</h1>
+        <p class="section-subtitle">Consulta tus comisiones activas o todas las disponibles</p>
+      </div>
+      <div class="header-actions">
+        <a class="btn-link {% if scope != 'todas' %}active{% endif %}" href="{{ url_for('members.commissions', scope='mis') }}">Mis comisiones</a>
+        {% if can_view_all %}
+        <a class="btn-link {% if scope == 'todas' %}active{% endif %}" href="{{ url_for('members.commissions', scope='todas') }}">Todas</a>
+        {% endif %}
+      </div>
+    </header>
+
+    <div class="card-grid">
+      {% for commission in commissions %}
+      <article class="card">
+        <p class="eyebrow">Comisión</p>
+        <h3>{{ commission.name }}</h3>
+        {% if memberships.get(commission.id) %}
+        <span class="badge">Tu rol: {{ memberships.get(commission.id).role }}</span>
+        {% endif %}
+        {% if commission.description_html %}
+        <p>{{ commission.description_html | striptags }}</p>
+        {% else %}
+        <p>Sin descripción</p>
+        {% endif %}
+        <div class="card-actions">
+          <a class="btn-link" href="{{ url_for('members.commission_detail', slug=commission.slug) }}">Ver ficha</a>
+        </div>
+      </article>
+      {% else %}
+      <p>No hay comisiones disponibles en este momento.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -3,7 +3,7 @@
 {% block title %}Noticias · AMPA Julián Nieto{% endblock %}
 
 {% block content %}
-<section class="news-section" data-can-reorder="{{ 'true' if can_manage_members else 'false' }}">
+<section class="news-section" data-can-reorder="{{ 'true' if can_manage_posts else 'false' }}">
   <div class="container">
     <div class="news-header fade-in">
       <div>
@@ -19,11 +19,11 @@
         data-id="{{ post.id }}" data-title="{{ post.title }}"
         data-date="{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}"
         data-category="{{ post.category or 'general' }}"
-        data-cover="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
-        data-modalcover="{{ post.modal_image or post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
+        data-cover="{{ post.cover_image or url_for('static', filename='images/navidad/Logo_AMPA.png') }}"
+        data-modalcover="{{ post.modal_image or post.cover_image or url_for('static', filename='images/navidad/Logo_AMPA.png') }}"
         data-layout="{{ post.tags or 'full' }}" data-content='{{ post.body_html|tojson }}'>
         <div class="news-card-cover">
-          <img src="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}" alt="Portada"
+          <img src="{{ post.cover_image or url_for('static', filename='images/navidad/Logo_AMPA.png') }}" alt="Portada"
             referrerpolicy="no-referrer" />
         </div>
         <div class="news-card-body">
@@ -52,8 +52,8 @@
       <article class="news-article fade-in news-item" data-category="{{ post.category or 'general' }}"
         data-id="{{ post.id }}" data-title="{{ post.title }}"
         data-date="{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}"
-        data-cover="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
-        data-modalcover="{{ post.modal_image or post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}"
+        data-cover="{{ post.cover_image or url_for('static', filename='images/navidad/Logo_AMPA.png') }}"
+        data-modalcover="{{ post.modal_image or post.cover_image or url_for('static', filename='images/navidad/Logo_AMPA.png') }}"
         data-layout="{{ post.tags or 'full' }}" data-content='{{ post.body_html|tojson }}'>
         <div class="news-article-header">
           <div>
@@ -352,7 +352,7 @@
     const canReorder = newsSection ? newsSection.getAttribute('data-can-reorder') === 'true' : false;
     const featuredOrderEndpoint = "{{ url_for('admin.update_featured_order') }}";
     let isDraggingCard = false;
-    const defaultImage = "{{ url_for('static', filename='images/Logo_AMPA.png') }}";
+    const defaultImage = "{{ url_for('static', filename='images/navidad/Logo_AMPA.png') }}";
 
     // Apply transition delay to news cards
     document.querySelectorAll('.news-card[data-index]').forEach((el) => {

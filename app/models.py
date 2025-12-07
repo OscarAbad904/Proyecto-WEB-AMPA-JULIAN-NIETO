@@ -60,6 +60,17 @@ class Role(db.Model):
     name_lookup = db.Column(db.String(128), unique=True, nullable=False, index=True)
 
     users = db.relationship("User", back_populates="role", lazy="dynamic")
+    role_permissions = db.relationship(
+        "RolePermission", back_populates="role", lazy="dynamic", cascade="all, delete-orphan"
+    )
+    permissions = db.relationship(
+        "Permission",
+        secondary="role_permissions",
+        primaryjoin="Role.id==RolePermission.role_id",
+        secondaryjoin="RolePermission.permission_id==Permission.id",
+        viewonly=True,
+        lazy="dynamic",
+    )
 
     @property
     def name(self) -> str | None:
@@ -111,6 +122,9 @@ class User(db.Model, UserMixin):
     comments = db.relationship("Comment", back_populates="author", lazy="dynamic")
     votes = db.relationship("Vote", back_populates="user", lazy="dynamic")
     media = db.relationship("Media", back_populates="uploader", lazy="dynamic")
+    commission_memberships = db.relationship(
+        "CommissionMembership", back_populates="user", lazy="dynamic"
+    )
 
     @property
     def username(self) -> str | None:
@@ -140,8 +154,68 @@ class User(db.Model, UserMixin):
     def is_admin(self) -> bool:
         return self.role and self.role.name == "admin"
 
+    def get_commissions(self):
+        active_memberships = (
+            self.commission_memberships.filter_by(is_active=True)
+            .join(Commission)
+            .filter(Commission.is_active.is_(True))
+        )
+        return [membership.commission for membership in active_memberships]
+
+    def is_commission_coordinator(self, commission) -> bool:
+        if not commission:
+            return False
+        membership = (
+            self.commission_memberships.filter_by(
+                commission_id=getattr(commission, "id", None), is_active=True
+            )
+            .first()
+        )
+        return bool(membership and membership.role == "coordinador")
+
+    def has_permission(self, key: str) -> bool:
+        if not self.role or not key:
+            return False
+        permission = Permission.query.filter_by(key=key).first()
+        if not permission:
+            return False
+        role_permission = RolePermission.query.filter_by(
+            role_id=self.role.id, permission_id=permission.id
+        ).first()
+        if role_permission is not None:
+            return bool(role_permission.allowed)
+        # Sin asignación explícita, permitimos a roles privilegiados como fallback
+        return user_is_privileged(self)
+
     def __repr__(self) -> str:
         return f"<User {self.username}>"
+
+
+class Permission(db.Model):
+    __tablename__ = "permissions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(128), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+
+    role_permissions = db.relationship(
+        "RolePermission", back_populates="permission", lazy="dynamic", cascade="all, delete-orphan"
+    )
+
+
+class RolePermission(db.Model):
+    __tablename__ = "role_permissions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    role_id = db.Column(db.Integer, db.ForeignKey("roles.id"), nullable=False, index=True)
+    permission_id = db.Column(db.Integer, db.ForeignKey("permissions.id"), nullable=False, index=True)
+    allowed = db.Column(db.Boolean, default=True, nullable=False)
+
+    role = db.relationship("Role", back_populates="role_permissions")
+    permission = db.relationship("Permission", back_populates="role_permissions")
+
+    __table_args__ = (db.UniqueConstraint("role_id", "permission_id", name="uq_role_permission"),)
 
 
 class Membership(db.Model):
@@ -244,6 +318,9 @@ class Document(db.Model):
     created_at = db.Column(db.DateTime, server_default=func.now())
 
     uploader = db.relationship("User", back_populates="documents")
+    meeting_minutes = db.relationship(
+        "CommissionMeeting", back_populates="minutes_document", lazy="dynamic"
+    )
 
 
 class Suggestion(db.Model):
@@ -314,3 +391,91 @@ class Media(db.Model):
     created_at = db.Column(db.DateTime, server_default=func.now())
 
     uploader = db.relationship("User", back_populates="media")
+
+
+def _generate_unique_commission_slug(title: str) -> str:
+    base_slug = slugify(title or "comision")
+    slug_candidate = base_slug
+    counter = 2
+    while Commission.query.filter_by(slug=slug_candidate).first():
+        slug_candidate = f"{base_slug}-{counter}"
+        counter += 1
+    return slug_candidate
+
+
+class Commission(db.Model):
+    __tablename__ = "commissions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False, index=True)
+    slug = db.Column(db.String(255), nullable=False, unique=True, index=True)
+    description_html = db.Column(encrypted_text(), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, server_default=func.now())
+    updated_at = db.Column(db.DateTime, server_default=func.now(), onupdate=func.now())
+
+    memberships = db.relationship(
+        "CommissionMembership", back_populates="commission", lazy="dynamic", cascade="all, delete-orphan"
+    )
+    projects = db.relationship(
+        "CommissionProject", back_populates="commission", lazy="dynamic", cascade="all, delete-orphan"
+    )
+    meetings = db.relationship(
+        "CommissionMeeting", back_populates="commission", lazy="dynamic", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:
+        return f"<Commission {self.name}>"
+
+
+class CommissionMembership(db.Model):
+    __tablename__ = "commission_memberships"
+
+    id = db.Column(db.Integer, primary_key=True)
+    commission_id = db.Column(db.Integer, db.ForeignKey("commissions.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    role = db.Column(db.String(32), nullable=False, index=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=func.now())
+
+    commission = db.relationship("Commission", back_populates="memberships")
+    user = db.relationship("User", back_populates="commission_memberships")
+
+    __table_args__ = (db.UniqueConstraint("commission_id", "user_id", name="uq_commission_member"),)
+
+
+class CommissionProject(db.Model):
+    __tablename__ = "commission_projects"
+
+    id = db.Column(db.Integer, primary_key=True)
+    commission_id = db.Column(db.Integer, db.ForeignKey("commissions.id"), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    description_html = db.Column(encrypted_text(), nullable=True)
+    status = db.Column(db.String(32), default="pendiente", nullable=False, index=True)
+    start_date = db.Column(db.Date)
+    end_date = db.Column(db.Date)
+    responsible_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    created_at = db.Column(db.DateTime, server_default=func.now())
+    updated_at = db.Column(db.DateTime, server_default=func.now(), onupdate=func.now())
+
+    commission = db.relationship("Commission", back_populates="projects")
+    responsible = db.relationship("User")
+
+
+class CommissionMeeting(db.Model):
+    __tablename__ = "commission_meetings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    commission_id = db.Column(db.Integer, db.ForeignKey("commissions.id"), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    description_html = db.Column(encrypted_text(), nullable=True)
+    start_at = db.Column(db.DateTime, nullable=False, index=True)
+    end_at = db.Column(db.DateTime, nullable=False, index=True)
+    location = db.Column(db.String(255))
+    google_event_id = db.Column(db.String(255))
+    minutes_document_id = db.Column(db.Integer, db.ForeignKey("documents.id"))
+    created_at = db.Column(db.DateTime, server_default=func.now())
+    updated_at = db.Column(db.DateTime, server_default=func.now(), onupdate=func.now())
+
+    commission = db.relationship("Commission", back_populates="meetings")
+    minutes_document = db.relationship("Document", back_populates="meeting_minutes")

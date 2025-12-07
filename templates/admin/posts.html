@@ -85,7 +85,7 @@
         <div class="preview-shell">
           <div class="post-preview layout-full" id="preview-card">
             <figure id="preview-figure">
-              <img id="preview-image" src="{{ url_for('static', filename='images/Logo_AMPA.png') }}" alt="Imagen de portada" referrerpolicy="no-referrer" />
+              <img id="preview-image" src="{{ url_for('static', filename='images/navidad/Logo_AMPA.png') }}" alt="Imagen de portada" referrerpolicy="no-referrer" />
             </figure>
             <div class="body">
               <div>
@@ -123,7 +123,7 @@
               data-category="{{ post.category or 'general' }}"
             >
               <div class="post-thumb">
-                <img src="{{ post.cover_image or url_for('static', filename='images/Logo_AMPA.png') }}" alt="Portada" referrerpolicy="no-referrer" />
+                <img src="{{ post.cover_image or url_for('static', filename='images/navidad/Logo_AMPA.png') }}" alt="Portada" referrerpolicy="no-referrer" />
               </div>
               <div>
                 <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; justify-content:space-between;">
@@ -167,7 +167,7 @@
       const previewFigure = document.getElementById('preview-figure');
       const previewImage = document.getElementById('preview-image');
       const previewCard = document.getElementById('preview-card');
-      const defaultImage = "{{ url_for('static', filename='images/Logo_AMPA.png') }}";
+      const defaultImage = "{{ url_for('static', filename='images/navidad/Logo_AMPA.png') }}";
       const categorySelect = document.querySelector('select[name="{{ form.category.name }}"]');
       const submitBtn = document.querySelector('input[name="{{ form.submit.name }}"]');
       const postIdInput = document.getElementById('post-id');
