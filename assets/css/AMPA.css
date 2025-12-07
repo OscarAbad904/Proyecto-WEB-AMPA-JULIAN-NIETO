@@ -652,11 +652,11 @@ body.menu-open {
 }
 
 .hero-shape--orange {
-  background-image: url('../images/Globo_shape_Naranja.png');
+  background-image: url('../images/navidad/Globo_shape_Naranja.png');
 }
 
 .hero-shape--green {
-  background-image: url('../images/Globo_shape_Verde.png');
+  background-image: url('../images/navidad/Globo_shape_Verde.png');
 }
 
 @keyframes rise {
@@ -1170,11 +1170,11 @@ body.menu-open {
 }
 
 .event-cover-1 {
-  background-image: linear-gradient(135deg, rgba(126, 212, 255, 0.4), rgba(7, 17, 31, 0.9)), url('../images/Globo_shape_Verde.png');
+  background-image: linear-gradient(135deg, rgba(126, 212, 255, 0.4), rgba(7, 17, 31, 0.9)), url('../images/navidad/Globo_shape_Verde.png');
 }
 
 .event-cover-2 {
-  background-image: linear-gradient(135deg, rgba(255, 209, 102, 0.45), rgba(7, 17, 31, 0.9)), url('../images/Globo_shape_Naranja.png');
+  background-image: linear-gradient(135deg, rgba(255, 209, 102, 0.45), rgba(7, 17, 31, 0.9)), url('../images//Globo_shape_Naranja.png');
 }
 
 .event-cover-3 {

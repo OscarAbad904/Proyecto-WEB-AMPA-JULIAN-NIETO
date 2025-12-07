@@ -67,6 +67,9 @@
       justify-content: space-between;
       align-items: center;
     }
+    .event-footer p {
+      margin: 0;
+    }
     .event-footer ul {
       padding-left: 1rem;
       margin: 0.5rem 0 0 0;
@@ -187,6 +190,9 @@
       gap: 0.75rem;
       margin-bottom: 1.25rem;
     }
+    .modal-title {
+      margin: 0;
+    }
     .modal-close {
       background: none;
       border: none;
@@ -279,10 +285,11 @@
     <div class="event-grid">
       {% if events %}
         {% for event in events %}
+          {% set cover_url = event.cover_image or url_for('static', filename='images/navidad/Logo_AMPA.png') %}
           <article class="event-card">
             <div
               class="event-card-cover"
-              style="background-image: url('{{ event.cover_image or url_for("static", filename="images/navidad/Logo_AMPA.png") }}');"
+              data-cover="{{ cover_url }}"
             ></div>
             <div class="event-card-body">
               <div class="event-card-header">
@@ -322,7 +329,7 @@
     </div>
     <div class="event-footer">
       <div>
-        <p style='margin: 0'><strong>Encabezados, imágenes y categorías</strong> definen cómo se presentará cada evento en el calendario público. Guarda primero y publica después cuando la información esté completa.</p>
+        <p><strong>Encabezados, imágenes y categorías</strong> definen cómo se presentará cada evento en el calendario público. Guarda primero y publica después cuando la información esté completa.</p>
         <ul>
           <li>Utiliza imágenes de portada que se puedan mostrar también en redes sociales.</li>
           <li>Cambia el estado a “Publicada” solo cuando todo esté confirmado.</li>
@@ -340,8 +347,8 @@
     <div class="modal-backdrop" tabindex="-1"></div>
     <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-head">
-        <h2 id="modal-title" style="margin: 0;">Nuevo evento</h2>
-        <button type="button" class="modal-close" id="close-event-modal" aria-label="Cerrar">×</button>
+        <h2 id="modal-title" class="modal-title">Nuevo evento</h2>
+        <button type="button" class="modal-close" id="close-event-modal" aria-label="Cerrar">&times;</button>
       </div>
       <form method="post" class="admin-form event-modal-form" novalidate>
         {{ form.csrf_token }}
@@ -405,6 +412,7 @@
       const closeBtn = document.getElementById("close-event-modal");
       const cancelBtn = document.getElementById("cancel-event-modal");
       const backdrop = modal.querySelector(".modal-backdrop");
+      const coverImages = document.querySelectorAll(".event-card-cover[data-cover]");
 
       const toggleModal = (show) => {
         modal.classList.toggle("is-open", show);
@@ -426,6 +434,12 @@
       if (backdrop) {
         backdrop.addEventListener("click", closeModal);
       }
+      coverImages.forEach((el) => {
+        const cover = el.getAttribute("data-cover");
+        if (cover) {
+          el.style.backgroundImage = `url("${cover}")`;
+        }
+      });
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {
           closeModal();

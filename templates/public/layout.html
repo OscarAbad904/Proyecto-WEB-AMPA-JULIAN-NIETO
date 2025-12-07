@@ -379,60 +379,136 @@
         .login-modal {
             position: fixed;
             inset: 0;
-            background: rgba(15, 23, 42, 0.55);
-            display: none;
+            display: flex;
             align-items: center;
             justify-content: center;
             padding: 1.5rem;
             z-index: 1200;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.12), transparent 35%),
+                radial-gradient(circle at 80% 10%, rgba(249, 115, 22, 0.12), transparent 40%),
+                rgba(15, 23, 42, 0.35);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.25s ease, visibility 0.25s ease;
         }
 
         .login-modal.open {
-            display: flex;
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
         }
 
         .login-modal-dialog {
-            background: #0f172a;
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
             width: 100%;
             max-width: 520px;
-            border-radius: 24px;
-            padding: 2.5rem;
-            box-shadow: 0 55px 100px rgba(15, 23, 42, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            border-radius: 1.1rem;
+            padding: 2.25rem;
+            box-shadow: var(--shadow-xl, 0 32px 58px rgba(0, 0, 0, 0.12));
             position: relative;
-            color: #fff;
+            color: var(--color-text-base);
+            border: 1px solid var(--color-border, rgba(100, 116, 139, 0.2));
+            overflow: hidden;
+        }
+
+        .login-modal-dialog::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 12% 20%, rgba(14, 165, 233, 0.08), transparent 32%),
+                radial-gradient(circle at 85% 15%, rgba(249, 115, 22, 0.08), transparent 45%);
+            pointer-events: none;
+        }
+
+        .login-modal-dialog>* {
+            position: relative;
+            z-index: 1;
+        }
+
+        .login-modal-dialog h2 {
+            margin-bottom: 0.35rem;
+        }
+
+        .login-modal-dialog .section-subtitle {
+            color: var(--color-text-soft);
+            margin-bottom: 0.75rem;
+        }
+
+        .login-modal-dialog .private-form {
+            margin-top: 1rem;
+            display: grid;
+            gap: 0.9rem;
+        }
+
+        .login-modal-dialog .private-field {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.35rem;
         }
 
         .login-modal-dialog .private-field label {
-            color: #e2e8f0;
+            flex: unset;
+            width: 100%;
+            text-align: left;
+            color: var(--color-text-soft);
+            font-weight: 600;
         }
 
-        .login-modal-dialog input,
+        .login-modal-dialog .private-field input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid var(--color-border, rgba(100, 116, 139, 0.2));
+            border-radius: 0.75rem;
+            padding: 0.85rem 1rem;
+            color: var(--color-text-base);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 10px 30px rgba(15, 23, 42, 0.08);
+            transition: border var(--transition-fast, 0.2s ease), box-shadow var(--transition-fast, 0.2s ease), transform var(--transition-fast, 0.2s ease);
+        }
+
+        .login-modal-dialog .private-field input:focus {
+            border-color: var(--color-accent-warm);
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18), 0 14px 38px rgba(15, 23, 42, 0.12);
+            outline: none;
+        }
+
+        .login-modal-dialog .private-remember {
+            color: var(--color-text-soft);
+        }
+
         .login-modal-dialog .btn-primary {
-            border-radius: 999px;
-        }
-
-        .login-modal-dialog input {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: #fff;
-        }
-
-        .login-modal-dialog input::placeholder {
-            color: rgba(255, 255, 255, 0.6);
+            width: 100%;
+            border-radius: 0.9rem;
+            box-shadow: 0 16px 36px rgba(255, 138, 76, 0.35);
         }
 
         .login-modal-close {
             position: absolute;
             top: 1rem;
             right: 1rem;
-            border: none;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 999px;
-            width: 36px;
-            height: 36px;
+            border: 1px solid var(--color-border, rgba(100, 116, 139, 0.2));
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 0.75rem;
+            width: 38px;
+            height: 38px;
             font-size: 1.1rem;
             cursor: pointer;
-            color: #fff;
+            color: var(--color-text-base);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-sm, 0 4px 12px rgba(0, 0, 0, 0.05));
+            transition: transform var(--transition-fast, 0.2s ease), box-shadow var(--transition-fast, 0.2s ease), background var(--transition-fast, 0.2s ease);
+        }
+
+        .login-modal-close:hover {
+            transform: translateY(-1px);
+            background: #fff;
+            box-shadow: var(--shadow-md, 0 12px 24px rgba(0, 0, 0, 0.08));
         }
     </style>
     <script>
