@@ -3,22 +3,28 @@
 {% block title %}Sugerencias · AMPA Julián Nieto{% endblock %}
 
 {% block content %}
-  <section class="page-section">
-    <div class="container">
-      <header class="section-header">
-        <p class="eyebrow">Área privada</p>
-        <div>
-          <h1 class="section-title">Sugerencias y dudas</h1>
-          <p class="section-subtitle">Estado actual: {{ status|capitalize }}</p>
+  <section class="page-section suggestion-thread">
+    <div class="thread-container">
+      <header class="thread-hero card gradient-bg">
+        <div class="thread-headline">
+          <p class="eyebrow">Área privada</p>
+          <h1 class="thread-title">Sugerencias y dudas</h1>
+          <p class="thread-meta">Estado actual: {{ status|capitalize }}</p>
         </div>
       </header>
 
-      <div class="card-grid">
+      <div class="suggestion-grid">
         {% for suggestion in suggestions.items %}
-          <article class="card compact">
+          {% set likes = suggestion.votes.filter_by(value=1).count() %}
+          {% set dislikes = suggestion.votes.filter_by(value=-1).count() %}
+          <article class="card suggestion-card">
+            <div class="card-top">
+              <span class="status-pill status-{{ suggestion.status }}">{{ suggestion.status|capitalize }}</span>
+              <span class="vote-chip">👍 {{ likes }} · 👎 {{ dislikes }}</span>
+            </div>
             <h3>{{ suggestion.title }}</h3>
-            <p>Status: {{ suggestion.status }}</p>
-            <a class="btn-link" href="{{ url_for('members.detalle_sugerencia', suggestion_id=suggestion.id) }}">Ver hilo</a>
+            <p class="card-meta">Saldo: {{ likes - dislikes }} · Categoría: {{ suggestion.category|capitalize }}</p>
+            <a class="btn-primary" href="{{ url_for('members.detalle_sugerencia', suggestion_id=suggestion.id) }}">Ver hilo</a>
           </article>
         {% else %}
           <p>No hay sugerencias en esta categoría.</p>
@@ -27,10 +33,10 @@
 
       <div class="pagination">
         {% if suggestions.has_prev %}
-          <a class="btn-link" href="?page={{ suggestions.prev_num }}&status={{ status }}">Anterior</a>
+          <a class="btn-outline" href="?page={{ suggestions.prev_num }}&status={{ status }}">Anterior</a>
         {% endif %}
         {% if suggestions.has_next %}
-          <a class="btn-link" href="?page={{ suggestions.next_num }}&status={{ status }}">Siguiente</a>
+          <a class="btn-outline" href="?page={{ suggestions.next_num }}&status={{ status }}">Siguiente</a>
         {% endif %}
       </div>
     </div>

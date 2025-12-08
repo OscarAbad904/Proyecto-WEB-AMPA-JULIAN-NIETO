@@ -10,7 +10,7 @@ from wtforms import (
     HiddenField,
 )
 from wtforms.fields import DateField, EmailField, FileField
-from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, URL
+from wtforms.validators import AnyOf, DataRequired, Email, EqualTo, Length, Optional, URL
 
 EVENT_CATEGORY_CHOICES = [
     ("actividades", "Actividades"),
@@ -106,7 +106,7 @@ class CommentForm(FlaskForm):
 
 
 class VoteForm(FlaskForm):
-    value = SelectField("Votar", choices=[("1", "+1"), ("-1", "-1")], validators=[DataRequired()])
+    value = HiddenField("Votar", validators=[DataRequired(), AnyOf(["1", "-1"])])
     submit = SubmitField("Votar")
 
 

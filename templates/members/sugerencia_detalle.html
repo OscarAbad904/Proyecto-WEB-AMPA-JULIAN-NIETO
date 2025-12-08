@@ -3,41 +3,213 @@
 {% block title %}{{ suggestion.title }} · Foro{% endblock %}
 
 {% block content %}
-  <section class="page-section">
-    <div class="container">
-      <article class="article">
-        <p class="eyebrow">Área privada · Foro de sugerencias</p>
-        <h1>{{ suggestion.title }}</h1>
-        <p class="meta">Estado {{ suggestion.status }} · {{ suggestion.votes_count }} votos</p>
+  <section class="page-section suggestion-thread">
+    <div class="thread-container">
+      <header class="thread-hero card gradient-bg">
+        <div class="thread-headline">
+          <div class="thread-hero-top">
+            <a href="{{ url_for('members.sugerencias') }}" class="thread-back">← Volver a sugerencias</a>
+            <p class="thread-breadcrumb">Área privada · Foro de sugerencias · {{ suggestion.title }}</p>
+          </div>
+          <div class="thread-title-row">
+            <h1 class="thread-title">{{ suggestion.title }}</h1>
+          </div>
+          <div class="thread-stats-line">
+            <div class="thread-mini-totals">
+              <span class="mini-pill up" id="likes-count-hero">👍 {{ likes_count }}</span>
+              <span class="mini-pill down" id="dislikes-count-hero">👎 {{ dislikes_count }}</span>
+            </div>
+            <span class="status-pill status-{{ suggestion.status }}">{{ suggestion.status|capitalize }}</span>
+            <span class="thread-meta inline">Estado {{ suggestion.status }} · {{ suggestion.votes_count or 0 }} votos totales</span>
+          </div>
+        </div>
+      </header>
+
+      <article class="thread-body card">
         <div class="rich-text">{{ suggestion.body_html | safe }}</div>
       </article>
 
-      <section class="comments">
-        <h2>Comentarios</h2>
-        {% for comment in suggestion.comments %}
-          <div class="comment">
-            <p>{{ comment.body_html }}</p>
-            <small>{{ comment.author.username if comment.author else 'Socio' }}</small>
+      <section class="thread-comments card">
+        <div class="comments-header">
+          <div>
+            <p class="eyebrow">Comentarios</p>
+            <h3>{{ comments|length }} aportes</h3>
           </div>
-        {% else %}
-          <p>No hay comentarios aún.</p>
-        {% endfor %}
+        </div>
+        <div class="comment-list">
+          {% for comment in comments %}
+            <article class="comment-item">
+              <div class="comment-meta">
+                <span class="author">{{ comment.author.username if comment.author else 'Socio' }}</span>
+                {% if comment.created_at %}
+                  <span class="date">{{ comment.created_at.strftime("%d/%m/%Y %H:%M") }}</span>
+                {% endif %}
+              </div>
+              <p class="comment-body">{{ comment.body_html }}</p>
+            </article>
+          {% else %}
+            <p class="comment-empty">Todavía no hay comentarios, sé el primero en participar.</p>
+          {% endfor %}
+        </div>
+
+        <form
+          method="post"
+          action="{{ url_for('members.comentar_sugerencia', suggestion_id=suggestion.id) }}"
+          class="comment-form"
+        >
+          {{ comment_form.hidden_tag() }}
+          <label for="comment-content">Añadir comentario</label>
+          {{ comment_form.content(id="comment-content", class_="comment-textarea", placeholder="Comparte tu idea o duda...") }}
+          <div class="comment-actions">
+            {{ comment_form.submit(class_="nav-auth-btn nav-auth-btn--logout comment-submit-btn") }}
+          </div>
+        </form>
       </section>
 
-      <section class="forms">
-        <h3>Comentar</h3>
-        <form method="post" action="{{ url_for('members.comentar_sugerencia', suggestion_id=suggestion.id) }}">
-          {{ comment_form.hidden_tag() }}
-          {{ comment_form.content() }}
-          {{ comment_form.submit(class="btn") }}
-        </form>
-        <h3>Votar</h3>
-        <form method="post" action="{{ url_for('members.votar_sugerencia', suggestion_id=suggestion.id) }}">
-          {{ vote_form.hidden_tag() }}
-          {{ vote_form.value() }}
-          {{ vote_form.submit(class="btn ghost") }}
+      <section class="thread-vote card">
+        <div class="vote-header">
+          <div>
+            <p class="eyebrow">Votar</p>
+            <h3>¿Qué opinas?</h3>
+            <p class="vote-copy">
+              {% if is_closed %}
+                El hilo está cerrado, los votos quedan fijados.
+              {% else %}
+                Puedes cambiar tu voto en cualquier momento mientras siga abierto.
+              {% endif %}
+            </p>
+          </div>
+        </div>
+        <form
+          method="post"
+          action="{{ url_for('members.votar_sugerencia', suggestion_id=suggestion.id) }}"
+          class="vote-form"
+          id="voteForm"
+          data-likes="{{ likes_count }}"
+          data-dislikes="{{ dislikes_count }}"
+          data-current-vote="{{ user_vote.value if user_vote else '' }}"
+          data-is-closed="{{ 'true' if is_closed else 'false' }}"
+        >
+          {{ vote_form.csrf_token }}
+          {{ vote_form.value(id="voteValue") }}
+          <div class="vote-actions inline">
+            <button
+              type="button"
+              class="vote-btn up {% if user_vote and user_vote.value == 1 %}active{% endif %}"
+              data-value="1"
+              {% if is_closed %}disabled{% endif %}
+            >
+              <span class="emoji">👍</span>
+              <span>Me gusta</span>
+            </button>
+            <button
+              type="button"
+              class="vote-btn down {% if user_vote and user_vote.value == -1 %}active{% endif %}"
+              data-value="-1"
+              {% if is_closed %}disabled{% endif %}
+            >
+              <span class="emoji">👎</span>
+              <span>No me gusta</span>
+            </button>
+          </div>
+          <div class="vote-footer">
+            {% if is_closed %}
+              <span class="vote-locked">Hilo cerrado: los votos ya no se pueden mover.</span>
+            {% else %}
+              <span class="vote-hint">Haz clic en Me gusta o No me gusta para guardar el voto al instante.</span>
+            {% endif %}
+          </div>
         </form>
       </section>
     </div>
   </section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    (function () {
+      const form = document.getElementById('voteForm');
+      if (!form) return;
+      const hiddenInput = document.getElementById('voteValue');
+      const buttons = Array.from(form.querySelectorAll('.vote-btn'));
+      const csrf = form.querySelector('input[name="csrf_token"]')?.value;
+      const isClosed = form.dataset.isClosed === 'true';
+      let currentVote = form.dataset.currentVote ? parseInt(form.dataset.currentVote, 10) : null;
+      let likes = parseInt(form.dataset.likes, 10) || 0;
+      let dislikes = parseInt(form.dataset.dislikes, 10) || 0;
+
+      const likesHero = document.getElementById('likes-count-hero');
+      const dislikesHero = document.getElementById('dislikes-count-hero');
+
+      const updateCounts = () => {
+        if (likesHero) likesHero.textContent = `👍 ${likes}`;
+        if (dislikesHero) dislikesHero.textContent = `👎 ${dislikes}`;
+      };
+
+      const syncActive = (value) => {
+        buttons.forEach((btn) => {
+          const isActive = parseInt(btn.dataset.value, 10) === value;
+          btn.classList.toggle('active', isActive);
+          btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+      };
+
+      const sendVote = async (value) => {
+        if (isClosed) {
+          alert('El hilo está cerrado; no se pueden registrar votos.');
+          return;
+        }
+        if (currentVote && currentVote === value) {
+          return;
+        }
+        if (currentVote && !confirm('Ya habías votado. ¿Quieres cambiar tu voto?')) {
+          return;
+        }
+        if (!csrf) {
+          alert('No se pudo validar la sesión. Recarga la página.');
+          return;
+        }
+        if (hiddenInput) hiddenInput.value = value;
+        const body = new FormData();
+        body.append('csrf_token', csrf);
+        body.append('value', String(value));
+        try {
+          const res = await fetch(form.action, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            body,
+          });
+          const data = await res.json().catch(() => null);
+          if (!res.ok || !data?.success) {
+            alert(data?.message || 'No se pudo registrar el voto.');
+            return;
+          }
+          currentVote = data.vote;
+          likes = data.likes;
+          dislikes = data.dislikes;
+          syncActive(currentVote);
+          updateCounts();
+        } catch (err) {
+          console.error(err);
+          alert('No se pudo registrar el voto. Inténtalo de nuevo.');
+        }
+      };
+
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const value = parseInt(btn.dataset.value, 10);
+          if (Number.isNaN(value)) return;
+          sendVote(value);
+        });
+      });
+
+      if (currentVote) {
+        syncActive(currentVote);
+      }
+      updateCounts();
+    })();
+  </script>
 {% endblock %}

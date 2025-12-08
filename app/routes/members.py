@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, session, abort
+from flask import Blueprint, render_template, request, flash, redirect, url_for, session, abort, jsonify
 from flask_login import login_required, current_user, login_user, logout_user
 from datetime import datetime, timedelta
 import secrets
@@ -279,11 +279,23 @@ def detalle_sugerencia(suggestion_id: int):
     suggestion = Suggestion.query.get_or_404(suggestion_id)
     comment_form = CommentForm()
     vote_form = VoteForm()
+    user_vote = suggestion.votes.filter_by(user_id=current_user.id).first()
+    if user_vote:
+        vote_form.value.data = str(user_vote.value)
+    comments = suggestion.comments.order_by(Comment.created_at.asc()).all()
+    likes_count = suggestion.votes.filter_by(value=1).count()
+    dislikes_count = suggestion.votes.filter_by(value=-1).count()
+    is_closed = suggestion.status == "cerrada"
     return render_template(
         "members/sugerencia_detalle.html",
         suggestion=suggestion,
+        comments=comments,
         comment_form=comment_form,
         vote_form=vote_form,
+        user_vote=user_vote,
+        likes_count=likes_count,
+        dislikes_count=dislikes_count,
+        is_closed=is_closed,
     )
 
 
@@ -310,19 +322,60 @@ def comentar_sugerencia(suggestion_id: int):
 @login_required
 def votar_sugerencia(suggestion_id: int):
     suggestion = Suggestion.query.get_or_404(suggestion_id)
+    if suggestion.status == "cerrada":
+        message = "El hilo está cerrado; no se pueden registrar votos nuevos."
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(success=False, message=message), 400
+        flash(message, "warning")
+        return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion_id))
     form = VoteForm()
     if form.validate_on_submit():
-        value = int(form.value.data)
+        try:
+            value = int(form.value.data)
+        except (TypeError, ValueError):
+            message = "El valor del voto no es válido."
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify(success=False, message=message), 400
+            flash(message, "danger")
+            return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion_id))
+        if value not in (-1, 1):
+            message = "El valor del voto no es válido."
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify(success=False, message=message), 400
+            flash(message, "danger")
+            return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion_id))
         vote = Vote.query.filter_by(user_id=current_user.id, suggestion_id=suggestion.id).first()
+        if vote and vote.value == value:
+            message = "Tu voto ya está registrado con esa opción."
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify(success=False, message=message), 200
+            flash(message, "info")
+            return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion_id))
+
+        previous_value = vote.value if vote else 0
         if vote:
-            suggestion.votes_count -= vote.value
             vote.value = value
         else:
             vote = Vote(suggestion_id=suggestion.id, user_id=current_user.id, value=value)
             db.session.add(vote)
-        suggestion.votes_count += value
+        suggestion.votes_count = (suggestion.votes_count or 0) - previous_value + value
         db.session.commit()
-        flash("Voto registrado", "success")
+        likes_count = suggestion.votes.filter_by(value=1).count()
+        dislikes_count = suggestion.votes.filter_by(value=-1).count()
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(
+                success=True,
+                message="Voto actualizado" if previous_value else "Voto registrado",
+                vote=value,
+                likes=likes_count,
+                dislikes=dislikes_count,
+            )
+        flash("Voto actualizado" if previous_value else "Voto registrado", "success")
+    else:
+        message = "Selecciona Me gusta o No me gusta antes de guardar."
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(success=False, message=message), 400
+        flash(message, "warning")
     return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion_id))
 
 
