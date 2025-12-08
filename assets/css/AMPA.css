@@ -1736,7 +1736,7 @@ body.menu-open {
   font-size: 1.1rem;
   font-weight: 500;
   border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 1rem;
   transition: background 0.2s, color 0.2s;
 }
 
@@ -1863,7 +1863,6 @@ body.menu-open {
   border-radius: 0.5rem;
   padding: 0.75rem 1rem;
   color: var(--color-text-base);
-  width: 100%;
   box-sizing: border-box;
 }
 
@@ -1935,7 +1934,7 @@ body.menu-open {
 }
 
 .private-remember {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   color: #cbd5e1;
@@ -1944,6 +1943,7 @@ body.menu-open {
 
 .private-remember input {
   accent-color: var(--color-accent-warm);
+  cursor: pointer;
 }
 
 .private-form button,

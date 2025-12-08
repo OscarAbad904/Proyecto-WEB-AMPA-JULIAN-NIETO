@@ -67,6 +67,7 @@
     <script>
         (function () {
             var loader = document.getElementById('pageLoader');
+            if (!loader) return;
 
             // Ocultar loader cuando la página esté cargada
             window.addEventListener('load', function () {
@@ -79,6 +80,8 @@
                 if (!link) return;
 
                 var href = link.getAttribute('href');
+                var skipLoader = link.hasAttribute('data-no-loader') ||
+                    (link.dataset && link.dataset.noLoader === 'true');
 
                 // Ignorar enlaces especiales
                 if (!href ||
@@ -88,7 +91,7 @@
                     href.startsWith('tel:') ||
                     link.target === '_blank' ||
                     link.hasAttribute('download') ||
-                    link.onclick ||
+                    skipLoader ||
                     e.ctrlKey || e.metaKey || e.shiftKey) {
                     return;
                 }
@@ -143,11 +146,6 @@
                         </div>
                         <div class="nav-auth">
                             {% if current_user.is_authenticated %}
-                            {% if request.endpoint and request.endpoint.startswith('public.noticias') and can_manage_posts %}
-                            <a href="{{ url_for('admin.posts') }}" class="nav-auth-btn nav-auth-btn--edit">Edición</a>
-                            {% elif request.endpoint and request.endpoint.startswith('public.eventos') and can_manage_events %}
-                            <a href="{{ url_for('admin.admin_eventos') }}" class="nav-auth-btn nav-auth-btn--edit">Edición</a>
-                            {% endif %}
                             <span class="nav-user-name">Bienvenido, {{ current_user.username }}</span>
                             <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout">Cerrar
                                 sesión</a>
@@ -348,6 +346,7 @@
         }
 
         .nav-auth-btn--edit {
+            margin-bottom: 1rem;
             background: #ff8a4c;
             color: #0b1526;
             box-shadow: 0 12px 24px rgba(255, 138, 76, 0.35);
@@ -364,7 +363,7 @@
 
         .nav-user-name {
             font-weight: 600;
-            color: #ffffff;
+            color: #454545;
             white-space: nowrap;
             order: 2;
         }
@@ -478,6 +477,13 @@
 
         .login-modal-dialog .private-remember {
             color: var(--color-text-soft);
+            justify-content: flex-start;
+            text-align: left;
+            display: inline-flex;
+            width: auto !important;
+            align-self: flex-start !important;
+            flex: 0 0 auto !important;
+            align-items: center;
         }
 
         .login-modal-dialog .btn-primary {

@@ -3,109 +3,633 @@
 {% block title %}Panel socios · AMPA Julián Nieto{% endblock %}
 
 {% block content %}
-  <section class="page-section">
+  <section class="members-shell">
     <div class="container">
-      <div class="header-row">
-        <div>
+      <div class="members-hero">
+        <div class="members-hero__text">
           <p class="eyebrow">Área privada</p>
-          <h1 class="section-title">Panel de socios</h1>
+          <h1 class="members-title">Panel de socios</h1>
+          <p class="members-lead">
+            Un espacio cuidado para seguir el pulso del AMPA: foro activo, calendario privado y documentación siempre a mano.
+          </p>
+          <div class="members-pills">
+            <span class="members-pill">Documentos y actas en un mismo panel</span>
+            <span class="members-pill">Foro con seguimiento y votos</span>
+            {% if current_user.is_admin %}
+            <span class="members-pill members-pill--accent">Rol administrador</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="members-hero__card">
+          <div class="members-hero__card-top">
+            <div>
+              <p class="eyebrow">Acciones inmediatas</p>
+              <h3>Elige el siguiente paso</h3>
+            </div>
+            {% if current_user.is_admin %}
+            <button type="button" class="btn-primary btn-compact" id="open-alta" data-open-alta>
+              <span class="btn-dot"></span> Alta rápida
+            </button>
+            {% else %}
+            <a class="btn-outline btn-compact" href="{{ url_for('members.sugerencias') }}">Ir al foro</a>
+            {% endif %}
+          </div>
+          <div class="members-hero__signals">
+            <div class="members-signal">
+              <div class="members-signal__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M8 12l2.5 2.5L16 9"></path>
+                </svg>
+              </div>
+              <div>
+                <p class="members-signal__title">Foro activo</p>
+                <small>Comparte, comenta y vota las propuestas de la comunidad.</small>
+              </div>
+            </div>
+            <div class="members-signal">
+              <div class="members-signal__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="3"></rect>
+                  <path d="M3 10h18M8 2v4M16 2v4"></path>
+                </svg>
+              </div>
+              <div>
+                <p class="members-signal__title">Calendario privado</p>
+                <small>Reuniones, comisiones y plazos sin perder detalle.</small>
+              </div>
+            </div>
+          </div>
+          <div class="members-steps">
+            <div class="members-step">
+              <span class="members-step__dot"></span>
+              <div>
+                <p class="members-step__title">Publica una idea</p>
+                <small>Explica el reto y añade contexto o archivos.</small>
+              </div>
+              <a class="members-step__link" href="{{ url_for('members.nueva_sugerencia') }}">Crear</a>
+            </div>
+            <div class="members-step">
+              <span class="members-step__dot"></span>
+              <div>
+                <p class="members-step__title">Revisa el foro</p>
+                <small>Vota iniciativas y sigue su evolución.</small>
+              </div>
+              <a class="members-step__link" href="{{ url_for('members.sugerencias') }}">Entrar</a>
+            </div>
+            <div class="members-step">
+              <span class="members-step__dot"></span>
+              <div>
+                <p class="members-step__title">Consulta el calendario</p>
+                <small>Reuniones y tareas de tu comisión.</small>
+              </div>
+              <a class="members-step__link" href="{{ url_for('members.calendar') }}">Abrir</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="members-grid">
+        <a class="members-card" href="{{ url_for('members.sugerencias') }}">
+          <span class="members-card__icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 10h8M8 14h5"></path>
+              <path d="M4 6h16v10H7l-3 3z"></path>
+            </svg>
+          </span>
+          <div>
+            <h3>Foro de sugerencias</h3>
+            <p>Participa, comenta y vota las propuestas de la comunidad.</p>
+          </div>
+          <div class="members-card__footer">
+            <span class="members-tag">Colabora</span>
+            <span class="members-arrow">→</span>
+          </div>
+        </a>
+        <a class="members-card" href="{{ url_for('members.nueva_sugerencia') }}">
+          <span class="members-card__icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14M5 12h14"></path>
+              <rect x="4" y="4" width="16" height="16" rx="3"></rect>
+            </svg>
+          </span>
+          <div>
+            <h3>Crear sugerencia</h3>
+            <p>Propón ideas o dudas con soporte de archivos.</p>
+          </div>
+          <div class="members-card__footer">
+            <span class="members-tag">Nueva</span>
+            <span class="members-arrow">→</span>
+          </div>
+        </a>
+        <a class="members-card" href="{{ url_for('members.calendar') }}">
+          <span class="members-card__icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="16" rx="3"></rect>
+              <path d="M3 10h18M8 2v4M16 2v4"></path>
+            </svg>
+          </span>
+          <div>
+            <h3>Calendario socios</h3>
+            <p>Eventos privados, comisiones y citas clave.</p>
+          </div>
+          <div class="members-card__footer">
+            <span class="members-tag">Planifica</span>
+            <span class="members-arrow">→</span>
+          </div>
+        </a>
+        <a class="members-card members-card--muted" href="#">
+          <span class="members-card__icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 5h16v14H4z"></path>
+              <path d="M9 9h6M9 13h6M9 17h4"></path>
+            </svg>
+          </span>
+          <div>
+            <h3>Documentos privados</h3>
+            <p>Accede a actas y documentación exclusiva para socios.</p>
+          </div>
+          <div class="members-card__footer">
+            <span class="members-tag">Muy pronto</span>
+            <span class="members-arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="members-note">
+        <div>
+          <p class="members-note__title">Documentación y soporte</p>
+          <p class="members-note__text">Si necesitas un acta o una gestión concreta, escríbenos y te respondemos rápido.</p>
         </div>
         {% if current_user.is_admin %}
-          <button class="btn" id="open-alta">Nuevo socio</button>
+        <button type="button" class="btn-primary btn-compact" data-open-alta>
+          <span class="btn-dot"></span> Dar de alta a un socio
+        </button>
+        {% else %}
+        <a class="btn-outline btn-compact" href="{{ url_for('public.contacto') }}">Contactar</a>
         {% endif %}
-      </div>
-      <p class="section-subtitle">
-        Accede a las herramientas internas con el mismo diseño, encabezado y pie que el resto del sitio público.
-      </p>
-      <div class="card-grid three">
-        <a class="card link-card" href="{{ url_for('members.sugerencias') }}">
-          <h3>Foro de sugerencias</h3>
-          <p>Participa, comenta y vota las propuestas de la comunidad.</p>
-        </a>
-        <a class="card link-card" href="{{ url_for('members.nueva_sugerencia') }}">
-          <h3>Crear sugerencia</h3>
-          <p>Propón ideas o dudas con soporte de archivos.</p>
-        </a>
-        <a class="card link-card" href="#">
-          <h3>Documentos privados</h3>
-          <p>Accede a actas y documentación exclusiva para socios.</p>
-        </a>
       </div>
     </div>
   </section>
 
   {% if current_user.is_admin %}
-    <div class="modal" id="alta-modal" aria-hidden="true">
-      <div class="modal-dialog">
-        <header class="modal-header">
-          <h3>Alta rápida de socio</h3>
-          <button class="close" type="button" aria-label="Cerrar" id="close-alta">×</button>
+    <div class="members-modal" id="alta-modal" aria-hidden="true">
+      <div class="members-modal__dialog">
+        <header class="members-modal__header">
+          <div>
+            <p class="eyebrow">Administración</p>
+            <h3>Alta rápida de socio</h3>
+            <p class="members-modal__subtitle">Genera acceso sin salir del panel y avisaremos al nuevo socio.</p>
+          </div>
+          <button class="members-modal__close" type="button" aria-label="Cerrar" id="close-alta">×</button>
         </header>
-        <form method="post" action="{{ url_for('members.alta_socio') }}" class="modal-body">
+        <form method="post" action="{{ url_for('members.alta_socio') }}" class="members-modal__body">
           {{ alta_form.hidden_tag() }}
-          <div class="grid">
-            <div>
+          <div class="members-modal__grid">
+            <div class="members-field">
               {{ alta_form.first_name.label }}{{ alta_form.first_name() }}
             </div>
-            <div>
+            <div class="members-field">
               {{ alta_form.last_name.label }}{{ alta_form.last_name() }}
             </div>
-          </div>
-          {{ alta_form.email.label }}{{ alta_form.email() }}
-          {{ alta_form.phone_number.label }}{{ alta_form.phone_number() }}
-          {{ alta_form.address.label }}{{ alta_form.address() }}
-          <div class="grid">
-            <div>
+            <div class="members-field">
+              {{ alta_form.email.label }}{{ alta_form.email() }}
+            </div>
+            <div class="members-field">
+              {{ alta_form.phone_number.label }}{{ alta_form.phone_number() }}
+            </div>
+            <div class="members-field">
+              {{ alta_form.address.label }}{{ alta_form.address() }}
+            </div>
+            <div class="members-field">
               {{ alta_form.city.label }}{{ alta_form.city() }}
             </div>
-            <div>
+            <div class="members-field">
               {{ alta_form.postal_code.label }}{{ alta_form.postal_code() }}
             </div>
-          </div>
-          <div class="grid">
-            <div>
+            <div class="members-field">
               {{ alta_form.member_number.label }}{{ alta_form.member_number() }}
             </div>
-            <div>
+            <div class="members-field">
               {{ alta_form.year.label }}{{ alta_form.year() }}
             </div>
           </div>
-          <p class="text-muted">Se generará una contraseña temporal y se activará 2FA por SMS.</p>
-          {{ alta_form.submit(class="btn full") }}
+          <p class="members-muted">Se generará una contraseña temporal y se activará 2FA por SMS.</p>
+          {{ alta_form.submit(class="btn-primary btn-compact full") }}
         </form>
       </div>
     </div>
     <script>
       document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById('alta-modal');
-        const openBtn = document.getElementById('open-alta');
+        const openBtns = document.querySelectorAll('[data-open-alta]');
         const closeBtn = document.getElementById('close-alta');
         const toggle = (show) => {
-          modal.setAttribute('aria-hidden', show ? 'false' : 'true');
-          modal.classList.toggle('open', show);
+          modal?.setAttribute('aria-hidden', show ? 'false' : 'true');
+          modal?.classList.toggle('open', show);
         };
-        openBtn?.addEventListener('click', () => toggle(true));
+        openBtns.forEach((btn) => btn.addEventListener('click', () => toggle(true)));
         closeBtn?.addEventListener('click', () => toggle(false));
         modal?.addEventListener('click', (e) => {
           if (e.target === modal) toggle(false);
+        });
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') toggle(false);
         });
       });
     </script>
   {% endif %}
 
   <style>
-    .header-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
-    .section-subtitle { max-width:640px; color:#4b5563; margin-bottom:1.5rem; }
-    .card-grid.three { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1.25rem; }
-    .link-card { text-decoration:none; color:inherit; border:1px solid rgba(0,0,0,0.05); transition:transform .2s ease, box-shadow .2s ease; }
-    .link-card:hover { transform:translateY(-4px); box-shadow:0 15px 30px rgba(15,23,42,0.08); }
-    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); padding:1.5rem; z-index:999; }
-    .modal.open { display:block; }
-    .modal-dialog { background:#fff; max-width:720px; margin:0 auto; border-radius:16px; padding:1.5rem; box-shadow:0 30px 60px rgba(15,23,42,0.25); }
-    .modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
-    .modal .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:0.75rem; }
-    .modal input { width:100%; padding:0.6rem; margin-top:0.25rem; border:1px solid #cbd5f5; border-radius:8px; }
-    .modal .close { background:none; border:none; font-size:1.25rem; cursor:pointer; }
-    .text-muted { color:#666; font-size:0.9rem; }
+    .members-shell {
+      padding: clamp(1.5rem, 2vw, 3rem) 0 2.5rem;
+    }
+
+    .members-hero {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      padding: clamp(1.5rem, 2vw, 2.4rem);
+      border-radius: 1.5rem;
+      background: radial-gradient(circle at 12% 20%, rgba(14, 165, 233, 0.18), transparent 35%), radial-gradient(circle at 88% 18%, rgba(249, 115, 22, 0.14), transparent 42%), linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(240, 244, 248, 0.94));
+      border: 1px solid var(--color-border);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+
+    .members-hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 70% 70%, rgba(15, 23, 42, 0.05), transparent 35%);
+      pointer-events: none;
+    }
+
+    .members-title {
+      font-size: clamp(1.9rem, 2vw, 2.4rem);
+      margin: 0.25rem 0 0.35rem;
+    }
+
+    .members-lead {
+      max-width: 720px;
+      color: var(--color-text-soft);
+      margin: 0.35rem 0 1.1rem;
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+
+    .members-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+    }
+
+    .members-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.4rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid var(--color-border);
+      background: rgba(255, 255, 255, 0.7);
+      font-weight: 600;
+      color: var(--color-text-base);
+    }
+
+    .members-pill--accent {
+      background: rgba(249, 115, 22, 0.12);
+      border-color: rgba(249, 115, 22, 0.35);
+      color: #b45309;
+    }
+
+    .btn-compact {
+      padding: 0.65rem 1.15rem;
+      font-size: 0.95rem;
+      border-radius: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .btn-compact.full {
+      width: 100%;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .btn-dot {
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 999px;
+      background: #fff;
+      border: 2px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.2);
+    }
+
+    .members-hero__card {
+      position: relative;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--color-border);
+      border-radius: 1.1rem;
+      padding: 1.25rem;
+      box-shadow: var(--shadow-md);
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+      backdrop-filter: blur(4px);
+    }
+
+    .members-hero__card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .members-hero__signals {
+      display: grid;
+      gap: 0.85rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .members-signal {
+      display: flex;
+      gap: 0.7rem;
+      align-items: flex-start;
+      border: 1px solid var(--color-border);
+      background: var(--color-panel-alt);
+      border-radius: 0.95rem;
+      padding: 0.9rem 1rem;
+    }
+
+    .members-signal__icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #e0f2ff, #fff);
+      border: 1px solid var(--color-border);
+      display: grid;
+      place-items: center;
+      color: #0f172a;
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    .members-signal__title {
+      margin: 0 0 0.2rem;
+      font-weight: 700;
+    }
+
+    .members-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .members-step {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 0.8rem 0.95rem;
+      border-radius: 0.9rem;
+      border: 1px dashed rgba(100, 116, 139, 0.35);
+      background: rgba(255, 255, 255, 0.85);
+    }
+
+    .members-step__dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: var(--color-accent-warm);
+      box-shadow: 0 0 0 6px rgba(249, 115, 22, 0.16);
+    }
+
+    .members-step__title {
+      margin: 0;
+      font-weight: 700;
+    }
+
+    .members-step__link {
+      margin-left: auto;
+      color: var(--color-accent-warm);
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+    }
+
+    .members-grid {
+      margin-top: 1.75rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+
+    .members-card {
+      position: relative;
+      padding: 1.25rem;
+      border-radius: 1rem;
+      border: 1px solid var(--color-border);
+      background: var(--color-panel);
+      box-shadow: var(--shadow-sm);
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      overflow: hidden;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+    }
+
+    .members-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 22% 20%, rgba(14, 165, 233, 0.12), transparent 45%), radial-gradient(circle at 85% 80%, rgba(249, 115, 22, 0.12), transparent 48%);
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+
+    .members-card:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--shadow-md);
+      border-color: rgba(14, 165, 233, 0.4);
+    }
+
+    .members-card:hover::before {
+      opacity: 1;
+    }
+
+    .members-card__icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: rgba(14, 165, 233, 0.08);
+      border: 1px solid var(--color-border);
+      color: #0f172a;
+      box-shadow: 0 10px 18px rgba(15, 23, 42, 0.06);
+    }
+
+    .members-card__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: auto;
+      font-weight: 600;
+      color: var(--color-text-soft);
+    }
+
+    .members-tag {
+      padding: 0.25rem 0.55rem;
+      border-radius: 999px;
+      background: rgba(14, 165, 233, 0.12);
+      color: #0f172a;
+      font-size: 0.85rem;
+      border: 1px solid rgba(14, 165, 233, 0.2);
+    }
+
+    .members-arrow {
+      font-size: 1.1rem;
+    }
+
+    .members-card--muted {
+      background: linear-gradient(135deg, rgba(248, 250, 252, 0.96), rgba(236, 242, 250, 0.94));
+      border-style: dashed;
+    }
+
+    .members-note {
+      margin-top: 1.7rem;
+      padding: 1.25rem 1.35rem;
+      border-radius: 1rem;
+      border: 1px solid var(--color-border);
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.98), rgba(236, 245, 255, 0.95));
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .members-note__title {
+      margin: 0 0 0.2rem;
+      font-weight: 700;
+    }
+
+    .members-note__text {
+      margin: 0;
+      color: var(--color-text-soft);
+    }
+
+    .members-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      z-index: 1100;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity var(--transition-fast), visibility var(--transition-fast);
+    }
+
+    .members-modal.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .members-modal__dialog {
+      background: linear-gradient(155deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 255, 0.94));
+      border: 1px solid var(--color-border);
+      border-radius: 1.2rem;
+      box-shadow: var(--shadow-xl);
+      padding: 1.5rem;
+      width: min(820px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      position: relative;
+    }
+
+    .members-modal__header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .members-modal__subtitle {
+      margin: 0.2rem 0 0.6rem;
+      color: var(--color-text-soft);
+    }
+
+    .members-modal__close {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--color-border);
+      border-radius: 0.8rem;
+      width: 40px;
+      height: 40px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .members-modal__body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .members-modal__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .members-field label {
+      display: block;
+      font-weight: 700;
+      color: var(--color-text-soft);
+      margin-bottom: 0.25rem;
+    }
+
+    .members-field input {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      border-radius: 0.9rem;
+      border: 1px solid var(--color-border);
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    .members-muted {
+      color: var(--color-text-soft);
+      margin: 0.25rem 0;
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 768px) {
+      .members-hero {
+        padding: 1.25rem;
+      }
+
+      .members-hero__card-top {
+        align-items: flex-start;
+      }
+
+      .members-note {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
   </style>
 {% endblock %}
