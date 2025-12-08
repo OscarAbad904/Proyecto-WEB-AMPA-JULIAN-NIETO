@@ -8,7 +8,12 @@
     <div class="news-header fade-in">
       <div>
         <h1 class="news-title">Últimas Noticias</h1>
-        <p class="news-subtitle">Lo más reciente del AMPA, actividades, comunicados y reuniones.</p>
+        <div class="news-subheader">
+          {% if can_manage_posts %}
+          <a href="{{ url_for('admin.posts') }}" class="nav-auth-btn nav-auth-btn--edit news-edit-btn">Edición</a>
+          {% endif %}
+          <p class="news-subtitle">Lo más reciente del AMPA, actividades, comunicados y reuniones.</p>
+        </div>
       </div>
     </div>
 
@@ -117,6 +122,21 @@
     height: 100%;
     object-fit: cover;
     display: block;
+  }
+
+  .news-subheader {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .news-subheader .news-subtitle {
+    margin-bottom: 1rem;
+  }
+
+  .news-edit-btn {
+    padding: 0.35rem 0.85rem;
   }
 
   @media (min-width: 1024px) {

@@ -2,21 +2,469 @@
 
 {% block title %}Nueva sugerencia · AMPA Julián Nieto{% endblock %}
 
-{% block content %}
-  <section class="page-section">
-    <div class="container">
-      <p class="eyebrow">Área privada</p>
-      <h1 class="section-title">Nueva sugerencia</h1>
-      <p class="section-subtitle">Cuéntanos tu propuesta o duda para mejorar la vida del centro.</p>
+{% block head %}
+  <style>
+    .suggestion-new {
+      --panel: var(--color-panel, #ffffff);
+      --border: var(--color-border, rgba(15, 23, 42, 0.08));
+      --text: var(--color-text-base, #0f172a);
+      --muted: var(--color-text-soft, #475569);
+      --accent: var(--color-accent-warm, #f97316);
+      --accent-2: var(--color-accent-primary, #8b5cf6);
+      --glow: var(--shadow-soft, 0 22px 50px rgba(15, 23, 42, 0.14));
+      background: radial-gradient(120% 120% at 20% 10%, rgba(139, 92, 246, 0.08), transparent),
+        radial-gradient(120% 120% at 80% 0%, rgba(249, 115, 22, 0.08), transparent);
+      padding-top: 2.5rem;
+      padding-bottom: 2.5rem;
+    }
 
-      <form method="post" enctype="multipart/form-data" class="private-form">
-        {{ form.hidden_tag() }}
-        {{ form.title.label }}{{ form.title() }}
-        {{ form.category.label }}{{ form.category() }}
-        {{ form.body.label }}{{ form.body() }}
-        {{ form.attachment.label }}{{ form.attachment() }}
-        {{ form.submit(class="btn full") }}
-      </form>
+    .suggestion-hero {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 1.5rem;
+      padding: 1.75rem 2rem;
+      border-radius: 20px;
+      background: linear-gradient(140deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.92));
+      border: 1px solid var(--border);
+      box-shadow: var(--glow);
+      overflow: hidden;
+    }
+
+    .suggestion-hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(260px at 15% 15%, rgba(139, 92, 246, 0.08), transparent),
+        radial-gradient(320px at 85% 10%, rgba(249, 115, 22, 0.10), transparent);
+      pointer-events: none;
+    }
+
+    .suggestion-hero > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .suggestion-hero .eyebrow {
+      color: var(--accent-2);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+
+    .suggestion-hero .section-title {
+      margin: 0;
+      color: var(--text);
+    }
+
+    .suggestion-hero .section-subtitle {
+      margin: 0.45rem 0 0;
+      color: var(--muted);
+      max-width: 720px;
+    }
+
+    .suggestion-pills {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.9rem;
+    }
+
+    .suggestion-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(249, 115, 22, 0.1);
+      color: var(--accent);
+      border: 1px solid rgba(249, 115, 22, 0.25);
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .suggestion-pill--ghost {
+      background: transparent;
+      color: var(--muted);
+      border-style: dashed;
+    }
+
+    .hero-highlight {
+      align-self: center;
+      background: rgba(15, 23, 42, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0.9rem 1.1rem;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.75rem;
+      min-width: 240px;
+      backdrop-filter: blur(10px);
+    }
+
+    .hero-highlight-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(140deg, rgba(139, 92, 246, 0.18), rgba(249, 115, 22, 0.18));
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      color: #0f172a;
+    }
+
+    .hero-highlight strong {
+      display: block;
+      color: var(--text);
+      font-size: 0.98rem;
+      margin-bottom: 0.1rem;
+    }
+
+    .hero-highlight span {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.4;
+    }
+
+    .suggestion-grid {
+      margin-top: 1.5rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 1.25rem;
+      align-items: flex-start;
+    }
+
+    .suggestion-card,
+    .suggestion-aside {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow-md, 0 14px 36px rgba(15, 23, 42, 0.12));
+      padding: 1.35rem;
+    }
+
+    .suggestion-card__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .suggestion-card__meta {
+      display: inline-flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .suggestion-card__meta .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      background: rgba(139, 92, 246, 0.12);
+      color: #5b21b6;
+      border-color: rgba(139, 92, 246, 0.25);
+    }
+
+    .suggestion-form {
+      display: grid;
+      gap: 1rem;
+      margin-top: 0.75rem;
+    }
+
+    .suggestion-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .suggestion-label {
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.98rem;
+    }
+
+    .suggestion-hint {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .input-control {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      font-size: 1rem;
+      background: rgba(255, 255, 255, 0.94);
+      color: var(--text);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 30px rgba(15, 23, 42, 0.05);
+      transition: border 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .input-control:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.16), 0 20px 38px rgba(15, 23, 42, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .suggestion-textarea {
+      min-height: 160px;
+      resize: vertical;
+    }
+
+    .file-control {
+      border-style: dashed;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(249, 115, 22, 0.06));
+      cursor: pointer;
+    }
+
+    .suggestion-form__actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .suggestion-card .btn-primary {
+      background: linear-gradient(135deg, var(--accent-2), #ec4899);
+      color: #fff;
+      border: none;
+      padding: 0.9rem 1.4rem;
+      border-radius: 12px;
+      box-shadow: 0 18px 38px rgba(139, 92, 246, 0.35);
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .suggestion-card .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 22px 42px rgba(139, 92, 246, 0.4);
+    }
+
+    .suggestion-card .btn-ghost {
+      padding: 0.9rem 1.2rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-weight: 600;
+      text-decoration: none;
+      transition: border 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    }
+
+    .suggestion-card .btn-ghost:hover {
+      color: var(--text);
+      border-color: rgba(15, 23, 42, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .suggestion-aside {
+      display: grid;
+      gap: 1rem;
+      position: sticky;
+      top: 1.5rem;
+    }
+
+    .aside-title {
+      font-size: 1.02rem;
+      font-weight: 700;
+      margin: 0 0 0.35rem;
+      color: var(--text);
+    }
+
+    .aside-subtitle {
+      margin: 0 0 0.75rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .tip-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .tip-item {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.55rem;
+      align-items: flex-start;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .tip-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-top: 0.25rem;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.85), rgba(249, 115, 22, 0.85));
+      box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.1);
+    }
+
+    .timeline {
+      margin: 0.4rem 0 0;
+      padding: 0;
+      list-style: none;
+      border-left: 2px solid rgba(15, 23, 42, 0.08);
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .timeline li {
+      padding-left: 1rem;
+      position: relative;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .timeline li::before {
+      content: "";
+      position: absolute;
+      left: -7px;
+      top: 0.25rem;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 6px rgba(249, 115, 22, 0.14);
+    }
+
+    @media (max-width: 980px) {
+      .suggestion-hero {
+        grid-template-columns: 1fr;
+      }
+
+      .suggestion-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-highlight {
+        justify-self: start;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .suggestion-card,
+      .suggestion-aside {
+        padding: 1rem;
+      }
+
+      .suggestion-form__actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .suggestion-card .btn-primary,
+      .suggestion-card .btn-ghost {
+        width: 100%;
+        text-align: center;
+        justify-content: center;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <section class="page-section suggestion-new">
+    <div class="container">
+      <div class="suggestion-hero">
+        <div>
+          <p class="eyebrow">Área privada · Foro de sugerencias</p>
+          <h1 class="section-title">Comparte una nueva idea</h1>
+          <p class="section-subtitle">
+            Cuéntanos tu propuesta o duda para mejorar la vida del centro. Sé concreto: ¿qué necesitas, para quién y qué efecto tendrá?
+          </p>
+          <div class="suggestion-pills">
+            <span class="suggestion-pill">Tiempo de respuesta medio: 48h</span>
+            <span class="suggestion-pill suggestion-pill--ghost">Se notificará en tu correo y en el foro</span>
+          </div>
+        </div>
+        <div class="hero-highlight">
+          <span class="hero-highlight-icon">TIP</span>
+          <div>
+            <strong>Consejo rápido</strong>
+            <span>Resume en un titular y añade detalles prácticos: curso, espacio o actividad afectada.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="suggestion-grid">
+        <div class="suggestion-card">
+          <div class="suggestion-card__header">
+            <div>
+              <h2 class="section-title" style="margin: 0;">Formulario</h2>
+              <p class="suggestion-hint">Tu mensaje se publicará en el foro privado.</p>
+            </div>
+            <div class="suggestion-card__meta">
+              <span class="chip">+1 archivo</span>
+              <span class="chip">Revisión interna</span>
+            </div>
+          </div>
+
+          <form method="post" enctype="multipart/form-data" class="suggestion-form">
+            {{ form.hidden_tag() }}
+
+            <div class="suggestion-field">
+              {{ form.title.label(class="suggestion-label") }}
+              {{ form.title(class="input-control", placeholder="Ej. Más sombra en el patio de Infantil") }}
+              <p class="suggestion-hint">Usa un titular breve y directo.</p>
+            </div>
+
+            <div class="suggestion-field">
+              {{ form.category.label(class="suggestion-label") }}
+              {{ form.category(class="input-control") }}
+              <p class="suggestion-hint">Elegimos la comisión adecuada según la categoría.</p>
+            </div>
+
+            <div class="suggestion-field">
+              {{ form.body.label(class="suggestion-label") }}
+              {{ form.body(class="input-control suggestion-textarea", rows="6", placeholder="Describe el problema o la mejora, quién se beneficiará y cualquier dato que ayude a priorizar.") }}
+            </div>
+
+            <div class="suggestion-field">
+              {{ form.attachment.label(class="suggestion-label") }}
+              {{ form.attachment(class="input-control file-control") }}
+              <p class="suggestion-hint">Opcional: adjunta imágenes o PDFs que ayuden a entenderlo mejor.</p>
+            </div>
+
+            <div class="suggestion-form__actions">
+              {{ form.submit(class="btn-primary") }}
+              <a class="btn-ghost" href="{{ url_for('members.sugerencias') }}">Volver al foro</a>
+            </div>
+          </form>
+        </div>
+
+        <aside class="suggestion-aside">
+          <div>
+            <p class="aside-title">Antes de enviar</p>
+            <p class="aside-subtitle">Un buen contexto ayuda a resolver tu idea más rápido.</p>
+            <ul class="tip-list">
+              <li class="tip-item"><span class="tip-dot"></span><span><strong>Contexto:</strong> indica curso, grupo o espacio del cole.</span></li>
+              <li class="tip-item"><span class="tip-dot"></span><span><strong>Impacto:</strong> explica qué problema resuelve o qué mejora aporta.</span></li>
+              <li class="tip-item"><span class="tip-dot"></span><span><strong>Urgencia:</strong> añade fechas clave si las hay.</span></li>
+            </ul>
+          </div>
+          <div>
+            <p class="aside-title">Qué ocurre después</p>
+            <ol class="timeline">
+              <li>Publicamos tu sugerencia en el foro privado.</li>
+              <li>La junta la asigna a la comisión correspondiente.</li>
+              <li>Recibirás actualizaciones cuando haya avances.</li>
+            </ol>
+          </div>
+        </aside>
+      </div>
     </div>
   </section>
 {% endblock %}
