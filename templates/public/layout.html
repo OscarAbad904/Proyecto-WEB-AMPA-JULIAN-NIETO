@@ -139,21 +139,6 @@
                             <span class="header-title-colegio">Julián Nieto Tapia</span>
                         </span>
                     </div>
-                    <div class="header-utilities">
-                        <div class="buscador-desktop">
-                            <input type="text" placeholder="Buscar..." class="buscador-input" id="buscadorAMPA"
-                                oninput="buscarEnPagina()" />
-                        </div>
-                        <div class="nav-auth">
-                            {% if current_user.is_authenticated %}
-                            <span class="nav-user-name">Bienvenido, {{ current_user.username }}</span>
-                            <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout">Cerrar
-                                sesión</a>
-                            {% else %}
-                            <button type="button" class="nav-auth-btn" onclick="toggleLoginModal(true)">Login</button>
-                            {% endif %}
-                        </div>
-                    </div>
                     <div class="nav-desktop">
                         <a href="{{ url_for('public.home') }}" class="nav-link{% if request.endpoint == 'public.home' %} active{% endif %}">Inicio</a>
                         <a href="{{ url_for('public.quienes_somos') }}" class="nav-link{% if request.endpoint == 'public.quienes_somos' %} active{% endif %}">Quiénes Somos</a>
@@ -175,6 +160,14 @@
                         <a href="{{ url_for('admin.permissions') }}" class="nav-link{% if request.endpoint == 'admin.permissions' %} active{% endif %}">Permisos</a>
                         {% endif %}
                         {% endif %}
+                        <div class="nav-auth nav-auth-desktop">
+                            {% if current_user.is_authenticated %}
+                            <span class="nav-user-name">Bienvenido, {{ current_user.username }}</span>
+                            <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout">Cerrar sesion</a>
+                            {% else %}
+                            <button type="button" class="nav-auth-btn" onclick="toggleLoginModal(true)">Login</button>
+                            {% endif %}
+                        </div>
                     </div>
                     <button class="menu-mobile-btn" onclick="toggleMobileMenu()">
                         <svg class="menu-mobile-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -327,6 +320,9 @@
             align-items: center;
             gap: 0.75rem;
             margin-left: 1rem;
+        }
+        .nav-auth.nav-auth-desktop {
+            margin-left: auto;
         }
 
         .nav-auth-btn {
