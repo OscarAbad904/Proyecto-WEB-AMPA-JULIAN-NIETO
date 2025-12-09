@@ -5,10 +5,49 @@ from app.utils import _normalize_drive_url
 
 public_bp = Blueprint("public", __name__, template_folder="../../templates/public")
 
+def _normalize_post_images(post: Post) -> Post:
+    """Ensure cover and modal images point to a renderable URL."""
+    normalized_cover = _normalize_drive_url(post.cover_image)
+    variants = post.image_variants or {}
+    if isinstance(variants, dict):
+        post.cover_image = (
+            variants.get("latest")
+            or variants.get("last_v")
+            or variants.get("last_h")
+            or normalized_cover
+        )
+        post.modal_image = (
+            variants.get("modal")
+            or variants.get("modal_v")
+            or variants.get("modal_h")
+            or post.cover_image
+        )
+    else:
+        post.cover_image = normalized_cover
+        post.modal_image = normalized_cover
+    return post
+
+
+def _get_latest_three_posts() -> list[Post]:
+    posts = (
+        Post.query.filter_by(status="published")
+        .order_by(Post.published_at.desc().nullslast(), Post.created_at.desc())
+        .limit(3)
+        .all()
+    )
+    posts = [_normalize_post_images(post) for post in posts]
+
+    posts_with_position = [p for p in posts if p.featured_position is not None]
+    posts_without_position = [p for p in posts if p.featured_position is None]
+    posts_with_position.sort(key=lambda p: p.featured_position or 0)
+
+    return posts_with_position + posts_without_position
+
 @public_bp.route("/")
 @public_bp.route("/AMPA")
 def home():
-    return render_template("index.html")
+    latest_three = _get_latest_three_posts()
+    return render_template("index.html", latest_three=latest_three)
 
 
 @public_bp.route("/quienes-somos")
@@ -24,39 +63,11 @@ def noticias():
         .order_by(Post.published_at.desc().nullslast(), Post.created_at.desc())
         .all()
     )
-    for post in posts:
-        normalized_cover = _normalize_drive_url(post.cover_image)
-        variants = post.image_variants or {}
-        if isinstance(variants, dict):
-            post.cover_image = (
-                variants.get("latest")
-                or variants.get("last_v")
-                or variants.get("last_h")
-                or normalized_cover
-            )
-            post.modal_image = (
-                variants.get("modal")
-                or variants.get("modal_v")
-                or variants.get("modal_h")
-                or post.cover_image
-            )
-        else:
-            post.cover_image = normalized_cover
-            post.modal_image = normalized_cover
-    # Siempre obtener las 3 noticias más recientes (por published_at descendente)
-    latest_three: list[Post] = posts[:3]
-    
-    # Reordenar las 3 más recientes según featured_position si existen
-    posts_with_position = [p for p in latest_three if p.featured_position is not None]
-    posts_without_position = [p for p in latest_three if p.featured_position is None]
-    
-    # Ordenar solo los que tienen featured_position
-    posts_with_position.sort(key=lambda p: p.featured_position or 0)
-    
-    # Combinar: primero los que tienen posición (ordenados), luego los demás
-    latest_three = posts_with_position + posts_without_position
-    return render_template("public/noticias.html", query=query, posts=posts, latest_three=latest_three)
+    posts = [_normalize_post_images(post) for post in posts]
 
+    # Siempre obtener las 3 noticias m?s recientes (por published_at descendente)
+    latest_three = _get_latest_three_posts()
+    return render_template("public/noticias.html", query=query, posts=posts, latest_three=latest_three)
 
 @public_bp.route("/noticias/<slug>")
 def noticia_detalle(slug):
