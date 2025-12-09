@@ -4,6 +4,120 @@
 
 {% block content %}
     <style>
+        .news-ticker-shell {
+            position: relative;
+            z-index: 5;
+            margin: 0 auto 1.25rem;
+            max-width: 1200px;
+            padding: 0.35rem;
+            border-radius: 1.35rem;
+            background: rgba(255, 255, 255, 0.82);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(6px);
+            overflow: hidden;
+            -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 14%, black 86%, transparent 100%);
+                    mask-image: linear-gradient(90deg, transparent 0%, black 14%, black 86%, transparent 100%);
+        }
+        .news-ticker {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.3rem 0.5rem;
+            border-radius: 1rem;
+            background: linear-gradient(90deg, rgba(31, 59, 162, 0.12), rgba(255, 138, 76, 0.08));
+            overflow: hidden;
+        }
+        .news-ticker-label {
+            flex: 0 0 auto;
+            font-weight: 700;
+            color: #0d1b3f;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-size: 0.8rem;
+            background: #fff;
+            padding: 0.4rem 0.7rem;
+            border-radius: 999px;
+            border: 1px solid rgba(13, 27, 63, 0.08);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+        }
+        .news-ticker-track-mask {
+            position: relative;
+            flex: 1 1 auto;
+            overflow: hidden;
+            min-height: 1.5rem;
+            -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 10%, black 90%, transparent 100%);
+                    mask-image: linear-gradient(90deg, transparent 0%, black 10%, black 90%, transparent 100%);
+        }
+        .news-ticker-track {
+            display: inline-flex;
+            align-items: center;
+            gap: 1.25rem;
+            min-width: max-content;
+            animation: ticker-move 22s linear infinite;
+            will-change: transform;
+        }
+        .news-ticker-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 700;
+            color: #0b1526;
+            text-decoration: none;
+            white-space: nowrap;
+            padding: 0.3rem 0.75rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(12, 27, 62, 0.08);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .news-ticker-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 14px 26px rgba(0, 0, 0, 0.12);
+        }
+        .news-ticker-item::before {
+            content: ">>";
+            font-size: 0.75rem;
+            color: #ff8a4c;
+        }
+        .news-ticker-item::after {
+            content: "<<";
+            font-size: 0.75rem;
+            color: #ff8a4c;
+        }
+        .news-ticker-empty {
+            color: #0b1526;
+            font-weight: 600;
+        }
+        .news-ticker-track-mask::before,
+        .news-ticker-track-mask::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 48px;
+            pointer-events: none;
+        }
+        .news-ticker-track-mask::before {
+            left: 0;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+        }
+        .news-ticker-track-mask::after {
+            right: 0;
+            background: linear-gradient(270deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+        }
+        @keyframes ticker-move {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        @media (max-width: 768px) {
+            .news-ticker-shell { margin: 0.5rem 1rem 1rem; }
+            .news-ticker { gap: 0.5rem; padding: 0.55rem 0.75rem; }
+            .news-ticker-label { display: none; }
+            .news-ticker-item { font-size: 0.95rem; }
+        }
+
         .about-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -72,6 +186,31 @@
             .about-contact-card { padding: 1.5rem; }
         }
     </style>
+
+    <section class="news-ticker-shell">
+        <div class="news-ticker">
+            <div class="news-ticker-track-mask">
+                {% if latest_three %}
+                <div class="news-ticker-track">
+                    {% for post in latest_three %}
+                    <a class="news-ticker-item" href="{{ url_for('public.noticias') }}#noticias">
+                        {{ post.title }}
+                    </a>
+                    {% endfor %}
+                    {% for post in latest_three %}
+                    <a class="news-ticker-item" href="{{ url_for('public.noticias') }}#noticias">
+                        {{ post.title }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="news-ticker-empty">
+                    Pronto compartiremos nuevas noticias del AMPA.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
 
     <!-- Hero Section -->
     <section id="inicio" class="hero-section">
