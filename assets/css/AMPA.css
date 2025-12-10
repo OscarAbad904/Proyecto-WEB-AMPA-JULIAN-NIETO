@@ -93,11 +93,6 @@ body.home-page {
   box-sizing: border-box;
 }
 
-img {
-  max-width: 100%;
-  height: auto;
-}
-
 body {
   overflow-x: hidden;
 }
@@ -176,8 +171,8 @@ footer {
   .hero-section,
   .news-section,
   .page-content {
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-inline: 0rem;
+    margin-inline:;
   }
 
   .hero {
@@ -231,11 +226,11 @@ footer {
 
   0%,
   100% {
-    transform: translateY(0px);
+    transform: translateY(-40px);
   }
 
   50% {
-    transform: translateY(-20px);
+    transform: translateY(-80px);
   }
 }
 
@@ -515,7 +510,7 @@ body.menu-open {
 
 .hero-container {
   max-width: 100%;
-  margin: 0 auto;
+  margin: 0px auto;
   padding: 0rem;
   text-align: center;
   position: relative;
@@ -538,8 +533,8 @@ body.menu-open {
 }
 
 .hero-logo-bg {
-  width: clamp(10rem, 24vw, 20rem);
-  height: clamp(10rem, 24vw, 20rem);
+  width: 19rem;
+  height: 19rem;
   margin: auto;
   display: flex;
   align-items: center;
@@ -549,21 +544,20 @@ body.menu-open {
   position: relative;
   isolation: isolate;
   border-radius: 3.5rem;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow:
-    0 0 0 8px rgba(255, 255, 255, 0.45),
-    0 16px 32px rgba(0, 0, 0, 0.12);
+  background: rgb(255 255 255 / 50%);
+  box-shadow: 0 0 0 0.5rem rgba(255, 255, 255, 0.5), 0rem 0rem 1.5rem 1.5rem rgba(255, 255, 255, 1);
 }
 
 .hero-logo-img {
-  border-radius: 5rem;
-  background: rgb(255 255 255);
+  border-radius: 3rem;
+  background: rgb(255 255 255 / 100%);
   object-fit: contain;
-  width: 80;
-  height: 90%;
+  width: 45%;
+  height: 45%;
   filter: none;
   position: relative;
   z-index: 1;
+  box-shadow: 0 0 0 0.5rem rgba(255, 255, 255, 0.5), 0rem 0rem 1.5rem 1.5rem rgba(255, 255, 255, 1);
 }
 
 .hero-logo-bg::after {
@@ -584,19 +578,16 @@ body.menu-open {
 }
 
 .hero-title {
-  padding: 0.2rem 1rem;
+  padding: 0rem 0.5rem;
   border-radius: 5rem;
-  background: rgb(255 255 255);
+  background: rgb(255 255 255 / 100%);
   font-size: 1.6rem;
   font-weight: bold;
   margin-block: 0.5rem;
   color: #1e293b;
   position: relative;
   isolation: isolate;
-  box-shadow:
-    0 0 0 6px rgba(255, 255, 255, 0.7),
-    0 10px 30px rgba(0, 0, 0, 0.08),
-    0 0 40px 16px rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 0 0.5rem rgba(255, 255, 255, 0.5), 0rem 0rem 1.5rem 1.5rem rgba(255, 255, 255, 1);
 }
 
 @media (min-width: 768px) {
@@ -606,20 +597,19 @@ body.menu-open {
 }
 
 .hero-desc {
-  padding: 0.2rem 1rem;
+  padding: 0.0rem 0.5rem;
   border-radius: 1rem;
   background: rgb(255 255 255);
   font-size: 0.8rem;
   color: var(--color-text-soft);
-  max-width: 60rem;
+  width: 80%;
+  max-width: 768px;
   margin-inline: auto;
   margin-block: 0;
   position: relative;
   isolation: isolate;
-  box-shadow:
-    0 0 0 4px rgba(255, 255, 255, 0.7),
-    0 8px 22px rgba(0, 0, 0, 0.06),
-    0 0 30px 12px rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 0.5rem rgba(255, 255, 255, 0.5),
+    0rem 0rem 1.5rem 1.5rem rgba(255, 255, 255, 1);
 }
 
 @media (min-width: 768px) {
