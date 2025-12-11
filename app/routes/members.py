@@ -113,7 +113,7 @@ def dashboard():
 @members_bp.route("/socios/alta", methods=["POST"])
 @login_required
 def alta_socio():
-    if not current_user.is_admin:
+    if not (current_user.has_permission("manage_members") or user_is_privileged(current_user)):
         abort(403)
     form = NewMemberForm()
     if form.validate_on_submit():
@@ -245,6 +245,8 @@ def recuperar():
 @members_bp.route("/sugerencias")
 @login_required
 def sugerencias():
+    if not current_user.has_permission("view_suggestions"):
+        abort(403)
     status = request.args.get("status", "pendiente")
     page = request.args.get("page", 1, type=int)
     suggestions = (
@@ -258,6 +260,8 @@ def sugerencias():
 @members_bp.route("/sugerencias/nueva", methods=["GET", "POST"])
 @login_required
 def nueva_sugerencia():
+    if not current_user.has_permission("create_suggestions"):
+        abort(403)
     form = SuggestionForm()
     if form.validate_on_submit():
         suggestion = Suggestion(
@@ -276,6 +280,8 @@ def nueva_sugerencia():
 @members_bp.route("/sugerencias/<int:suggestion_id>")
 @login_required
 def detalle_sugerencia(suggestion_id: int):
+    if not current_user.has_permission("view_suggestions"):
+        abort(403)
     suggestion = Suggestion.query.get_or_404(suggestion_id)
     comment_form = CommentForm()
     vote_form = VoteForm()
@@ -302,6 +308,8 @@ def detalle_sugerencia(suggestion_id: int):
 @members_bp.route("/sugerencias/<int:suggestion_id>/comentar", methods=["POST"])
 @login_required
 def comentar_sugerencia(suggestion_id: int):
+    if not current_user.has_permission("comment_suggestions"):
+        abort(403)
     suggestion = Suggestion.query.get_or_404(suggestion_id)
     form = CommentForm()
     if form.validate_on_submit():
@@ -321,6 +329,8 @@ def comentar_sugerencia(suggestion_id: int):
 @members_bp.route("/sugerencias/<int:suggestion_id>/votar", methods=["POST"])
 @login_required
 def votar_sugerencia(suggestion_id: int):
+    if not current_user.has_permission("vote_suggestions"):
+        abort(403)
     suggestion = Suggestion.query.get_or_404(suggestion_id)
     if suggestion.status == "cerrada":
         message = "El hilo está cerrado; no se pueden registrar votos nuevos."
@@ -636,4 +646,6 @@ def commission_meeting_form(slug: str, meeting_id: int | None = None):
 @members_bp.route("/calendario")
 @login_required
 def calendar():
+    if not current_user.has_permission("view_private_calendar"):
+        abort(403)
     return render_template("members/calendario.html")

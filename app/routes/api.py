@@ -229,10 +229,13 @@ def limpiar_cache_calendario():
     
     Solo disponible para usuarios autenticados con permisos de administración.
     """
-    if not user_is_privileged(current_user):
+    if not (
+        current_user.has_permission("clear_calendar_cache")
+        or user_is_privileged(current_user)
+    ):
         return jsonify({
             "ok": False,
-            "error": "No tienes permisos para realizar esta acción",
+            "error": "No tienes permisos para realizar esta acci?n",
         }), 403
     
     from app.services.calendar_service import clear_calendar_cache

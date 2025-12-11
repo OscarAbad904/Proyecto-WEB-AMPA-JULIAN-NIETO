@@ -351,6 +351,11 @@
         <button type="button" class="modal-close" id="close-event-modal" aria-label="Cerrar">&times;</button>
       </div>
       <form method="post" class="admin-form event-modal-form" novalidate>
+        {% if not can_edit_events %}
+        <p class="muted" style="margin-top:0;">Solo lectura. Solicita permiso para editar eventos.</p>
+        {% endif %}
+        <fieldset {% if not can_edit_events %}disabled aria-disabled="true"{% endif %}>
+
         {{ form.csrf_token }}
         <div class="field">
           {{ form.title.label }}
@@ -396,7 +401,8 @@
           <button type="button" class="btn-ghost" id="cancel-event-modal">Cancelar</button>
           {{ form.submit(class="btn-primary") }}
         </div>
-      </form>
+              </fieldset>
+</form>
     </div>
   </div>
 {% endblock %}
