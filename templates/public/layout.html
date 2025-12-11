@@ -296,10 +296,10 @@
             <p class="section-subtitle">Introduce tus credenciales para entrar en la zona de socios.</p>
             {% if header_login_form %}
             <form method="post" action="{{ url_for('members.login') }}" class="private-form">
-                {{ header_login_form.hidden_tag() }}
+                {{ header_login_form.csrf_token(id="csrf_header_login") }}
                 <div class="private-field">
                     {{ header_login_form.email.label }}
-                    {{ header_login_form.email(placeholder="correo@ejemplo.com") }}
+                    {{ header_login_form.email(placeholder="correo@ejemplo.com", autocomplete="email") }}
                 </div>
                 <div class="private-field">
                     {{ header_login_form.password.label }}
@@ -309,7 +309,7 @@
                     {{ header_login_form.remember_me() }}
                     <span>{{ header_login_form.remember_me.label.text }}</span>
                 </label>
-                {{ header_login_form.submit(class_="btn-primary full") }}
+                {{ header_login_form.submit(class_="btn-primary full", id="submit-header-login") }}
             </form>
             {% endif %}
         </div>
