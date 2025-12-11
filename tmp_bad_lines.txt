@@ -1,0 +1,3 @@
+44:     ("Secretar�a", "Secretaría"),
+48:     ("Vicesecretar�a", "Vicesecretaría"),
+52:     ("Tesorer�a", "Tesorería"),

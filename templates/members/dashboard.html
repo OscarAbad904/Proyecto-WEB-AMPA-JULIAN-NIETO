@@ -15,8 +15,8 @@
           <div class="members-pills">
             <span class="members-pill">Documentos y actas en un mismo panel</span>
             <span class="members-pill">Foro con seguimiento y votos</span>
-            {% if current_user.is_admin %}
-            <span class="members-pill members-pill--accent">Rol administrador</span>
+            {% if can_manage_members %}
+            <span class="members-pill members-pill--accent">Permiso de gesti?n de socios</span>
             {% endif %}
           </div>
         </div>
@@ -26,7 +26,7 @@
               <p class="eyebrow">Acciones inmediatas</p>
               <h3>Elige el siguiente paso</h3>
             </div>
-            {% if current_user.is_admin %}
+            {% if can_manage_members %}
             <button type="button" class="btn-primary btn-compact" id="open-alta" data-open-alta>
               <span class="btn-dot"></span> Alta rápida
             </button>
@@ -161,7 +161,7 @@
           <p class="members-note__title">Documentación y soporte</p>
           <p class="members-note__text">Si necesitas un acta o una gestión concreta, escríbenos y te respondemos rápido.</p>
         </div>
-        {% if current_user.is_admin %}
+        {% if can_manage_members %}
         <button type="button" class="btn-primary btn-compact" data-open-alta>
           <span class="btn-dot"></span> Dar de alta a un socio
         </button>
@@ -172,7 +172,7 @@
     </div>
   </section>
 
-  {% if current_user.is_admin %}
+  {% if can_manage_members %}
     <div class="members-modal" id="alta-modal" aria-hidden="true">
       <div class="members-modal__dialog">
         <header class="members-modal__header">

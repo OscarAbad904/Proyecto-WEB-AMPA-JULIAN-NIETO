@@ -66,7 +66,7 @@
                 {% set checked = existing.get((role.id, perm.id), False) %}
                 <td>
                   <label class="checkbox-inline" style="justify-content:center;" aria-label="{{ item.label }} para {{ role.name }}">
-                    <input type="checkbox" name="perm_{{ role.id }}_{{ perm.id }}" {% if checked %}checked{% endif %}>
+                    <input type="checkbox" name="perm_{{ role.id }}_{{ perm.id }}" {% if checked %}checked{% endif %} {% if not can_edit_permissions %}disabled{% endif %}>
                   </label>
                 </td>
                 {% endfor %}
@@ -82,10 +82,14 @@
         <p class="muted" style="margin:0;">No hay permisos definidos en el sistema.</p>
       </div>
     {% endif %}
+    {% if can_edit_permissions %}
     <div class="permissions-actions">
       <button type="submit" class="btn-primary">Guardar cambios</button>
       <a class="btn-link" href="{{ url_for('admin.dashboard_admin') }}">Cancelar</a>
     </div>
+    {% else %}
+    <p class="muted" style="margin:0 0 1rem;">Solo tienes acceso de lectura. Solicita el permiso "Gestionar permisos" para editar esta tabla.</p>
+    {% endif %}
   </form>
 </section>
 {% endblock %}

@@ -12,6 +12,7 @@ from app.routes.api import api_bp
 from app.models import User, user_is_privileged
 from app.forms import LoginForm
 from app.commands import register_commands
+from app.services.permission_registry import ensure_roles_and_permissions
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -32,6 +33,11 @@ def create_app(config_name: str | None = None) -> Flask:
     register_blueprints(app)
     register_context(app)
     register_commands(app)
+    with app.app_context():
+        try:
+            ensure_roles_and_permissions()
+        except Exception as exc:  # noqa: BLE001
+            app.logger.exception("No se pudieron sincronizar los permisos base", exc_info=exc)
 
     return app
 
@@ -61,9 +67,15 @@ def register_context(app: Flask) -> None:
     @app.context_processor
     def inject_globals():
         from flask_login import current_user
-        can_manage_members = user_is_privileged(current_user)
-        can_manage_posts = current_user.is_authenticated and current_user.has_permission("manage_posts")
-        can_manage_events = current_user.is_authenticated and current_user.has_permission("manage_events")
+        can_manage_members = current_user.is_authenticated and (
+            current_user.has_permission("manage_members") or user_is_privileged(current_user)
+        )
+        can_manage_posts = current_user.is_authenticated and (
+            current_user.has_permission("manage_posts") or user_is_privileged(current_user)
+        )
+        can_manage_events = current_user.is_authenticated and (
+            current_user.has_permission("manage_events") or user_is_privileged(current_user)
+        )
         can_view_commissions = (
             current_user.is_authenticated and current_user.has_permission("view_commissions")
         )
@@ -74,6 +86,7 @@ def register_context(app: Flask) -> None:
             current_user.is_authenticated
             and (
                 current_user.has_permission("manage_permissions")
+                or current_user.has_permission("view_permissions")
                 or user_is_privileged(current_user)
             )
         )

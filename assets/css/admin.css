@@ -1,13 +1,35 @@
 .admin-wrapper {
-  width: 100%;
-  max-width: 1200px;
+  width: 90%;
   margin: 0 auto;
   padding: 4rem 1rem;
 }
-.admin-header { display:flex; flex-direction:column; gap:0.35rem; margin-bottom: 1.5rem; }
-.admin-kicker { letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.8rem; color: var(--color-text-soft); }
-.admin-title { font-size: clamp(1.75rem, 2vw, 2.35rem); margin:0; color: var(--color-text-base); }
-.admin-subtitle { margin:0; color: var(--color-text-soft); max-width: 720px; }
+
+.admin-header { 
+  display:flex;
+  flex-direction:column;
+  gap:0.35rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-kicker {
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  color: var(--color-text-soft);
+}
+
+.admin-title {
+  font-size: clamp(1.75rem, 2vw, 2.35rem);
+  margin:0;
+  color: var(--color-text-base);
+}
+
+.admin-subtitle {
+  margin:0;
+  color: var(--color-text-soft);
+  max-width: 720px;
+}
+
 .admin-grid {
   display:grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(360px, 2fr);

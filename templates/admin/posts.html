@@ -27,6 +27,10 @@
 
     <div class="admin-grid">
       <form class="admin-card admin-form" method="post" novalidate enctype="multipart/form-data">
+        {% if not can_edit_posts %}
+        <p class="muted" style="margin-top:0;">Solo tienes acceso de lectura. Solicita permiso de edición para modificar noticias.</p>
+        {% endif %}
+        <fieldset {% if not can_edit_posts %}disabled aria-disabled="true"{% endif %}>
         {{ form.csrf_token(id="csrf_posts_main") }}
         {{ form.post_id(id="post-id") }}
         <div class="field">
@@ -78,6 +82,7 @@
           <small class="helper">Negrita, cursiva, subrayado, tamaño, color, alineación, listas y enlaces disponibles.</small>
         </div>
         {{ form.submit(class="btn-primary", id="submit-post") }}
+        </fieldset>
       </form>
 
       <aside class="admin-card preview-card">
