@@ -247,6 +247,18 @@ footer {
   }
 }
 
+@keyframes float-mobile {
+
+  0%,
+  100% {
+    transform: translateY(-4.5rem);
+  }
+
+  50% {
+    transform: translateY(-2.5rem);
+  }
+}
+
 .fade-in {
   opacity: 0;
   transform: translateY(30px);
@@ -295,7 +307,7 @@ footer {
 .header-logo-group {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 2rem;
 }
 
 .logo-bg {
@@ -757,6 +769,10 @@ body.menu-open {
 }
 
 @media (max-width: 768px) {
+
+  .hero-logo-floating {
+    animation: float-mobile 6s ease-in-out infinite;
+  }
 
   .hero-logo-bg {
     margin-top: 1;
@@ -2160,7 +2176,7 @@ section {
 
 .container-nav {
   margin: 0 auto;
-  padding: 0.85rem 1rem;
+  padding: 0.5rem 1rem;
 }
 
 .header-flex {
@@ -2230,7 +2246,7 @@ section {
 
 @media (max-width: 1024px) {
   .header-flex {
-    gap: 0.75rem 0.8rem;
+    gap: 2rem;
   }
 
   .nav-desktop {

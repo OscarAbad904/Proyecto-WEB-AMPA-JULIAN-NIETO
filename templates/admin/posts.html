@@ -27,7 +27,7 @@
 
     <div class="admin-grid">
       <form class="admin-card admin-form" method="post" novalidate enctype="multipart/form-data">
-        {{ form.csrf_token }}
+        {{ form.csrf_token(id="csrf_posts_main") }}
         {{ form.post_id(id="post-id") }}
         <div class="field">
           {{ form.title.label }}
@@ -77,7 +77,7 @@
           {{ form.content(style="display:none") }}
           <small class="helper">Negrita, cursiva, subrayado, tamaño, color, alineación, listas y enlaces disponibles.</small>
         </div>
-        {{ form.submit(class="btn-primary") }}
+        {{ form.submit(class="btn-primary", id="submit-post") }}
       </form>
 
       <aside class="admin-card preview-card">
@@ -134,7 +134,7 @@
                     <span class="muted">{{ post.tags or 'full' }}</span>
                   </div>
                   <form class="delete-post-form" method="post" action="{{ url_for('admin.delete_post', post_id=post.id) }}" style="margin-left:auto;">
-                    {{ form.csrf_token }}
+                    {{ form.csrf_token(id="csrf_delete_" ~ post.id) }}
                     <button type="submit" class="delete-post-btn" aria-label="Eliminar noticia">Eliminar</button>
                   </form>
                 </div>

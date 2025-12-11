@@ -18,13 +18,25 @@ document.querySelectorAll('.fade-in').forEach(el => {
     observer.observe(el);
 });
 
-function randomizeHeroShapes() {
+function stopHeroShapes(clearExisting = false) {
+    if (window.__heroSpawnTimer) {
+        clearInterval(window.__heroSpawnTimer);
+        window.__heroSpawnTimer = null;
+    }
+
+    if (!clearExisting) return;
+
+    const container = document.querySelector('.hero-floating-shapes');
+    if (container) {
+        container.querySelectorAll('.hero-shape').forEach(node => node.remove());
+    }
+}
+
+function randomizeHeroShapes(clearExisting = false) {
     const container = document.querySelector('.hero-floating-shapes');
     if (!container) return;
 
-    if (window.__heroSpawnTimer) {
-        clearInterval(window.__heroSpawnTimer);
-    }
+    stopHeroShapes(clearExisting);
 
     const baseSize = 5;            // rem
     const variance = 0.2;          // +/-20%
@@ -75,7 +87,16 @@ function randomizeHeroShapes() {
 
 window.addEventListener('DOMContentLoaded', () => {
     randomizeHeroShapes();
-    window.addEventListener('resize', randomizeHeroShapes);
+    window.addEventListener('resize', () => randomizeHeroShapes());
+
+    // Evita que los globos se acumulen cuando la pestaña está oculta/minimizada
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopHeroShapes(true);
+        } else {
+            randomizeHeroShapes(true);
+        }
+    });
 });
 
 // Mobile menu toggle
