@@ -58,7 +58,21 @@ main.page-content {
 body.home-page {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.1)),
-    url('../images/navidad/Fondo Pagina Principal.png') center center / cover no-repeat fixed;
+    url('../images/navidad/Fondo Pagina Principal.png');
+  background-size: auto, cover;
+  background-repeat: no-repeat, no-repeat;
+  background-position: center center, 50% 45%;
+  background-attachment: scroll, fixed;
+  animation: home-bg-pan 18s ease-in-out infinite alternate;
+}
+
+@keyframes home-bg-pan {
+  0% {
+    background-position: center center, 15% 45%;
+  }
+  100% {
+    background-position: center center, 100% 45%;
+  }
 }
 
 .home-page main.page-content {
@@ -172,7 +186,6 @@ footer {
   .news-section,
   .page-content {
     padding-inline: 0rem;
-    margin-inline:;
   }
 
   .hero {
@@ -552,8 +565,8 @@ body.menu-open {
   border-radius: 3rem;
   background: rgb(255 255 255 / 100%);
   object-fit: contain;
-  width: 45%;
-  height: 45%;
+  width: 35%;
+  height: 35%;
   filter: none;
   position: relative;
   z-index: 1;
@@ -665,7 +678,6 @@ body.menu-open {
   background: var(--color-accent-warm);
   color: #0b1526;
   box-shadow: 0 12px 32px rgba(255, 138, 76, 0.35);
-  margin-bottom:1rem;
 }
 
 .hero-floating-shapes {
@@ -965,7 +977,7 @@ body.menu-open {
 .about-contact-card {
   background: var(--color-panel);
   border-radius: 1rem;
-  padding: 0.5rem;
+  padding-bottom:1.5rem;
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-md);
   width: 100%;
