@@ -36,6 +36,7 @@ from app.services.permission_registry import (
     ensure_roles_and_permissions,
     group_permissions_by_section,
 )
+from config import PRIVILEGED_ROLES
 
 admin_bp = Blueprint("admin", __name__, template_folder="../../templates/admin")
 
@@ -566,7 +567,31 @@ def permissions():
     if not permissions_list:
         permissions_list = Permission.query.order_by(Permission.key.asc()).all()
 
-    existing = {(rp.role_id, rp.permission_id): rp.allowed for rp in RolePermission.query.all()}
+    role_ids = [role.id for role in roles if role.id is not None]
+    permission_ids = [permission.id for permission in permissions_list if permission.id is not None]
+    role_permissions = []
+    if role_ids and permission_ids:
+        role_permissions = (
+            RolePermission.query.filter(
+                RolePermission.role_id.in_(role_ids),
+                RolePermission.permission_id.in_(permission_ids),
+            ).all()
+        )
+    role_permission_map = {(rp.role_id, rp.permission_id): rp for rp in role_permissions}
+    existing = {(rp.role_id, rp.permission_id): bool(rp.allowed) for rp in role_permissions}
+    # Para roles privilegiados (admin/presidente/etc), la ausencia de asignación se
+    # interpreta como permitido en `User.has_permission()`. Reflejamos ese "permitido"
+    # implícito en la UI para que el guardado sea consistente.
+    for role in roles:
+        role_id = getattr(role, "id", None)
+        role_name = (getattr(role, "name", "") or "").strip().lower()
+        if role_id is None or role_name not in PRIVILEGED_ROLES:
+            continue
+        for permission in permissions_list:
+            permission_id = getattr(permission, "id", None)
+            if permission_id is None:
+                continue
+            existing.setdefault((role_id, permission_id), True)
     grouped_permissions = group_permissions_by_section(permissions_list)
 
     if request.method == "POST":
@@ -574,18 +599,42 @@ def permissions():
             abort(403)
         changes = 0
         for role in roles:
+            role_id = getattr(role, "id", None)
+            role_name = (getattr(role, "name", "") or "").strip().lower()
+            role_is_privileged = role_name in PRIVILEGED_ROLES
+            if role_id is None:
+                continue
             for permission in permissions_list:
-                field_name = f"perm_{role.id}_{permission.id}"
-                allowed = request.form.get(field_name) == "on"
-                rp = RolePermission.query.filter_by(role_id=role.id, permission_id=permission.id).first()
+                permission_id = getattr(permission, "id", None)
+                if permission_id is None:
+                    continue
+                field_name = f"perm_{role_id}_{permission_id}"
+                allowed = field_name in request.form
+                rp_key = (role_id, permission_id)
+                rp = role_permission_map.get(rp_key)
                 if rp:
-                    if rp.allowed != allowed:
+                    if bool(rp.allowed) != allowed:
                         rp.allowed = allowed
                         changes += 1
-                elif allowed:
-                    db.session.add(RolePermission(role_id=role.id, permission_id=permission.id, allowed=allowed))
-                    changes += 1
-        db.session.commit()
+                else:
+                    # Para roles privilegiados, solo persistimos "deny" explícitos; los "allow"
+                    # implícitos se mantienen sin filas en `role_permissions`.
+                    if (role_is_privileged and not allowed) or (allowed and not role_is_privileged):
+                        db.session.add(
+                            RolePermission(
+                                role_id=role_id,
+                                permission_id=permission_id,
+                                allowed=allowed,
+                            )
+                        )
+                        changes += 1
+        try:
+            db.session.commit()
+        except Exception as exc:  # noqa: BLE001
+            db.session.rollback()
+            current_app.logger.exception("Error guardando permisos", exc_info=exc)
+            flash("No se pudieron guardar los permisos", "danger")
+            return redirect(url_for("admin.permissions"))
         flash("Permisos actualizados", "success" if changes else "info")
         return redirect(url_for("admin.permissions"))
 

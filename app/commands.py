@@ -2,7 +2,7 @@ import click
 from flask import Flask
 from app.extensions import db
 from app.models import Role, User
-from app.utils import make_lookup_hash
+from app.utils import normalize_lookup
 
 def register_commands(app: Flask):
     @app.cli.command("create-admin")
@@ -14,7 +14,7 @@ def register_commands(app: Flask):
         if User.query.filter_by(email=email).first():
             print("Admin already exists")
             return
-        admin_role = Role.query.filter_by(name_lookup=make_lookup_hash("admin")).first()
+        admin_role = Role.query.filter_by(name_lookup=normalize_lookup("admin")).first()
         if not admin_role:
             admin_role = Role(name="admin")
             db.session.add(admin_role)

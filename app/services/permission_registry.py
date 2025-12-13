@@ -7,7 +7,7 @@ from flask import current_app
 
 from app.extensions import db
 from app.models import Permission, RolePermission, Role
-from app.utils import make_lookup_hash
+from app.utils import make_lookup_hash, normalize_lookup
 
 # Roles base que siempre deberían existir para poder asignar permisos.
 DEFAULT_ROLE_NAMES = [
@@ -260,9 +260,9 @@ def ensure_roles_and_permissions(
 
     # Normalizar nombres corruptos o sin acentos hacia los canónicos.
     alias_lookup_to_name = {
-        make_lookup_hash(alias): canonical for alias, canonical in ROLE_VARIANTS
+        normalize_lookup(alias): canonical for alias, canonical in ROLE_VARIANTS
     }
-    canonical_lookup_to_name = {make_lookup_hash(name): name for name in defaults}
+    canonical_lookup_to_name = {normalize_lookup(name): name for name in defaults}
 
     role_lookup: dict[str, Role] = {role.name_lookup: role for role in roles}
     needs_commit = False
@@ -270,7 +270,7 @@ def ensure_roles_and_permissions(
         target_name = alias_lookup_to_name.get(role.name_lookup)
         if not target_name:
             continue
-        target_lookup = make_lookup_hash(target_name)
+        target_lookup = normalize_lookup(target_name)
         if target_lookup == role.name_lookup and role.name == target_name:
             continue
         # ¿Existe ya el rol canónico?
@@ -302,7 +302,7 @@ def ensure_roles_and_permissions(
 
     created_roles = 0
     for role_name in defaults:
-        lookup = make_lookup_hash(role_name)
+        lookup = normalize_lookup(role_name)
         if lookup not in role_lookup:
             role = Role(name=role_name)
             db.session.add(role)
@@ -352,7 +352,7 @@ def ensure_roles_and_permissions(
             targets = roles
         else:
             for role_name in meta.get("grant_to_roles", []):
-                role = role_lookup.get(make_lookup_hash(role_name))
+                role = role_lookup.get(normalize_lookup(role_name))
                 if role:
                     targets.append(role)
         for role in targets:
@@ -365,7 +365,7 @@ def ensure_roles_and_permissions(
         db.session.bulk_save_objects(role_permissions_to_add)
         db.session.commit()
 
-    order_map = {make_lookup_hash(name): idx for idx, name in enumerate(defaults)}
+    order_map = {normalize_lookup(name): idx for idx, name in enumerate(defaults)}
     roles.sort(key=lambda r: (order_map.get(r.name_lookup, len(order_map)), r.name_lookup or ""))
     permissions = list(perm_map.values())
     permissions.sort(key=lambda p: p.key or "")

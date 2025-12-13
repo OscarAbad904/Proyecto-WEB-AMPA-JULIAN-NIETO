@@ -24,7 +24,7 @@ from dotenv import dotenv_values, load_dotenv
 from app import create_app as create_ampa_app
 from app.extensions import db
 from app.models import User, Role
-from app.utils import make_lookup_hash
+from app.utils import normalize_lookup
 from config import (
     encrypt_value,
     decrypt_value,
@@ -620,7 +620,7 @@ def login():
             app = create_ampa_app(os.getenv("FLASK_ENV", "development"))
             with app.app_context():
                 admin = User.query.join(Role).filter(
-                    Role.name_lookup == make_lookup_hash("admin")
+                    Role.name_lookup == normalize_lookup("admin")
                 ).first()
                 
                 if admin:
@@ -630,7 +630,7 @@ def login():
                         return jsonify({"ok": False, "error": "Contraseña incorrecta"})
                 else:
                     # Crear nuevo admin
-                    role = Role.query.filter_by(name_lookup=make_lookup_hash("admin")).first()
+                    role = Role.query.filter_by(name_lookup=normalize_lookup("admin")).first()
                     if not role:
                         role = Role(name="admin")
                         db.session.add(role)
@@ -779,7 +779,7 @@ def change_password():
         app = create_ampa_app(os.getenv("FLASK_ENV", "development"))
         with app.app_context():
             admin = User.query.join(Role).filter(
-                Role.name_lookup == make_lookup_hash("admin")
+                Role.name_lookup == normalize_lookup("admin")
             ).first()
             
             if admin and admin.email == session.get("email"):

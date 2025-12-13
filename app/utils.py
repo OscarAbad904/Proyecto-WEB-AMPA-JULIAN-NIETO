@@ -7,14 +7,14 @@ from urllib.parse import urlparse, parse_qs
 from flask import current_app
 from itsdangerous import URLSafeTimedSerializer
 
-def _normalize_lookup(value: str | None) -> str:
+def normalize_lookup(value: str | None) -> str:
     if not value:
         return ""
     return value.strip().lower()
 
 
 def make_lookup_hash(value: str | None) -> str:
-    normalized = _normalize_lookup(value)
+    normalized = normalize_lookup(value)
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 

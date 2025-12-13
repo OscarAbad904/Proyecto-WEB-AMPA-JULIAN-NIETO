@@ -32,8 +32,13 @@ from app.forms import (
     CommissionMeetingForm,
 )
 from app.utils import (
-    make_lookup_hash, generate_confirmation_token, _generate_password,
-    _generate_member_number, _send_sms_code, _parse_datetime_local
+    make_lookup_hash,
+    normalize_lookup,
+    generate_confirmation_token,
+    _generate_password,
+    _generate_member_number,
+    _send_sms_code,
+    _parse_datetime_local,
 )
 
 members_bp = Blueprint("members", __name__, template_folder="../../templates/members")
@@ -77,7 +82,7 @@ def register():
         if User.query.filter_by(email_lookup=lookup_email).first():
             flash("Ya existe una cuenta con ese correo", "warning")
             return render_template("members/register.html", form=form)
-        role = Role.query.filter_by(name_lookup=make_lookup_hash("socio")).first()
+        role = Role.query.filter_by(name_lookup=normalize_lookup("socio")).first()
         if not role:
             role = Role(name="socio")
             db.session.add(role)
@@ -122,7 +127,7 @@ def alta_socio():
         if User.query.filter_by(email_lookup=lookup_email).first():
             flash("Ya existe un usuario con ese correo.", "warning")
             return redirect(url_for("members.dashboard"))
-        role = Role.query.filter_by(name_lookup=make_lookup_hash("socio")).first()
+        role = Role.query.filter_by(name_lookup=normalize_lookup("socio")).first()
         if not role:
             role = Role(name="socio")
             db.session.add(role)
