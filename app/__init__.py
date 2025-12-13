@@ -33,6 +33,9 @@ def create_app(config_name: str | None = None) -> Flask:
     register_blueprints(app)
     register_context(app)
     register_commands(app)
+    @app.route("/favicon.ico")
+    def favicon():
+        return app.send_static_file("favicon.png")
     with app.app_context():
         try:
             ensure_roles_and_permissions()
@@ -70,8 +73,18 @@ def register_context(app: Flask) -> None:
         can_manage_members = current_user.is_authenticated and (
             current_user.has_permission("manage_members") or user_is_privileged(current_user)
         )
+        can_view_posts = current_user.is_authenticated and (
+            current_user.has_permission("manage_posts")
+            or current_user.has_permission("view_posts")
+            or user_is_privileged(current_user)
+        )
         can_manage_posts = current_user.is_authenticated and (
             current_user.has_permission("manage_posts") or user_is_privileged(current_user)
+        )
+        can_view_events = current_user.is_authenticated and (
+            current_user.has_permission("manage_events")
+            or current_user.has_permission("view_events")
+            or user_is_privileged(current_user)
         )
         can_manage_events = current_user.is_authenticated and (
             current_user.has_permission("manage_events") or user_is_privileged(current_user)
@@ -94,7 +107,9 @@ def register_context(app: Flask) -> None:
             "current_year": datetime.utcnow().year,
             "header_login_form": LoginForm(),
             "can_manage_members": can_manage_members,
+            "can_view_posts": can_view_posts,
             "can_manage_posts": can_manage_posts,
+            "can_view_events": can_view_events,
             "can_manage_events": can_manage_events,
             "can_view_commissions": can_view_commissions,
             "can_manage_commissions": can_manage_commissions,

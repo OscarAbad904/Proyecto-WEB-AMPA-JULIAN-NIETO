@@ -14,7 +14,9 @@
         <ul class="footer-menu">
           <li><a href="{{ url_for('public.documentos') }}">Documentos</a></li>
           <li><a href="{{ url_for('public.contacto') }}">Contacto</a></li>
+          {% if can_view_posts %}
           <li><a href="{{ url_for('public.noticias') }}">Noticias</a></li>
+          {% endif %}
         </ul>
       </div>
     </div>

@@ -7,7 +7,7 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app.extensions import db
-from app.utils import make_lookup_hash, slugify
+from app.utils import make_lookup_hash, normalize_lookup, slugify
 from config import encrypt_value, decrypt_value, PRIVILEGED_ROLES
 
 def user_is_privileged(user: User | None) -> bool:
@@ -56,7 +56,7 @@ class Role(db.Model):
     __tablename__ = "roles"
 
     id = db.Column(db.Integer, primary_key=True)
-    _name = db.Column("name", encrypted_string(64), nullable=False)
+    _name = db.Column("name", db.String(64), nullable=False)
     name_lookup = db.Column(db.String(128), unique=True, nullable=False, index=True)
 
     users = db.relationship("User", back_populates="role", lazy="dynamic")
@@ -79,7 +79,7 @@ class Role(db.Model):
     @name.setter
     def name(self, value: str) -> None:
         self._name = value
-        self.name_lookup = make_lookup_hash(value)
+        self.name_lookup = normalize_lookup(value)
 
     def __repr__(self) -> str:
         return f"<Role {self.name}>"
@@ -152,7 +152,7 @@ class User(db.Model, UserMixin):
 
     @property
     def is_admin(self) -> bool:
-        return self.role and self.role.name == "admin"
+        return bool(self.role and (self.role.name_lookup or "").strip().lower() == "administrador")
 
     def get_commissions(self):
         active_memberships = (

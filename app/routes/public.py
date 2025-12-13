@@ -1,9 +1,26 @@
-from flask import Blueprint, render_template, request, current_app, flash, redirect, url_for
+from flask import Blueprint, render_template, request, current_app, flash, redirect, url_for, abort
+from flask_login import current_user, login_required
 import re
-from app.models import Post
+from app.models import Post, user_is_privileged
 from app.utils import _normalize_drive_url
 
 public_bp = Blueprint("public", __name__, template_folder="../../templates/public")
+
+def _can_view_posts() -> bool:
+    return current_user.is_authenticated and (
+        current_user.has_permission("manage_posts")
+        or current_user.has_permission("view_posts")
+        or user_is_privileged(current_user)
+    )
+
+
+def _can_view_events() -> bool:
+    return current_user.is_authenticated and (
+        current_user.has_permission("manage_events")
+        or current_user.has_permission("view_events")
+        or user_is_privileged(current_user)
+    )
+
 
 def _normalize_post_images(post: Post) -> Post:
     """Ensure cover and modal images point to a renderable URL."""
@@ -46,7 +63,7 @@ def _get_latest_three_posts() -> list[Post]:
 @public_bp.route("/")
 @public_bp.route("/AMPA")
 def home():
-    latest_three = _get_latest_three_posts()
+    latest_three = _get_latest_three_posts() if _can_view_posts() else []
     return render_template("index.html", latest_three=latest_three)
 
 
@@ -56,7 +73,10 @@ def quienes_somos():
 
 
 @public_bp.route("/noticias")
+@login_required
 def noticias():
+    if not _can_view_posts():
+        abort(403)
     query = request.args.get("q", "")
     posts = (
         Post.query.filter_by(status="published")
@@ -70,12 +90,18 @@ def noticias():
     return render_template("public/noticias.html", query=query, posts=posts, latest_three=latest_three)
 
 @public_bp.route("/noticias/<slug>")
+@login_required
 def noticia_detalle(slug):
+    if not _can_view_posts():
+        abort(403)
     return render_template("public/noticia_detalle.html", slug=slug)
 
 
 @public_bp.route("/eventos")
+@login_required
 def eventos():
+    if not _can_view_events():
+        abort(403)
     return render_template("public/eventos.html")
 
 
@@ -86,7 +112,10 @@ def calendario():
 
 
 @public_bp.route("/eventos/<slug>")
+@login_required
 def evento_detalle(slug):
+    if not _can_view_events():
+        abort(403)
     return render_template("public/evento_detalle.html", slug=slug)
 
 
