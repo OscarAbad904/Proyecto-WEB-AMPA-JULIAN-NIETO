@@ -49,15 +49,7 @@
     <p class="admin-subtitle">Gestiona las comisiones, sus miembros, proyectos y reuniones con el mismo lenguaje visual que noticias y calendario.</p>
   </div>
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="flash-stack">
-        {% for category, message in messages %}
-          <div class="flash flash-{{ category }}">{{ message }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
+  {# flashes rendered globally in layout #}
 
   <div class="commission-top">
     <div class="commission-summary">

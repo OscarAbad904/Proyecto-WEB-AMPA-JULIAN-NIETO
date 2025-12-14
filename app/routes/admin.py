@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from flask_login import login_required, current_user
 from datetime import datetime
 import re
+import unicodedata
 
 from app.extensions import db, csrf
 from app.models import (
@@ -141,8 +142,6 @@ def posts():
                 variants_urls = upload_news_image_variants(
                     image_file,
                     base_name=slug_value,
-                    parent_folder_id=current_app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_ID", "") or None,
-                    folder_name=current_app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_NAME", "Noticias"),
                     shared_drive_id=current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID", "") or None,
                 )
             except Exception as exc:  # noqa: BLE001
@@ -561,6 +560,13 @@ def permissions():
     if not can_view_permissions:
         abort(403)
 
+    def _role_is_privileged(role: Role) -> bool:
+        role_name = (getattr(role, "name", "") or "").strip().lower()
+        if role_name in PRIVILEGED_ROLES:
+            return True
+        role_ascii = unicodedata.normalize("NFKD", role_name).encode("ascii", "ignore").decode("ascii")
+        return role_ascii in PRIVILEGED_ROLES
+
     roles, permissions_list = ensure_roles_and_permissions(DEFAULT_ROLE_NAMES)
     if not roles:
         roles = Role.query.order_by(Role.name_lookup.asc()).all()
@@ -584,8 +590,7 @@ def permissions():
     # implícito en la UI para que el guardado sea consistente.
     for role in roles:
         role_id = getattr(role, "id", None)
-        role_name = (getattr(role, "name", "") or "").strip().lower()
-        if role_id is None or role_name not in PRIVILEGED_ROLES:
+        if role_id is None or not _role_is_privileged(role):
             continue
         for permission in permissions_list:
             permission_id = getattr(permission, "id", None)
@@ -600,8 +605,7 @@ def permissions():
         changes = 0
         for role in roles:
             role_id = getattr(role, "id", None)
-            role_name = (getattr(role, "name", "") or "").strip().lower()
-            role_is_privileged = role_name in PRIVILEGED_ROLES
+            role_is_privileged = _role_is_privileged(role)
             if role_id is None:
                 continue
             for permission in permissions_list:

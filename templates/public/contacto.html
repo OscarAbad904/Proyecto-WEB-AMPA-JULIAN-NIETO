@@ -43,15 +43,7 @@
         <div class="contact-form fade-in">
           <h3 class="contact-form-title">Envíanos un Mensaje</h3>
           
-          {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-              {% for category, message in messages %}
-                <div class="flash-message flash-{{ category }}" style="padding: 1rem; margin-bottom: 1rem; border-radius: 0.5rem; {% if category == 'success' %}background-color: #10b981; color: white;{% else %}background-color: #ef4444; color: white;{% endif %}">
-                  {{ message }}
-                </div>
-              {% endfor %}
-            {% endif %}
-          {% endwith %}
+          {# flashes rendered globally in layout #}
           
           <form action="/contacto" method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -264,9 +264,13 @@ DEFAULT_SQLALCHEMY_URI = (
 PRIVILEGED_ROLES = {
     "admin",
     "administrador",
+    "presidencia",
+    "vicepresidencia",
     "presidente",
     "vicepresidente",
+    "secretaria",
     "secretario",
+    "vicesecretaria",
     "vicesecretario",
 }
 
@@ -323,12 +327,16 @@ class BaseConfig:
     MAIL_CONTACT_RECIPIENT = os.getenv("MAIL_CONTACT_RECIPIENT", "")
     LOG_FILE = str(ROOT_PATH / "logs" / "ampa.log")
     LOG_LEVEL = os.getenv("LOG_LEVEL") or "INFO"
+    # Carpeta raíz en Google Drive para agrupar recursos (e.g. "WEB Ampa/Noticias").
+    GOOGLE_DRIVE_ROOT_FOLDER_ID = os.getenv("GOOGLE_DRIVE_ROOT_FOLDER_ID", "")
+    GOOGLE_DRIVE_ROOT_FOLDER_NAME = os.getenv("GOOGLE_DRIVE_ROOT_FOLDER_NAME", "WEB Ampa")
     GOOGLE_DRIVE_NEWS_FOLDER_ID = os.getenv("GOOGLE_DRIVE_NEWS_FOLDER_ID", "")
     GOOGLE_DRIVE_NEWS_FOLDER_NAME = os.getenv("GOOGLE_DRIVE_NEWS_FOLDER_NAME", "Noticias")
     GOOGLE_DRIVE_EVENTS_FOLDER_ID = os.getenv("GOOGLE_DRIVE_EVENTS_FOLDER_ID", "")
     GOOGLE_DRIVE_EVENTS_FOLDER_NAME = os.getenv("GOOGLE_DRIVE_EVENTS_FOLDER_NAME", "Eventos")
     GOOGLE_DRIVE_DOCS_FOLDER_ID = os.getenv("GOOGLE_DRIVE_DOCS_FOLDER_ID", "")
     GOOGLE_DRIVE_DOCS_FOLDER_NAME = os.getenv("GOOGLE_DRIVE_DOCS_FOLDER_NAME", "Documentos")
+    GOOGLE_DRIVE_DB_BACKUP_FOLDER_ID = os.getenv("GOOGLE_DRIVE_DB_BACKUP_FOLDER_ID", "")
     GOOGLE_DRIVE_SHARED_DRIVE_ID = os.getenv("GOOGLE_DRIVE_SHARED_DRIVE_ID", "")
     GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE = os.getenv(
         "GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE",
@@ -344,6 +352,13 @@ class BaseConfig:
     )
     NEWS_IMAGE_FORMAT = os.getenv("NEWS_IMAGE_FORMAT", "JPEG")
     NEWS_IMAGE_QUALITY = get_int_env("NEWS_IMAGE_QUALITY", 80)
+
+    # --- Backups BD -> Google Drive ---
+    DB_BACKUP_ENABLED = (os.getenv("DB_BACKUP_ENABLED", "true").lower() in ("1", "true", "yes", "on"))
+    DB_BACKUP_TIME = os.getenv("DB_BACKUP_TIME", "00:00")  # HH:MM
+    DB_BACKUP_FREQUENCY = get_int_env("DB_BACKUP_FREQUENCY", 1)  # cada cuántos días
+    DB_BACKUP_FILENAME_PREFIX = os.getenv("DB_BACKUP_FILENAME_PREFIX", "BD_WEB_Ampa_Julian_Nieto")
+    GOOGLE_DRIVE_DB_BACKUP_FOLDER_NAME = os.getenv("GOOGLE_DRIVE_DB_BACKUP_FOLDER_NAME", "Backup DB_WEB")
     
     # Google Calendar configuration
     GOOGLE_CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID", "primary")
@@ -351,6 +366,15 @@ class BaseConfig:
 
     @staticmethod
     def init_app(app):
+        # Recalcular la URI en tiempo de ejecución para que cambios en `.env` tengan efecto
+        # (por ejemplo, desde env_manager_server.py sin reiniciar proceso).
+        try:
+            runtime_uri = _build_sqlalchemy_uri()
+            if runtime_uri:
+                app.config["SQLALCHEMY_DATABASE_URI"] = runtime_uri
+                os.environ["SQLALCHEMY_DATABASE_URI"] = runtime_uri
+        except Exception:
+            pass
         # Asegurar que los archivos de Google Drive existen y están desencriptados
         ensure_google_drive_credentials_file(ROOT_PATH)
         ensure_google_drive_token_file(ROOT_PATH)

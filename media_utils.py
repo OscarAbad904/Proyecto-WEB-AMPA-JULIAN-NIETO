@@ -183,6 +183,24 @@ def ensure_folder(name: str, parent_id: str | None = None, drive_id: str | None 
     return folder.get("id")
 
 
+def _get_folder_name_by_id(drive_service, folder_id: str, drive_id: str | None = None) -> str | None:
+    try:
+        resp = (
+            drive_service.files()
+            .get(
+                fileId=folder_id,
+                fields="id,name,mimeType",
+                supportsAllDrives=True,
+            )
+            .execute()
+        )
+    except Exception:  # noqa: BLE001
+        return None
+    if resp.get("mimeType") != "application/vnd.google-apps.folder":
+        return None
+    return resp.get("name")
+
+
 def _crop_to_aspect(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
     """Recorta centrado para ajustar el aspect ratio antes de escalar."""
     src_w, src_h = img.size
@@ -332,11 +350,45 @@ def upload_news_image_variants(
         # Usar Google Drive
         default_folder_name = current_app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_NAME", "Noticias")
         target_folder_name = folder_name or default_folder_name
-        target_parent = parent_folder_id or current_app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_ID", "") or None
         target_drive = shared_drive_id or current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID", "") or None
-        
+
+        target_folder_id = None
+        configured_news_id = current_app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_ID", "") or None
+        # Compatibilidad:
+        # - Si `parent_folder_id` se pasa explícitamente, se interpreta como carpeta padre.
+        # - Si `GOOGLE_DRIVE_NEWS_FOLDER_ID` apunta a la subcarpeta "Noticias", se usa directamente.
+        # - Si `GOOGLE_DRIVE_NEWS_FOLDER_ID` apunta a la carpeta raíz, se cuelga "Noticias" dentro.
+        if parent_folder_id:
+            target_parent = parent_folder_id
+        elif configured_news_id:
+            configured_name = _get_folder_name_by_id(drive_service, configured_news_id, drive_id=target_drive)
+            if configured_name and configured_name == target_folder_name:
+                target_folder_id = configured_news_id
+                target_parent = None
+            else:
+                target_parent = configured_news_id
+        else:
+            target_parent = None
+
+        if target_folder_id is None and not target_parent:
+            # Preferir carpeta raíz configurada (p.ej. "WEB Ampa") para colgar "Noticias".
+            root_id = current_app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_ID", "") or None
+            root_name = (current_app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_NAME") or "WEB Ampa").strip()
+            legacy_root_name = "Imagenes WEB Ampa"
+            if root_id:
+                target_parent = root_id
+            else:
+                # Si no existe la nueva, reutilizar la antigua si está presente.
+                existing_root = _find_folder_id(drive_service, root_name, parent_id=None, drive_id=target_drive)
+                if not existing_root and root_name == "WEB Ampa":
+                    existing_root = _find_folder_id(
+                        drive_service, legacy_root_name, parent_id=None, drive_id=target_drive
+                    )
+                target_parent = existing_root or ensure_folder(root_name, parent_id=None, drive_id=target_drive)
+         
         try:
-            target_folder_id = ensure_folder(target_folder_name, target_parent, target_drive)
+            if target_folder_id is None:
+                target_folder_id = ensure_folder(target_folder_name, target_parent, target_drive)
 
             for key, img_bytes in variants_bytes.items():
                 filename = filename_map.get(key, f"{base_slug}_{key}.{fmt.lower()}")

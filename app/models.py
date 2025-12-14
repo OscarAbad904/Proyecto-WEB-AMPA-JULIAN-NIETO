@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlalchemy as sa
+import unicodedata
 from sqlalchemy import UniqueConstraint, func
 from sqlalchemy.types import TypeDecorator
 from flask_login import UserMixin
@@ -13,8 +14,12 @@ from config import encrypt_value, decrypt_value, PRIVILEGED_ROLES
 def user_is_privileged(user: User | None) -> bool:
     if not user or not getattr(user, "role", None):
         return False
-    role_name = (user.role.name or "").strip().lower()
-    return role_name in PRIVILEGED_ROLES
+    role_name = normalize_lookup(getattr(user.role, "name", None))
+    if role_name in PRIVILEGED_ROLES:
+        return True
+    # Compatibilidad con roles con acentos (e.g. "Secretaría") frente a constantes sin acento.
+    role_ascii = unicodedata.normalize("NFKD", role_name).encode("ascii", "ignore").decode("ascii")
+    return role_ascii in PRIVILEGED_ROLES
 
 class EncryptedType(TypeDecorator):
     """TypeDecorator que encripta/descifra cadenas automáticamente."""

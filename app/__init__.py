@@ -13,6 +13,7 @@ from app.models import User, user_is_privileged
 from app.forms import LoginForm
 from app.commands import register_commands
 from app.services.permission_registry import ensure_roles_and_permissions
+from app.services.db_backup_scheduler import start_db_backup_scheduler
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -41,6 +42,8 @@ def create_app(config_name: str | None = None) -> Flask:
             ensure_roles_and_permissions()
         except Exception as exc:  # noqa: BLE001
             app.logger.exception("No se pudieron sincronizar los permisos base", exc_info=exc)
+
+    start_db_backup_scheduler(app)
 
     return app
 
