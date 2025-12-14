@@ -40,6 +40,7 @@ from app.utils import (
     _send_sms_code,
     _parse_datetime_local,
 )
+from app.services.permission_registry import ensure_roles_and_permissions, DEFAULT_ROLE_NAMES
 
 members_bp = Blueprint("members", __name__, template_folder="../../templates/members")
 
@@ -77,14 +78,33 @@ def login():
 @members_bp.route("/register", methods=["GET", "POST"])
 def register():
     form = RegisterForm()
+    can_assign_role = current_user.is_authenticated and (
+        current_user.has_permission("manage_members") or user_is_privileged(current_user)
+    )
+    if can_assign_role:
+        roles, _ = ensure_roles_and_permissions(DEFAULT_ROLE_NAMES)
+        if not roles:
+            roles = Role.query.order_by(Role.name_lookup.asc()).all()
+        form.role.choices = [(role.name_lookup, role.name) for role in roles]
+        if request.method == "GET" and not form.role.data:
+            form.role.data = normalize_lookup("socio")
+    else:
+        # Registro público: siempre Socio (evita escalada de privilegios).
+        form.role.choices = [("socio", "Socio")]
+        if request.method == "GET":
+            form.role.data = "socio"
     if form.validate_on_submit():
         lookup_email = make_lookup_hash(form.email.data)
         if User.query.filter_by(email_lookup=lookup_email).first():
             flash("Ya existe una cuenta con ese correo", "warning")
             return render_template("members/register.html", form=form)
-        role = Role.query.filter_by(name_lookup=normalize_lookup("socio")).first()
+        requested_lookup = normalize_lookup(form.role.data)
+        role_lookup = requested_lookup if can_assign_role else normalize_lookup("socio")
+        role = Role.query.filter_by(name_lookup=role_lookup).first()
         if not role:
-            role = Role(name="socio")
+            role = Role.query.filter_by(name_lookup=normalize_lookup("socio")).first()
+        if not role:
+            role = Role(name="Socio")
             db.session.add(role)
             db.session.commit()
         user = User(

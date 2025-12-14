@@ -39,14 +39,24 @@
             <nav class="sidebar-nav">
                 <h3>Grupos de Variables</h3>
                 {% for group_id, group in groups.items() %}
+                {% set _title = group.title or '' %}
+                {% set _parts = _title.split(' ', 1) %}
                 <a href="#{{ group_id }}" class="nav-item" data-group="{{ group_id }}">
-                    <span class="nav-icon">{{ group.title.split()[0] }}</span>
-                    <span class="nav-text">{{ group.title[2:] }}</span>
+                    <span class="nav-icon">{{ _parts[0] }}</span>
+                    <span class="nav-text">{{ _parts[1] if _parts|length > 1 else _title }}</span>
                 </a>
                 {% endfor %}
             </nav>
             
             <div class="sidebar-actions">
+                <button id="setupDriveFoldersBtn" class="btn-secondary btn-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Configurar Drive
+                </button>
                 <button id="testDbBtn" class="btn-secondary btn-full">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
@@ -54,6 +64,24 @@
                         <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
                     </svg>
                     Probar BD
+                </button>
+                <button id="forceDbBackupBtn" class="btn-secondary btn-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v6"></path>
+                        <path d="M9 5l3 3 3-3"></path>
+                        <rect x="4" y="10" width="16" height="12" rx="2"></rect>
+                        <path d="M8 14h8"></path>
+                        <path d="M8 18h5"></path>
+                    </svg>
+                    Forzar copia BD
+                </button>
+                <button id="restoreDbBtn" class="btn-secondary btn-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+                        <path d="M3 3v6h6"></path>
+                        <path d="M12 7v5l3 3"></path>
+                    </svg>
+                    Restaurar BD
                 </button>
                 <button id="testCalendarBtn" class="btn-secondary btn-full">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -241,6 +269,35 @@
                     <div id="passwordError" class="error-message hidden"></div>
                     <button type="submit" class="btn-primary btn-full">Cambiar Contraseña</button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restore DB Modal -->
+    <div id="restoreDbModal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3>Restaurar Base de Datos</h3>
+                <button class="modal-close" aria-label="Cerrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="restoreBackupSelect">Backup disponible</label>
+                    <select id="restoreBackupSelect" class="form-input"></select>
+                    <small>Se listan los backups en la carpeta configurada de Drive.</small>
+                </div>
+                <div class="form-group">
+                    <label for="restoreConfirmInput">Confirmación</label>
+                    <input id="restoreConfirmInput" class="form-input" placeholder="Escribe RESTAURAR" />
+                    <small>Esto sobrescribe la base de datos (estructura y datos).</small>
+                </div>
+                <button id="restoreDbConfirmBtn" class="btn-primary btn-full">Restaurar</button>
             </div>
         </div>
     </div>

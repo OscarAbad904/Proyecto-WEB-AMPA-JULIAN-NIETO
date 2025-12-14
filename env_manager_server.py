@@ -14,20 +14,26 @@ import os
 import json
 import webbrowser
 import threading
+import hashlib
 from pathlib import Path
 from functools import wraps
 
+# Evitar que el gestor de entorno dispare tareas en segundo plano del servidor principal.
+os.environ.setdefault("AMPA_DISABLE_BACKGROUND_JOBS", "1")
+
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from dotenv import dotenv_values, load_dotenv
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Importaciones del proyecto AMPA
 from app import create_app as create_ampa_app
 from app.extensions import db
-from app.models import User, Role
-from app.utils import normalize_lookup
+from app.models import User, Role, user_is_privileged
+from app.utils import normalize_lookup, make_lookup_hash
 from config import (
     encrypt_value,
     decrypt_value,
+    PRIVILEGED_ROLES,
     ensure_google_drive_credentials_file,
     ensure_google_drive_token_file,
     unwrap_fernet_layers,
@@ -36,6 +42,7 @@ from config import (
 # Configuración
 ENV_PATH = ".env"
 CONFIG_FILE = "gui_config.json"
+AUTH_FILE = "env_manager_auth.json"
 SERVER_PORT = 5050
 
 # Definición de todas las variables del proyecto organizadas por grupos
@@ -68,18 +75,6 @@ ENV_VARIABLES = {
                     "warning": "Cambiar este valor invalidará todos los tokens de recuperación pendientes."
                 }
             },
-            "SHUTDOWN_SECRET_KEY": {
-                "label": "Clave de Apagado",
-                "sensitive": True,
-                "required": False,
-                "default": "",
-                "help": {
-                    "description": "Clave secreta para endpoints de administración como apagado remoto del servidor.",
-                    "how_to_get": "Genera una clave única:\n\nimport secrets\nprint(secrets.token_urlsafe(32))",
-                    "example": "shutdown-key-abc123",
-                    "warning": "Solo necesaria si usas funciones de administración remota."
-                }
-            }
         }
     },
     "flask": {
@@ -128,7 +123,7 @@ ENV_VARIABLES = {
     },
     "database": {
         "title": "🗄️ Base de Datos",
-        "description": "Configuración de conexión a PostgreSQL",
+        "description": "Configuración de conexión a la base de datos",
         "vars": {
             "SQLALCHEMY_DATABASE_URI": {
                 "label": "URI Completa de BD",
@@ -136,84 +131,12 @@ ENV_VARIABLES = {
                 "required": False,
                 "default": "",
                 "help": {
-                    "description": "URI completa de conexión a PostgreSQL. Tiene prioridad sobre las variables individuales.",
+                    "description": "URI completa de conexión a PostgreSQL.",
                     "how_to_get": "En Render, copia la 'Internal Database URL' de tu base de datos PostgreSQL.",
                     "example": "postgresql+psycopg2://user:pass@host:5432/dbname",
-                    "warning": "Contiene credenciales. Usar variables individuales es más seguro."
+                    "warning": "Contiene credenciales. No lo compartas."
                 }
             },
-            "DATABASE_URL": {
-                "label": "URL de Base de Datos",
-                "sensitive": True,
-                "required": False,
-                "default": "",
-                "help": {
-                    "description": "URL alternativa de conexión (formato Heroku/Render). Se usa si SQLALCHEMY_DATABASE_URI no está definida.",
-                    "how_to_get": "Render la proporciona automáticamente como variable de entorno.",
-                    "example": "postgres://user:pass@host:5432/dbname",
-                    "warning": "El prefijo 'postgres://' se convierte automáticamente a 'postgresql+psycopg2://'."
-                }
-            },
-            "POSTGRES_HOST": {
-                "label": "Host PostgreSQL",
-                "sensitive": False,
-                "required": False,
-                "default": "localhost",
-                "help": {
-                    "description": "Servidor de la base de datos PostgreSQL.",
-                    "how_to_get": "En Render es el hostname interno, ej: dpg-xxx-a.oregon-postgres.render.com",
-                    "example": "localhost",
-                    "warning": ""
-                }
-            },
-            "POSTGRES_PORT": {
-                "label": "Puerto PostgreSQL",
-                "sensitive": False,
-                "required": False,
-                "default": "5432",
-                "help": {
-                    "description": "Puerto de conexión a PostgreSQL (por defecto 5432).",
-                    "how_to_get": "Normalmente es 5432 a menos que tu servidor use otro.",
-                    "example": "5432",
-                    "warning": ""
-                }
-            },
-            "POSTGRES_USER": {
-                "label": "Usuario PostgreSQL",
-                "sensitive": False,
-                "required": False,
-                "default": "",
-                "help": {
-                    "description": "Nombre de usuario para conectar a PostgreSQL.",
-                    "how_to_get": "Lo define Render al crear la base de datos.",
-                    "example": "ampa_user",
-                    "warning": ""
-                }
-            },
-            "POSTGRES_PASSWORD": {
-                "label": "Contraseña PostgreSQL",
-                "sensitive": True,
-                "required": False,
-                "default": "",
-                "help": {
-                    "description": "Contraseña del usuario de PostgreSQL.",
-                    "how_to_get": "La genera Render automáticamente.",
-                    "example": "",
-                    "warning": "Nunca la compartas ni la incluyas en el código."
-                }
-            },
-            "POSTGRES_DB": {
-                "label": "Nombre de BD",
-                "sensitive": False,
-                "required": False,
-                "default": "",
-                "help": {
-                    "description": "Nombre de la base de datos PostgreSQL.",
-                    "how_to_get": "Lo defines al crear la base de datos en Render.",
-                    "example": "ampa_db",
-                    "warning": ""
-                }
-            }
         }
     },
     "mail": {
@@ -349,16 +272,16 @@ ENV_VARIABLES = {
                     "warning": "Regenerar el token requiere reautorización de Google."
                 }
             },
-            "GOOGLE_DRIVE_SHARED_DRIVE_ID": {
-                "label": "ID de Unidad Compartida",
+            "GOOGLE_DRIVE_ROOT_FOLDER_ID": {
+                "label": "ID Carpeta Raíz (Drive)",
                 "sensitive": False,
                 "required": False,
                 "default": "",
                 "help": {
-                    "description": "ID de la Unidad Compartida (Shared Drive) si usas una en lugar de Mi unidad.",
-                    "how_to_get": "En Google Drive, abre la unidad compartida. El ID está en la URL después de /drive/folders/",
-                    "example": "0AJ8Hx...",
-                    "warning": "Déjalo vacío si usas Mi unidad personal."
+                    "description": "ID de la carpeta raíz (p.ej. 'WEB Ampa') donde se crean las subcarpetas de Noticias/Eventos/Documentos.",
+                    "how_to_get": "Renombra o crea la carpeta en Drive y copia el ID de la URL. También puedes ejecutar: flask setup-drive-folders",
+                    "example": "1a2b3c4d...",
+                    "warning": "Si lo dejas vacío se buscará/creará por nombre."
                 }
             },
             "GOOGLE_DRIVE_NEWS_FOLDER_ID": {
@@ -367,7 +290,7 @@ ENV_VARIABLES = {
                 "required": False,
                 "default": "",
                 "help": {
-                    "description": "ID de la carpeta de Drive donde se guardan las imágenes de noticias.",
+                    "description": "ID de la carpeta de Drive donde se guardan las imágenes de noticias (normalmente 'WEB Ampa/Noticias').",
                     "how_to_get": "Ejecuta: flask setup-drive-folders\nO crea la carpeta manualmente y copia el ID de la URL.",
                     "example": "1a2b3c4d...",
                     "warning": ""
@@ -435,6 +358,72 @@ ENV_VARIABLES = {
             }
         }
     },
+    "db_backup": {
+        "title": "💾 Backup Base de Datos",
+        "description": "Copia de seguridad automatica de la BD y subida a Google Drive",
+        "vars": {
+            "DB_BACKUP_TIME": {
+                "label": "Hora (HH:MM)",
+                "sensitive": False,
+                "required": False,
+                "default": "00:00",
+                "help": {
+                    "description": "Hora del backup para daily/weekly (formato 24h).",
+                    "how_to_get": "Por ejemplo: 00:00.",
+                    "example": "00:00",
+                    "warning": ""
+                }
+            },
+            "DB_BACKUP_FREQUENCY": {
+                "label": "Frecuencia (dias)",
+                "sensitive": False,
+                "required": False,
+                "default": "1",
+                "help": {
+                    "description": "Ejecuta un backup cada N dias a la hora indicada.",
+                    "how_to_get": "Pon 1 para diario, 2 para cada dos dias, etc.",
+                    "example": "1",
+                    "warning": ""
+                }
+            },
+            "GOOGLE_DRIVE_DB_BACKUP_FOLDER_NAME": {
+                "label": "Carpeta en Drive",
+                "sensitive": False,
+                "required": False,
+                "default": "Backup DB_WEB",
+                "help": {
+                    "description": "Nombre de la carpeta dentro de 'WEB Ampa' donde se guardan los backups.",
+                    "how_to_get": "Por defecto: Backup DB_WEB.",
+                    "example": "Backup DB_WEB",
+                    "warning": ""
+                }
+            },
+            "GOOGLE_DRIVE_DB_BACKUP_FOLDER_ID": {
+                "label": "ID Carpeta Backup (Drive)",
+                "sensitive": False,
+                "required": False,
+                "default": "",
+                "help": {
+                    "description": "ID de la carpeta de Drive donde se guardan los backups de la base de datos.",
+                    "how_to_get": "Pulsa el botón 'Configurar Drive' para detectarla/crearla y guardar el ID automáticamente en el .env.",
+                    "example": "1a2b3c4d...",
+                    "warning": "Recomendado para evitar carpetas duplicadas con el mismo nombre."
+                }
+            },
+            "DB_BACKUP_FILENAME_PREFIX": {
+                "label": "Nombre de la copia (prefijo)",
+                "sensitive": False,
+                "required": False,
+                "default": "BD_WEB_Ampa_Julian_Nieto",
+                "help": {
+                    "description": "Prefijo del archivo de backup. El nombre final es: PREFIJO_ddmmaaaa.sql.gz",
+                    "how_to_get": "Por defecto: BD_WEB_Ampa_Julian_Nieto.",
+                    "example": "BD_WEB_Ampa_Julian_Nieto",
+                    "warning": ""
+                }
+            },
+        }
+    },
     "google_calendar": {
         "title": "📅 Google Calendar",
         "description": "Configuración de integración con Google Calendar para eventos",
@@ -496,24 +485,7 @@ ENV_VARIABLES = {
             }
         }
     },
-    "paths": {
-        "title": "📂 Rutas y Directorios",
-        "description": "Configuración de rutas del sistema",
-        "vars": {
-            "AMPA_DATA_DIR": {
-                "label": "Directorio de Datos",
-                "sensitive": False,
-                "required": False,
-                "default": "Data",
-                "help": {
-                    "description": "Directorio donde se almacenan datos locales de la aplicación.",
-                    "how_to_get": "Por defecto es 'Data' en la raíz del proyecto.",
-                    "example": "Data",
-                    "warning": ""
-                }
-            }
-        }
-    }
+
 }
 
 # Variables sensibles que requieren encriptación
@@ -522,11 +494,8 @@ DECRYPT_ERROR_PLACEHOLDER = "[ERROR: No se pudo desencriptar]"
 SENSITIVE_KEYS = {
     "SECRET_KEY",
     "SECURITY_PASSWORD_SALT",
-    "SHUTDOWN_SECRET_KEY",
     "MAIL_PASSWORD",
-    "POSTGRES_PASSWORD",
     "SQLALCHEMY_DATABASE_URI",
-    "DATABASE_URL",
     "GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON",
     "GOOGLE_DRIVE_TOKEN_JSON",
 }
@@ -595,6 +564,37 @@ def login_required(f):
     return decorated_function
 
 
+def _load_auth():
+    path = Path(AUTH_FILE)
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _save_auth(email: str, password_hash: str) -> None:
+    Path(AUTH_FILE).write_text(
+        json.dumps({"email": email, "password_hash": password_hash}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def _verify_password(stored_hash: str, password: str) -> bool:
+    if not stored_hash:
+        return False
+    if ":" in stored_hash:
+        return check_password_hash(stored_hash, password)
+    try:
+        if len(stored_hash) == 64 and all(c in "0123456789abcdef" for c in stored_hash.lower()):
+            candidate = hashlib.sha256(password.encode("utf-8")).hexdigest()
+            return candidate == stored_hash.lower()
+    except Exception:
+        return False
+    return False
+
+
 # Rutas de la aplicación
 
 @manager_app.route("/")
@@ -616,45 +616,30 @@ def login():
         if not email or not password:
             return jsonify({"ok": False, "error": "Introduce correo y contraseña"})
         
-        try:
-            app = create_ampa_app(os.getenv("FLASK_ENV", "development"))
-            with app.app_context():
-                admin = User.query.join(Role).filter(
-                    Role.name_lookup == normalize_lookup("admin")
-                ).first()
-                
-                if admin:
-                    if admin.email != email:
-                        return jsonify({"ok": False, "error": "El administrador registrado usa otro correo"})
-                    if not admin.check_password(password):
-                        return jsonify({"ok": False, "error": "Contraseña incorrecta"})
-                else:
-                    # Crear nuevo admin
-                    role = Role.query.filter_by(name_lookup=normalize_lookup("admin")).first()
-                    if not role:
-                        role = Role(name="admin")
-                        db.session.add(role)
-                        db.session.commit()
-                    admin = User(
-                        username="admin",
-                        email=email,
-                        is_active=True,
-                        email_verified=True,
-                        role=role
-                    )
-                    admin.set_password(password)
-                    db.session.add(admin)
-                    db.session.commit()
-                
-                # Login exitoso
-                session["authenticated"] = True
-                session["email"] = email
-                save_last_user(email)
-                
-                return jsonify({"ok": True, "message": "Autenticación correcta"})
-                
-        except Exception as e:
-            return jsonify({"ok": False, "error": f"Error de conexión: {str(e)}"})
+        normalized_email = email.strip().lower()
+        auth = _load_auth()
+
+        if not auth:
+            # Primera ejecución: credenciales locales.
+            _save_auth(normalized_email, generate_password_hash(password))
+        else:
+            stored_email = (auth.get("email") or "").strip().lower()
+            stored_hash = (auth.get("password_hash") or "").strip()
+
+            if stored_email and stored_email != normalized_email:
+                return jsonify({"ok": False, "error": "Ese correo no tiene permisos para el gestor."})
+
+            if not _verify_password(stored_hash, password):
+                return jsonify({"ok": False, "error": "Contraseña incorrecta"})
+
+            # Migrar hash legacy sha256 -> werkzeug
+            if ":" not in stored_hash:
+                _save_auth(normalized_email, generate_password_hash(password))
+
+        session["authenticated"] = True
+        session["email"] = normalized_email
+        save_last_user(normalized_email)
+        return jsonify({"ok": True, "message": "Autenticación correcta"})
     
     # GET request
     return render_template("login.html", last_email=load_last_user())
@@ -768,7 +753,7 @@ def save_env_api():
 @manager_app.route("/api/change-password", methods=["POST"])
 @login_required
 def change_password():
-    """Cambia la contraseña del administrador"""
+    """Cambia la contraseña del gestor (credenciales locales)."""
     data = request.get_json()
     new_password = data.get("password", "")
     
@@ -776,19 +761,12 @@ def change_password():
         return jsonify({"ok": False, "error": "La contraseña debe tener al menos 8 caracteres"})
     
     try:
-        app = create_ampa_app(os.getenv("FLASK_ENV", "development"))
-        with app.app_context():
-            admin = User.query.join(Role).filter(
-                Role.name_lookup == normalize_lookup("admin")
-            ).first()
-            
-            if admin and admin.email == session.get("email"):
-                admin.set_password(new_password)
-                db.session.commit()
-                return jsonify({"ok": True, "message": "Contraseña actualizada"})
-            else:
-                return jsonify({"ok": False, "error": "Usuario no encontrado"})
-                
+        email = (session.get("email") or "").strip().lower()
+        if not email:
+            return jsonify({"ok": False, "error": "Sesión inválida"})
+
+        _save_auth(email, generate_password_hash(new_password))
+        return jsonify({"ok": True, "message": "Contraseña actualizada"})
     except Exception as e:
         return jsonify({"ok": False, "error": f"Error: {str(e)}"})
 
@@ -805,6 +783,295 @@ def test_db():
             # Intenta una consulta simple
             User.query.first()
             return jsonify({"ok": True, "message": "Conexión exitosa"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+
+@manager_app.route("/api/setup-drive-folders", methods=["POST"])
+@login_required
+def setup_drive_folders():
+    """Busca o crea las carpetas de Drive y guarda sus IDs en .env."""
+    try:
+        load_dotenv(ENV_PATH, override=True)
+        app = create_ampa_app(os.getenv("FLASK_ENV", "development"))
+
+        with app.app_context():
+            from app.media_utils import _get_user_drive_service, ensure_folder
+
+            drive_service = _get_user_drive_service()
+            if drive_service is None:
+                return jsonify(
+                    {
+                        "ok": False,
+                        "error": "No se pudo autenticar con Google Drive. Revisa credenciales/token.",
+                    }
+                )
+
+            shared_drive_id = app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID") or None
+
+            root_name = (app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_NAME") or "WEB Ampa").strip()
+            root_id = (app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_ID") or "").strip() or None
+            selected_root_reason = None
+
+            if root_id:
+                try:
+                    meta = (
+                        drive_service.files()
+                        .get(fileId=root_id, fields="id,name,mimeType", supportsAllDrives=True)
+                        .execute()
+                    )
+                    if meta.get("mimeType") != "application/vnd.google-apps.folder":
+                        return jsonify({"ok": False, "error": "GOOGLE_DRIVE_ROOT_FOLDER_ID no es una carpeta."})
+                except Exception as e:  # noqa: BLE001
+                    return jsonify({"ok": False, "error": f"No se pudo acceder a la carpeta raíz: {e}"})
+            else:
+                # Intentar seleccionar una carpeta existente en vez de crear duplicados.
+                list_kwargs = {
+                    "q": (
+                        "mimeType='application/vnd.google-apps.folder' and trashed=false and "
+                        f"name='{root_name}' and 'root' in parents"
+                    ),
+                    "spaces": "drive",
+                    "fields": "files(id,name,createdTime)",
+                    "supportsAllDrives": True,
+                    "includeItemsFromAllDrives": True,
+                    "pageSize": 50,
+                }
+                if shared_drive_id:
+                    list_kwargs["corpora"] = "drive"
+                    list_kwargs["driveId"] = shared_drive_id
+                candidates = drive_service.files().list(**list_kwargs).execute().get("files", [])
+
+                def _score_root(folder_id: str) -> int:
+                    try:
+                        children = (
+                            drive_service.files()
+                            .list(
+                                q=(
+                                    f"'{folder_id}' in parents and trashed=false and "
+                                    "mimeType='application/vnd.google-apps.folder'"
+                                ),
+                                spaces="drive",
+                                fields="files(id,name)",
+                                pageSize=200,
+                                supportsAllDrives=True,
+                                includeItemsFromAllDrives=True,
+                            )
+                            .execute()
+                            .get("files", [])
+                        )
+                    except Exception:
+                        return 0
+                    names = {c.get("name") for c in children}
+                    expected = {"Noticias", "Eventos", "Documentos"}
+                    return len(expected.intersection(names))
+
+                if candidates:
+                    scored = [(c.get("id"), _score_root(c.get("id"))) for c in candidates if c.get("id")]
+                    scored.sort(key=lambda t: t[1], reverse=True)
+                    best_id, best_score = scored[0]
+                    if best_score > 0:
+                        root_id = best_id
+                        selected_root_reason = "Se detectó una carpeta existente por subcarpetas."
+                    elif len(scored) == 1:
+                        root_id = best_id
+                        selected_root_reason = "Se detectó una carpeta existente por nombre."
+                    else:
+                        # Si hay varias y ninguna parece la correcta, crear una nueva puede duplicar; devolver error.
+                        return jsonify(
+                            {
+                                "ok": False,
+                                "error": (
+                                    "Hay varias carpetas con el nombre de raíz y no se pudo determinar cuál usar. "
+                                    "Configura GOOGLE_DRIVE_ROOT_FOLDER_ID manualmente y reintenta."
+                                ),
+                                "candidates": [{"id": fid, "score": score} for fid, score in scored],
+                            }
+                        )
+
+                if not root_id:
+                    root_id = ensure_folder(root_name, parent_id=None, drive_id=shared_drive_id)
+                    selected_root_reason = "No existía carpeta; se creó una nueva."
+
+            news_name = (app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_NAME") or "Noticias").strip()
+            events_name = (app.config.get("GOOGLE_DRIVE_EVENTS_FOLDER_NAME") or "Eventos").strip()
+            docs_name = (app.config.get("GOOGLE_DRIVE_DOCS_FOLDER_NAME") or "Documentos").strip()
+            backup_name = (app.config.get("GOOGLE_DRIVE_DB_BACKUP_FOLDER_NAME") or "Backup DB_WEB").strip()
+
+            news_id = ensure_folder(news_name, parent_id=root_id, drive_id=shared_drive_id)
+            events_id = ensure_folder(events_name, parent_id=root_id, drive_id=shared_drive_id)
+            docs_id = ensure_folder(docs_name, parent_id=root_id, drive_id=shared_drive_id)
+            backup_id = ensure_folder(backup_name, parent_id=root_id, drive_id=shared_drive_id)
+
+        env = load_env()
+        env_updates = {
+            "GOOGLE_DRIVE_ROOT_FOLDER_ID": root_id,
+            "GOOGLE_DRIVE_NEWS_FOLDER_ID": news_id,
+            "GOOGLE_DRIVE_EVENTS_FOLDER_ID": events_id,
+            "GOOGLE_DRIVE_DOCS_FOLDER_ID": docs_id,
+            "GOOGLE_DRIVE_DB_BACKUP_FOLDER_ID": backup_id,
+        }
+        env.update(env_updates)
+        save_env(env)
+
+        return jsonify(
+            {
+                "ok": True,
+                "message": "Carpetas configuradas y IDs guardados en .env",
+                "ids": env_updates,
+                "root_selection": selected_root_reason,
+            }
+        )
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(e)})
+
+
+@manager_app.route("/api/db-backups", methods=["GET"])
+@login_required
+def list_db_backups():
+    """Lista los backups disponibles en Drive (carpeta de backups)."""
+    try:
+        load_dotenv(ENV_PATH, override=True)
+        app = create_ampa_app(os.getenv("FLASK_ENV", "development"))
+        with app.app_context():
+            from app.media_utils import _get_user_drive_service
+            from app.services.db_restore_service import list_db_backups_from_drive
+
+            try:
+                files = list_db_backups_from_drive(limit=50)
+            except Exception:
+                files = []
+
+            folder_id = (app.config.get("GOOGLE_DRIVE_DB_BACKUP_FOLDER_ID") or "").strip()
+            root_id = (app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_ID") or "").strip()
+            backup_name = (app.config.get("GOOGLE_DRIVE_DB_BACKUP_FOLDER_NAME") or "Backup DB_WEB").strip()
+            prefix = (app.config.get("DB_BACKUP_FILENAME_PREFIX") or "BD_WEB_Ampa_Julian_Nieto").strip() + "_"
+            source = "folder"
+
+            # Si no hay resultados, intentar autodetectar la carpeta por nombre bajo la raíz y guardar el ID.
+            if (not files) and root_id:
+                drive = _get_user_drive_service()
+                if drive is not None:
+                    resp = (
+                        drive.files()
+                        .list(
+                            q=(
+                                "mimeType='application/vnd.google-apps.folder' and trashed=false and "
+                                f"name='{backup_name}' and '{root_id}' in parents"
+                            ),
+                            spaces="drive",
+                            fields="files(id,name)",
+                            pageSize=20,
+                            supportsAllDrives=True,
+                            includeItemsFromAllDrives=True,
+                        )
+                        .execute()
+                    )
+                    candidates = resp.get("files", []) or []
+                    if candidates:
+                        # Elegir la carpeta con más backups.
+                        def _count_backups(fid: str) -> int:
+                            try:
+                                r = (
+                                    drive.files()
+                                    .list(
+                                        q=(f"'{fid}' in parents and trashed=false and name contains '.sql.gz'"),
+                                        spaces="drive",
+                                        fields="files(id)",
+                                        pageSize=100,
+                                        supportsAllDrives=True,
+                                        includeItemsFromAllDrives=True,
+                                    )
+                                    .execute()
+                                )
+                                return len(r.get("files", []) or [])
+                            except Exception:
+                                return 0
+
+                        scored = [(c.get("id"), _count_backups(c.get("id"))) for c in candidates if c.get("id")]
+                        scored.sort(key=lambda t: t[1], reverse=True)
+                        best_id = scored[0][0] if scored else None
+                        if best_id and best_id != folder_id:
+                            env = load_env()
+                            env["GOOGLE_DRIVE_DB_BACKUP_FOLDER_ID"] = best_id
+                            save_env(env)
+                            folder_id = best_id
+
+                        # Reintentar listado
+                        files = list_db_backups_from_drive(limit=50)
+                        source = "auto_folder"
+
+            # Último fallback: buscar backups por nombre en todo Drive (útil si hubo carpetas duplicadas).
+            if not files:
+                drive = _get_user_drive_service()
+                if drive is not None:
+                    resp = (
+                        drive.files()
+                        .list(
+                            q=(f"trashed=false and name contains '{prefix}' and name contains '.sql.gz'"),
+                            spaces="drive",
+                            fields="files(id,name,createdTime,size)",
+                            orderBy="createdTime desc",
+                            pageSize=50,
+                            supportsAllDrives=True,
+                            includeItemsFromAllDrives=True,
+                        )
+                        .execute()
+                    )
+                    files = resp.get("files", []) or []
+                    source = "global_search"
+
+        return jsonify({"ok": True, "files": files, "folder_id": folder_id, "source": source})
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(e)})
+
+
+@manager_app.route("/api/restore-db-backup", methods=["POST"])
+@login_required
+def restore_db_backup():
+    """Restaura la base de datos desde un backup de Drive."""
+    data = request.get_json() or {}
+    file_id = (data.get("file_id") or "").strip()
+    confirm = (data.get("confirm") or "").strip().upper()
+
+    if confirm not in {"RESTORE", "RESTAURAR"}:
+        return jsonify({"ok": False, "error": "Confirmación inválida. Escribe RESTAURAR para continuar."})
+
+    try:
+        load_dotenv(ENV_PATH, override=True)
+        app = create_ampa_app(os.getenv("FLASK_ENV", "development"))
+        with app.app_context():
+            from app.services.db_restore_service import restore_db_from_drive_backup
+
+            result = restore_db_from_drive_backup(file_id)
+        if result.ok:
+            return jsonify({"ok": True, "message": result.message})
+        return jsonify({"ok": False, "error": result.message})
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(e)})
+
+
+@manager_app.route("/api/force-db-backup", methods=["POST"])
+@login_required
+def force_db_backup():
+    """Fuerza un backup de la BD y lo sube a Google Drive."""
+    try:
+        load_dotenv(ENV_PATH, override=True)
+        app = create_ampa_app(os.getenv("FLASK_ENV", "development"))
+        with app.app_context():
+            from app.services.db_backup_service import run_db_backup_to_drive
+
+            result = run_db_backup_to_drive(force=True)
+            if result.ok:
+                return jsonify(
+                    {
+                        "ok": True,
+                        "message": result.message,
+                        "drive_file_id": result.drive_file_id,
+                        "drive_folder_id": result.drive_folder_id,
+                    }
+                )
+            return jsonify({"ok": False, "error": result.message})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 

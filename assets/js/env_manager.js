@@ -7,11 +7,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Referencias DOM
     const envForm = document.getElementById('envForm');
     const saveBtn = document.getElementById('saveBtn');
+    const setupDriveFoldersBtn = document.getElementById('setupDriveFoldersBtn');
     const testDbBtn = document.getElementById('testDbBtn');
+    const forceDbBackupBtn = document.getElementById('forceDbBackupBtn');
+    const restoreDbBtn = document.getElementById('restoreDbBtn');
     const testCalendarBtn = document.getElementById('testCalendarBtn');
     const changePasswordBtn = document.getElementById('changePasswordBtn');
     const helpModal = document.getElementById('helpModal');
     const passwordModal = document.getElementById('passwordModal');
+    const restoreDbModal = document.getElementById('restoreDbModal');
     const navItems = document.querySelectorAll('.nav-item');
     
     // Cargar ENV_VARIABLES desde data attribute
@@ -71,9 +75,24 @@ document.addEventListener('DOMContentLoaded', function() {
     function setupEventListeners() {
         // Guardar cambios
         saveBtn.addEventListener('click', saveChanges);
+
+        // Configurar Drive (carpetas + IDs)
+        if (setupDriveFoldersBtn) {
+            setupDriveFoldersBtn.addEventListener('click', setupDriveFolders);
+        }
         
         // Probar BD
         testDbBtn.addEventListener('click', testDatabase);
+
+        // Forzar backup BD
+        if (forceDbBackupBtn) {
+            forceDbBackupBtn.addEventListener('click', forceDbBackup);
+        }
+
+        // Restaurar BD
+        if (restoreDbBtn) {
+            restoreDbBtn.addEventListener('click', openRestoreDbModal);
+        }
         
         // Probar Calendario
         testCalendarBtn.addEventListener('click', testCalendar);
@@ -235,6 +254,162 @@ document.addEventListener('DOMContentLoaded', function() {
                 </svg>
                 Probar BD
             `;
+        }
+    }
+
+    async function setupDriveFolders() {
+        setupDriveFoldersBtn.disabled = true;
+        setupDriveFoldersBtn.innerHTML = `
+            <svg class="spinner" viewBox="0 0 24 24" style="width:18px;height:18px">
+                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="31.4" stroke-dashoffset="10"></circle>
+            </svg>
+            Configurando...
+        `;
+
+        try {
+            const response = await fetch('/api/setup-drive-folders', { method: 'POST' });
+            const data = await response.json();
+
+            if (data.ok) {
+                showToast('success', 'Google Drive', data.message || 'Carpetas configuradas');
+                await loadEnvVariables();
+            } else {
+                showToast('error', 'Google Drive', data.error || 'No se pudo configurar Drive');
+            }
+        } catch (error) {
+            showToast('error', 'Google Drive', 'No se pudo realizar la operacion');
+        } finally {
+            setupDriveFoldersBtn.disabled = false;
+            setupDriveFoldersBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Configurar Drive
+            `;
+        }
+    }
+    
+    async function forceDbBackup() {
+        forceDbBackupBtn.disabled = true;
+        forceDbBackupBtn.innerHTML = `
+            <svg class="spinner" viewBox="0 0 24 24" style="width:18px;height:18px">
+                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="31.4" stroke-dashoffset="10"></circle>
+            </svg>
+            Creando copia...
+        `;
+
+        try {
+            const response = await fetch('/api/force-db-backup', { method: 'POST' });
+            const data = await response.json();
+
+            if (data.ok) {
+                let msg = data.message || 'Copia creada correctamente';
+                if (data.drive_file_id) {
+                    msg += ` (Drive file: ${data.drive_file_id})`;
+                }
+                showToast('success', 'Backup BD', msg);
+            } else {
+                showToast('error', 'Backup BD', data.error || 'No se pudo crear la copia');
+            }
+        } catch (error) {
+            showToast('error', 'Backup BD', 'No se pudo realizar la operacion');
+        } finally {
+            forceDbBackupBtn.disabled = false;
+            forceDbBackupBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2v6"></path>
+                    <path d="M9 5l3 3 3-3"></path>
+                    <rect x="4" y="10" width="16" height="12" rx="2"></rect>
+                    <path d="M8 14h8"></path>
+                    <path d="M8 18h5"></path>
+                </svg>
+                Forzar copia BD
+            `;
+        }
+    }
+
+    async function openRestoreDbModal() {
+        const select = document.getElementById('restoreBackupSelect');
+        const confirmInput = document.getElementById('restoreConfirmInput');
+        const confirmBtn = document.getElementById('restoreDbConfirmBtn');
+
+        if (!select || !confirmInput || !confirmBtn) return;
+
+        select.innerHTML = '';
+        confirmInput.value = '';
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Cargando backups...';
+
+        openModal(restoreDbModal);
+
+        try {
+            const response = await fetch('/api/db-backups');
+            const data = await response.json();
+
+            if (!data.ok) {
+                showToast('error', 'Backups', data.error || 'No se pudo listar backups');
+                closeAllModals();
+                return;
+            }
+
+            const files = Array.isArray(data.files) ? data.files : [];
+            if (files.length === 0) {
+                select.innerHTML = '<option value="">(No hay backups)</option>';
+                confirmBtn.disabled = true;
+                confirmBtn.textContent = 'Restaurar';
+                return;
+            }
+
+            files.forEach((f) => {
+                const opt = document.createElement('option');
+                opt.value = f.id;
+                const created = f.createdTime ? ` - ${f.createdTime}` : '';
+                opt.textContent = `${f.name}${created}`;
+                select.appendChild(opt);
+            });
+
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Restaurar';
+
+            confirmBtn.onclick = async () => {
+                const fileId = select.value;
+                const confirm = (confirmInput.value || '').trim();
+                if (!fileId) {
+                    showToast('warning', 'Restaurar BD', 'Selecciona un backup');
+                    return;
+                }
+                if (confirm.toUpperCase() !== 'RESTAURAR') {
+                    showToast('warning', 'Restaurar BD', 'Escribe RESTAURAR para confirmar');
+                    return;
+                }
+
+                confirmBtn.disabled = true;
+                confirmBtn.textContent = 'Restaurando...';
+                try {
+                    const res = await fetch('/api/restore-db-backup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ file_id: fileId, confirm: confirm }),
+                    });
+                    const payload = await res.json();
+                    if (payload.ok) {
+                        showToast('success', 'Restaurar BD', payload.message || 'Restauración completada');
+                        closeAllModals();
+                    } else {
+                        showToast('error', 'Restaurar BD', payload.error || 'No se pudo restaurar');
+                    }
+                } catch (err) {
+                    showToast('error', 'Restaurar BD', 'No se pudo realizar la operacion');
+                } finally {
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = 'Restaurar';
+                }
+            };
+        } catch (error) {
+            showToast('error', 'Backups', 'No se pudo listar backups');
+            closeAllModals();
         }
     }
     

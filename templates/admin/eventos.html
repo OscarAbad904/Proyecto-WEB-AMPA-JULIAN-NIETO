@@ -243,15 +243,7 @@
       <p class="admin-subtitle">Define fecha, categoría y texto de eventos que más adelante podremos sincronizar con el calendario público.</p>
     </div>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flash-stack">
-          {% for category, message in messages %}
-            <div class="flash flash-{{ category }}">{{ message }}</div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
+    {# flashes rendered globally in layout #}
 
     <div class="event-hero">
       <div class="event-hero-content">

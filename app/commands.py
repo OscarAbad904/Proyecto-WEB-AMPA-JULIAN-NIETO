@@ -28,25 +28,34 @@ def register_commands(app: Flask):
     @app.cli.command("setup-drive-folders")
     def setup_drive_folders():
         """Setup Google Drive folders for Eventos, Documentos, and Noticias.
-        
+
         This command creates the folders in Google Drive (if they don't exist)
         and prints their IDs so you can add them to your .env file.
         """
         from app.media_utils import ensure_folder
-        
+
+        shared_drive_id = app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID") or None
+        root_folder_name = (app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_NAME") or "WEB Ampa").strip()
+
+        print("\n📁 Setting up Google Drive folders...\n")
+
+        try:
+            root_folder_id = ensure_folder(root_folder_name, parent_id=None, drive_id=shared_drive_id)
+            print(f"✅ {root_folder_name}: {root_folder_id}")
+            print(f"   Add to .env: GOOGLE_DRIVE_ROOT_FOLDER_ID={root_folder_id}\n")
+        except Exception as e:
+            root_folder_id = None
+            print(f"❌ Error creating root folder {root_folder_name}: {e}\n")
+
         folders = {
             "GOOGLE_DRIVE_NEWS_FOLDER_ID": app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_NAME", "Noticias"),
             "GOOGLE_DRIVE_EVENTS_FOLDER_ID": app.config.get("GOOGLE_DRIVE_EVENTS_FOLDER_NAME", "Eventos"),
             "GOOGLE_DRIVE_DOCS_FOLDER_ID": app.config.get("GOOGLE_DRIVE_DOCS_FOLDER_NAME", "Documentos"),
         }
-        
-        shared_drive_id = app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID") or None
-        
-        print("\n📁 Setting up Google Drive folders...\n")
-        
+
         for env_var, folder_name in folders.items():
             try:
-                folder_id = ensure_folder(folder_name, parent_id=None, drive_id=shared_drive_id)
+                folder_id = ensure_folder(folder_name, parent_id=root_folder_id, drive_id=shared_drive_id)
                 print(f"✅ {folder_name}: {folder_id}")
                 print(f"   Add to .env: {env_var}={folder_id}\n")
             except Exception as e:
@@ -80,6 +89,24 @@ def register_commands(app: Flask):
             print("   3. Súbelo a Render como GOOGLE_DRIVE_TOKEN_JSON")
         else:
             print(f"❌ Error: {result['message']}")
+
+    @app.cli.command("backup-db-to-drive")
+    @click.option("--force", is_flag=True, help="Ejecuta aunque DB_BACKUP_ENABLED=false.")
+    def backup_db_to_drive(force: bool):
+        """Create a database backup and upload it to Google Drive."""
+        from app.services.db_backup_service import run_db_backup_to_drive
+
+        with app.app_context():
+            result = run_db_backup_to_drive(force=force)
+
+        if result.ok:
+            print(f"OK: {result.message}")
+            if result.drive_folder_id:
+                print(f"Drive folder: {result.drive_folder_id}")
+            if result.drive_file_id:
+                print(f"Drive file: {result.drive_file_id}")
+        else:
+            raise SystemExit(f"ERROR: {result.message}")
 
     @app.cli.command("test-calendar")
     def test_calendar():

@@ -234,6 +234,15 @@
     </header>
 
     <main class="page-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-stack flash-stack--global" role="status" aria-live="polite">
+              {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
         {% block content %}{% endblock %}
     </main>
 
@@ -381,6 +390,48 @@
             flex-direction: column;
             gap: 0.5rem;
             margin-top: 1rem;
+        }
+
+        .flash-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            margin: 0.75rem auto 1.2rem;
+            width: min(1100px, calc(100% - 2rem));
+        }
+
+        .flash {
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(10, 19, 33, 0.9);
+            color: #f8fafc;
+        }
+
+        .flash-success {
+            border-color: rgba(34, 197, 94, 0.45);
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+        }
+
+        .flash-warning {
+            border-color: rgba(250, 204, 21, 0.4);
+            background: rgba(250, 204, 21, 0.12);
+            color: #facc15;
+        }
+
+        .flash-info {
+            border-color: rgba(59, 130, 246, 0.35);
+            background: rgba(59, 130, 246, 0.12);
+            color: #60a5fa;
+        }
+
+        .flash-danger,
+        .flash-error {
+            border-color: rgba(239, 68, 68, 0.4);
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
         }
 
         .login-modal {

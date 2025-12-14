@@ -46,11 +46,14 @@ def _get_unified_credentials() -> Credentials | None:
     Si el token no tiene los scopes necesarios, solicita reautorización.
     """
     try:
-        token_path = Path(current_app.root_path) / "token_drive.json"
-        credentials_path = Path(current_app.config.get(
-            "GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE",
-            Path(current_app.root_path) / "credentials_drive_oauth.json"
-        ))
+        base_path = Path(current_app.config.get("ROOT_PATH") or current_app.root_path)
+        token_path = base_path / "token_drive.json"
+        credentials_path = Path(
+            current_app.config.get(
+                "GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE",
+                str(base_path / "credentials_drive_oauth.json"),
+            )
+        )
         
         # Intentar cargar token desde variable de entorno si no existe el archivo
         token_env = current_app.config.get("GOOGLE_DRIVE_TOKEN_JSON")
