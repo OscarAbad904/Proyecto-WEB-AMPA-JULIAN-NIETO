@@ -1,8 +1,60 @@
+# --- Python ---
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Entornos ---
+.venv/
+venv/
+env/
+
+# --- Flask runtime ---
 instance/
-.env
-assets/uploads/
 logs/
-token_drive.json
+*.log
+
+# --- Uploads / runtime state ---
+assets/uploads/
+uploads/
+
+# --- Bases de datos locales ---
+*.sqlite
+*.sqlite3
+*.db
+
+# --- Archivos de entorno (permitir solo ejemplo) ---
+.env
+.env.*
+!.env.example
+
+# --- Secretos/credenciales/tokens locales ---
+fernet.key
 credentials_drive_oauth.json
+**/token_drive.json
+env_manager_auth.json
+gui_config.json
+
+# --- Keys/certs (por si aparecen) ---
+*.pem
+*.p12
+*.pfx
+
+# --- Temporales/artefactos ---
+tmp_*
+tmp*.txt
+tmp*.py
+dump*.txt
+*.zip
+*.7z
+*.tar
+*.tar.gz
+
+# --- IDE/OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
