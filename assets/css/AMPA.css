@@ -577,8 +577,8 @@ body.menu-open {
   border-radius: 3rem;
   background: rgb(255 255 255 / 100%);
   object-fit: contain;
-  width: 35%;
-  height: 35%;
+  width: 25%;
+  height: 25%;
   filter: none;
   position: relative;
   z-index: 1;
@@ -617,7 +617,7 @@ body.menu-open {
 
 @media (min-width: 768px) {
   .hero-title {
-    font-size: 3.5rem;
+    font-size: 2.5rem;
   }
 }
 
@@ -625,10 +625,9 @@ body.menu-open {
   padding: 0.0rem 0.5rem;
   border-radius: 1rem;
   background: rgb(255 255 255);
-  font-size: 0.8rem;
   color: var(--color-text-soft);
-  width: 80%;
-  max-width: 768px;
+  width: 100%;
+  max-width: 900px;
   margin-inline: auto;
   margin-block: 0;
   position: relative;
@@ -639,7 +638,7 @@ body.menu-open {
 
 @media (min-width: 768px) {
   .hero-desc {
-    font-size: 1.2rem;
+    font-size: 0.9rem;
   }
 }
 
@@ -1674,7 +1673,7 @@ body.menu-open {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.6rem;
 }
 
 .footer-logo-bg {
@@ -1703,7 +1702,7 @@ body.menu-open {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  font-size: 0.8rem;
+  font-size: 0.6rem;
 }
 
 .footer-link {
@@ -1720,7 +1719,7 @@ body.menu-open {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  font-size: 0.6rem;
   color: var(--color-text-soft);
 }
 

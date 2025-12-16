@@ -17,7 +17,7 @@ from app.services.db_backup_scheduler import start_db_backup_scheduler
 
 
 def create_app(config_name: str | None = None) -> Flask:
-    load_dotenv(ROOT_PATH / ".env")
+    load_dotenv(ROOT_PATH / ".env", override=True)
     env = config_name or os.getenv("FLASK_ENV", "development")
     config = config_by_name.get(env, config_by_name["development"])
 

@@ -135,6 +135,13 @@ def _find_folder_id(
     parent_id: str | None = None,
     drive_id: str | None = None,
 ) -> str | None:
+    # En Unidades compartidas (Shared Drives), para buscar en el "raíz" de la unidad
+    # hay que usar como parent el propio `drive_id`.
+    if drive_id and not parent_id:
+        parent_id = drive_id
+    elif not parent_id:
+        parent_id = "root"
+
     query_parts = [
         "mimeType='application/vnd.google-apps.folder'",
         "trashed=false",
@@ -167,6 +174,11 @@ def ensure_folder(name: str, parent_id: str | None = None, drive_id: str | None 
     drive = _get_user_drive_service()
     if drive is None:
         raise RuntimeError("No se pudo inicializar Google Drive (credenciales/token no disponibles).")
+
+    # En Unidades compartidas, si no se especifica parent, colgar del "raíz" de la unidad.
+    if drive_id and not parent_id:
+        parent_id = drive_id
+
     existing = _find_folder_id(drive, name, parent_id, drive_id)
     if existing:
         return existing
@@ -176,8 +188,6 @@ def ensure_folder(name: str, parent_id: str | None = None, drive_id: str | None 
     }
     if parent_id:
         metadata["parents"] = [parent_id]
-    if drive_id:
-        metadata["driveId"] = drive_id
     folder = drive.files().create(
         body=metadata,
         fields="id",
@@ -202,6 +212,71 @@ def _get_folder_name_by_id(drive_service, folder_id: str, drive_id: str | None =
     if resp.get("mimeType") != "application/vnd.google-apps.folder":
         return None
     return resp.get("name")
+
+
+def resolve_drive_root_folder_id(drive_service, drive_id: str | None = None) -> str:
+    """
+    Resuelve el ID de la carpeta raíz configurada para Drive.
+
+    Prioriza `GOOGLE_DRIVE_ROOT_FOLDER_ID` cuando esta configurado. Si no existe o no es
+    accesible, se busca/crea por nombre (`GOOGLE_DRIVE_ROOT_FOLDER_NAME`).
+    """
+    root_name = (current_app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_NAME") or "WEB Ampa").strip()
+    configured_root_id = (current_app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_ID") or "").strip() or None
+
+    if configured_root_id:
+        try:
+            meta = (
+                drive_service.files()
+                .get(
+                    fileId=configured_root_id,
+                    fields="id,name,mimeType,parents",
+                    supportsAllDrives=True,
+                )
+                .execute()
+            )
+        except Exception:  # noqa: BLE001
+            meta = None
+
+        if not meta or meta.get("mimeType") != "application/vnd.google-apps.folder":
+            configured_root_id = None
+        else:
+            resolved_name = (meta.get("name") or "").strip()
+            parents = meta.get("parents") or []
+
+            # Si la carpeta existe pero estÃ¡ "huÃ©rfana" (sin parents) en Mi unidad, colgarla de root.
+            if not drive_id and not parents:
+                try:
+                    drive_service.files().update(
+                        fileId=configured_root_id,
+                        addParents="root",
+                        fields="id,parents",
+                        supportsAllDrives=True,
+                    ).execute()
+                except Exception:  # noqa: BLE001
+                    pass
+
+            # Si el ID estÃ¡ configurado pero el nombre no coincide con el .env, renombrar.
+            if root_name and resolved_name and resolved_name != root_name:
+                try:
+                    drive_service.files().update(
+                        fileId=configured_root_id,
+                        body={"name": root_name},
+                        fields="id,name",
+                        supportsAllDrives=True,
+                    ).execute()
+                except Exception:  # noqa: BLE001
+                    pass
+
+    if configured_root_id:
+        return configured_root_id
+
+    legacy_root_name = "Imagenes WEB Ampa"
+    root_parent = drive_id or "root"
+    existing_root = _find_folder_id(drive_service, root_name, parent_id=root_parent, drive_id=drive_id)
+    if not existing_root and root_name == "WEB Ampa":
+        existing_root = _find_folder_id(drive_service, legacy_root_name, parent_id=root_parent, drive_id=drive_id)
+    return existing_root or ensure_folder(root_name, parent_id=None, drive_id=drive_id)
 
 
 def _crop_to_aspect(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
@@ -365,7 +440,9 @@ def upload_news_image_variants(
             target_parent = parent_folder_id
         elif configured_news_id:
             configured_name = _get_folder_name_by_id(drive_service, configured_news_id, drive_id=target_drive)
-            if configured_name and configured_name == target_folder_name:
+            if not configured_name:
+                target_parent = None
+            elif configured_name == target_folder_name:
                 target_folder_id = configured_news_id
                 target_parent = None
             else:
@@ -374,20 +451,7 @@ def upload_news_image_variants(
             target_parent = None
 
         if target_folder_id is None and not target_parent:
-            # Preferir carpeta raíz configurada (p.ej. "WEB Ampa") para colgar "Noticias".
-            root_id = current_app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_ID", "") or None
-            root_name = (current_app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_NAME") or "WEB Ampa").strip()
-            legacy_root_name = "Imagenes WEB Ampa"
-            if root_id:
-                target_parent = root_id
-            else:
-                # Si no existe la nueva, reutilizar la antigua si está presente.
-                existing_root = _find_folder_id(drive_service, root_name, parent_id=None, drive_id=target_drive)
-                if not existing_root and root_name == "WEB Ampa":
-                    existing_root = _find_folder_id(
-                        drive_service, legacy_root_name, parent_id=None, drive_id=target_drive
-                    )
-                target_parent = existing_root or ensure_folder(root_name, parent_id=None, drive_id=target_drive)
+            target_parent = resolve_drive_root_folder_id(drive_service, drive_id=target_drive)
          
         try:
             if target_folder_id is None:

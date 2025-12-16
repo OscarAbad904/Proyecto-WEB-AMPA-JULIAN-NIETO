@@ -14,11 +14,14 @@ from logging.handlers import RotatingFileHandler
 import logging
 from urllib.parse import quote_plus
 
-load_dotenv()
+# Cargar siempre el `.env` del proyecto (y hacer override en local) para que
+# cambios del gestor se reflejen aunque existan variables ya exportadas.
+ROOT_PATH = Path(__file__).resolve().parent
+load_dotenv(ROOT_PATH / ".env", override=True)
 
 def _resolve_key_file() -> str:
     """Determina la ubicación de `fernet.key` en ejecución local o congelada."""
-    base_dir = Path(__file__).resolve().parent
+    base_dir = ROOT_PATH
     candidates: list[Path] = [base_dir / 'fernet.key']
 
     if getattr(sys, 'frozen', False):
@@ -40,7 +43,6 @@ def _resolve_key_file() -> str:
 
 # Ruta de la clave Fernet
 KEY_FILE = _resolve_key_file()
-ROOT_PATH = Path(__file__).resolve().parent
 
 
 def _load_key() -> bytes:
@@ -375,6 +377,24 @@ class BaseConfig:
                 os.environ["SQLALCHEMY_DATABASE_URI"] = runtime_uri
         except Exception:
             pass
+        # Refrescar configuracion de Google Drive desde entorno (.env re-cargado por el gestor).
+        drive_keys = [
+            "GOOGLE_DRIVE_ROOT_FOLDER_ID",
+            "GOOGLE_DRIVE_ROOT_FOLDER_NAME",
+            "GOOGLE_DRIVE_NEWS_FOLDER_ID",
+            "GOOGLE_DRIVE_NEWS_FOLDER_NAME",
+            "GOOGLE_DRIVE_EVENTS_FOLDER_ID",
+            "GOOGLE_DRIVE_EVENTS_FOLDER_NAME",
+            "GOOGLE_DRIVE_DOCS_FOLDER_ID",
+            "GOOGLE_DRIVE_DOCS_FOLDER_NAME",
+            "GOOGLE_DRIVE_DB_BACKUP_FOLDER_ID",
+            "GOOGLE_DRIVE_DB_BACKUP_FOLDER_NAME",
+            "GOOGLE_DRIVE_SHARED_DRIVE_ID",
+        ]
+        for key in drive_keys:
+            if key in os.environ:
+                app.config[key] = os.environ.get(key, "")
+
         # Asegurar que los archivos de Google Drive existen y están desencriptados
         ensure_google_drive_credentials_file(ROOT_PATH)
         ensure_google_drive_token_file(ROOT_PATH)

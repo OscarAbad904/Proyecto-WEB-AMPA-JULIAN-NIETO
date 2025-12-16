@@ -24,7 +24,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
 
 from app.extensions import db
-from app.media_utils import _get_user_drive_service, ensure_folder
+from app.media_utils import _find_folder_id, _get_folder_name_by_id, _get_user_drive_service, ensure_folder, resolve_drive_root_folder_id
 
 
 @dataclass(frozen=True)
@@ -49,17 +49,27 @@ def _resolve_backup_filename(now: datetime) -> str:
 def _resolve_drive_backup_folder_id() -> tuple[str, str | None]:
     shared_drive_id = current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID") or None
     root_name = (current_app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_NAME") or "WEB Ampa").strip()
-    root_id = current_app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_ID") or None
+    root_id = (current_app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_ID") or "").strip() or None
     backup_id = (current_app.config.get("GOOGLE_DRIVE_DB_BACKUP_FOLDER_ID") or "").strip() or None
     backup_folder_name = (current_app.config.get("GOOGLE_DRIVE_DB_BACKUP_FOLDER_NAME") or "Backup DB_WEB").strip()
 
     if backup_id:
         return backup_id, shared_drive_id
 
+    drive_service = _get_user_drive_service()
+    if drive_service is None:
+        raise RuntimeError("No se pudo autenticar con Google Drive (credenciales/token no disponibles).")
+
+    if root_id:
+        resolved_name = _get_folder_name_by_id(drive_service, root_id, drive_id=shared_drive_id)
+        if not resolved_name:
+            root_id = None
+
     if root_id:
         root_folder_id = root_id
     else:
-        root_folder_id = ensure_folder(root_name, parent_id=None, drive_id=shared_drive_id)
+        # Buscar/crear por nombre (carpeta raíz).
+        root_folder_id = resolve_drive_root_folder_id(drive_service, drive_id=shared_drive_id)
 
     backup_folder_id = ensure_folder(backup_folder_name, parent_id=root_folder_id, drive_id=shared_drive_id)
     return backup_folder_id, shared_drive_id

@@ -431,13 +431,35 @@ def regenerate_token_with_calendar_scope() -> dict:
         {"ok": True/False, "message": str, "token_path": str}
     """
     try:
-        credentials_path = Path(current_app.root_path) / "credentials_drive_oauth.json"
-        token_path = Path(current_app.root_path) / "token_drive.json"
+        base_path = Path(current_app.config.get("ROOT_PATH") or current_app.root_path)
+        token_path = base_path / "token_drive.json"
+
+        credentials_cfg = current_app.config.get("GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE")
+        if credentials_cfg:
+            credentials_path = Path(credentials_cfg)
+            if not credentials_path.is_absolute():
+                credentials_path = base_path / credentials_path
+        else:
+            credentials_path = base_path / "credentials_drive_oauth.json"
+
+        creds_json = current_app.config.get("GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON")
+        if creds_json and not credentials_path.exists():
+            try:
+                credentials_path.parent.mkdir(parents=True, exist_ok=True)
+                credentials_path.write_text(creds_json, encoding="utf-8")
+            except Exception as exc:
+                current_app.logger.warning(
+                    "No se pudo escribir credentials_drive_oauth.json: %s", exc
+                )
         
         if not credentials_path.exists():
             return {
                 "ok": False,
-                "message": "No se encontró el archivo de credenciales OAuth",
+                "message": (
+                    "No se encontró el archivo de credenciales OAuth "
+                    f"en {credentials_path} (configura GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE "
+                    "o GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON)."
+                ),
             }
         
         # Eliminar token existente si existe

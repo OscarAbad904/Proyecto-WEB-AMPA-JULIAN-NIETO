@@ -1,1 +1,1 @@
-web: gunicorn Api_AMPA_WEB:app
+web: gunicorn app:app

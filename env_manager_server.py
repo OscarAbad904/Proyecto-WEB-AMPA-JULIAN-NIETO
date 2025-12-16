@@ -3,11 +3,6 @@ Servidor Flask para el Gestor de Configuración AMPA.
 
 Proporciona una interfaz web moderna para gestionar las variables de entorno
 del proyecto de forma segura y centralizada.
-
-Uso:
-    python env_manager_gui.py
-    
-    Abrirá automáticamente el navegador en http://localhost:5050
 """
 
 import os
@@ -282,6 +277,18 @@ ENV_VARIABLES = {
                     "how_to_get": "Renombra o crea la carpeta en Drive y copia el ID de la URL. También puedes ejecutar: flask setup-drive-folders",
                     "example": "1a2b3c4d...",
                     "warning": "Si lo dejas vacío se buscará/creará por nombre."
+                }
+            },
+            "GOOGLE_DRIVE_ROOT_FOLDER_NAME": {
+                "label": "Nombre Carpeta Raíz",
+                "sensitive": False,
+                "required": False,
+                "default": "WEB Ampa",
+                "help": {
+                    "description": "Nombre de la carpeta raíz en Google Drive donde se crearán/colgarán las subcarpetas (Noticias, Eventos, Documentos, backups).",
+                    "how_to_get": "Crea o renombra la carpeta en Google Drive (por ejemplo: '3.1_WEB Ampa') y escribe aquí exactamente el mismo nombre. Luego ejecuta: flask setup-drive-folders.",
+                    "example": "3.1_WEB Ampa",
+                    "warning": "Si cambias este nombre y no existe una carpeta con ese nombre, se creará una nueva carpeta raíz."
                 }
             },
             "GOOGLE_DRIVE_NEWS_FOLDER_ID": {
@@ -809,27 +816,69 @@ def setup_drive_folders():
 
             shared_drive_id = app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID") or None
 
-            root_name = (app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_NAME") or "WEB Ampa").strip()
             root_id = (app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_ID") or "").strip() or None
+            root_name = (app.config.get("GOOGLE_DRIVE_ROOT_FOLDER_NAME") or "WEB Ampa").strip()
             selected_root_reason = None
 
             if root_id:
                 try:
                     meta = (
                         drive_service.files()
-                        .get(fileId=root_id, fields="id,name,mimeType", supportsAllDrives=True)
+                        .get(fileId=root_id, fields="id,name,mimeType,parents", supportsAllDrives=True)
                         .execute()
                     )
                     if meta.get("mimeType") != "application/vnd.google-apps.folder":
                         return jsonify({"ok": False, "error": "GOOGLE_DRIVE_ROOT_FOLDER_ID no es una carpeta."})
+
+                    # Si la carpeta existe pero no tiene parents, no se vera en "Mi unidad".
+                    parents = meta.get("parents") or []
+                    if not shared_drive_id and not parents:
+                        try:
+                            drive_service.files().update(
+                                fileId=root_id,
+                                addParents="root",
+                                fields="id,parents",
+                                supportsAllDrives=True,
+                            ).execute()
+                            selected_root_reason = selected_root_reason or (
+                                "La carpeta raiz no tenia parents; se ha colgado de 'Mi unidad'."
+                            )
+                        except Exception:  # noqa: BLE001
+                            pass
+
+                    # Asegurar que el nombre coincide con GOOGLE_DRIVE_ROOT_FOLDER_NAME.
+                    if root_name and meta.get("name") and meta.get("name") != root_name:
+                        try:
+                            drive_service.files().update(
+                                fileId=root_id,
+                                body={"name": root_name},
+                                fields="id,name",
+                                supportsAllDrives=True,
+                            ).execute()
+                            selected_root_reason = selected_root_reason or (
+                                "La carpeta raiz se ha renombrado para coincidir con GOOGLE_DRIVE_ROOT_FOLDER_NAME."
+                            )
+                        except Exception:  # noqa: BLE001
+                            pass
                 except Exception as e:  # noqa: BLE001
-                    return jsonify({"ok": False, "error": f"No se pudo acceder a la carpeta raíz: {e}"})
-            else:
+                    # Drive responde 404 también cuando el usuario/app no tiene acceso al recurso.
+                    # En vez de abortar, reintentamos detectando/creando una carpeta accesible.
+                    root_id = None
+                    selected_root_reason = (
+                        "GOOGLE_DRIVE_ROOT_FOLDER_ID no es accesible con el token actual; "
+                        "se buscará o creará una carpeta nueva."
+                    )
+
+            if not root_id:
                 # Intentar seleccionar una carpeta existente en vez de crear duplicados.
+                root_parent = "root"
+                if shared_drive_id:
+                    # En Unidades compartidas, el "raíz" se referencia por el id de la unidad.
+                    root_parent = shared_drive_id
                 list_kwargs = {
                     "q": (
                         "mimeType='application/vnd.google-apps.folder' and trashed=false and "
-                        f"name='{root_name}' and 'root' in parents"
+                        f"name='{root_name}' and '{root_parent}' in parents"
                     ),
                     "spaces": "drive",
                     "fields": "files(id,name,createdTime)",
@@ -844,22 +893,21 @@ def setup_drive_folders():
 
                 def _score_root(folder_id: str) -> int:
                     try:
-                        children = (
-                            drive_service.files()
-                            .list(
-                                q=(
-                                    f"'{folder_id}' in parents and trashed=false and "
-                                    "mimeType='application/vnd.google-apps.folder'"
-                                ),
-                                spaces="drive",
-                                fields="files(id,name)",
-                                pageSize=200,
-                                supportsAllDrives=True,
-                                includeItemsFromAllDrives=True,
-                            )
-                            .execute()
-                            .get("files", [])
-                        )
+                        child_kwargs = {
+                            "q": (
+                                f"'{folder_id}' in parents and trashed=false and "
+                                "mimeType='application/vnd.google-apps.folder'"
+                            ),
+                            "spaces": "drive",
+                            "fields": "files(id,name)",
+                            "pageSize": 200,
+                            "supportsAllDrives": True,
+                            "includeItemsFromAllDrives": True,
+                        }
+                        if shared_drive_id:
+                            child_kwargs["corpora"] = "drive"
+                            child_kwargs["driveId"] = shared_drive_id
+                        children = drive_service.files().list(**child_kwargs).execute().get("files", [])
                     except Exception:
                         return 0
                     names = {c.get("name") for c in children}
@@ -891,7 +939,7 @@ def setup_drive_folders():
 
                 if not root_id:
                     root_id = ensure_folder(root_name, parent_id=None, drive_id=shared_drive_id)
-                    selected_root_reason = "No existía carpeta; se creó una nueva."
+                    selected_root_reason = selected_root_reason or "No existía carpeta; se creó una nueva."
 
             news_name = (app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_NAME") or "Noticias").strip()
             events_name = (app.config.get("GOOGLE_DRIVE_EVENTS_FOLDER_NAME") or "Eventos").strip()
