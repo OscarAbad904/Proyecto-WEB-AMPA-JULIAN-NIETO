@@ -1,12 +1,14 @@
 from flask import Blueprint, render_template, request, current_app, flash, redirect, url_for, abort
 from flask_login import current_user, login_required
 import re
-from app.models import Post, user_is_privileged
+from app.models import Post, Permission, user_is_privileged
 from app.utils import _normalize_drive_url
 
 public_bp = Blueprint("public", __name__, template_folder="../../templates/public")
 
 def _can_view_posts() -> bool:
+    if Permission.is_key_public("manage_posts") or Permission.is_key_public("view_posts"):
+        return True
     return current_user.is_authenticated and (
         current_user.has_permission("manage_posts")
         or current_user.has_permission("view_posts")
@@ -15,6 +17,8 @@ def _can_view_posts() -> bool:
 
 
 def _can_view_events() -> bool:
+    if Permission.is_key_public("manage_events") or Permission.is_key_public("view_events"):
+        return True
     return current_user.is_authenticated and (
         current_user.has_permission("manage_events")
         or current_user.has_permission("view_events")
@@ -73,7 +77,6 @@ def quienes_somos():
 
 
 @public_bp.route("/noticias")
-@login_required
 def noticias():
     if not _can_view_posts():
         abort(403)
@@ -90,7 +93,6 @@ def noticias():
     return render_template("public/noticias.html", query=query, posts=posts, latest_three=latest_three)
 
 @public_bp.route("/noticias/<slug>")
-@login_required
 def noticia_detalle(slug):
     if not _can_view_posts():
         abort(403)
@@ -98,7 +100,6 @@ def noticia_detalle(slug):
 
 
 @public_bp.route("/eventos")
-@login_required
 def eventos():
     if not _can_view_events():
         abort(403)
@@ -112,7 +113,6 @@ def calendario():
 
 
 @public_bp.route("/eventos/<slug>")
-@login_required
 def evento_detalle(slug):
     if not _can_view_events():
         abort(403)

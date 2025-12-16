@@ -42,13 +42,15 @@
                 {% for role in roles %}
                 <th class="role-col">{{ role.name }}</th>
                 {% endfor %}
+                {% if supports_public_permissions %}
                 <th class="role-col public-col">Público</th>
+                {% endif %}
               </tr>
             </thead>
             <tbody>
               {% for item in perms %}
               {% set perm = item.permission %}
-              {% set is_public = perm.is_public if perm.is_public is not none else False %}
+              {% set is_public = (perm.is_public if perm.is_public is not none else False) if supports_public_permissions else False %}
               {% set checked = None %}
               <tr>
                 <td>
@@ -70,6 +72,7 @@
                   </label>
                 </td>
                 {% endfor %}
+                {% if supports_public_permissions %}
                 <td>
                   <label class="checkbox-inline" style="justify-content:center;" aria-label="{{ item.label }} público">
                     <input
@@ -82,6 +85,7 @@
                     >
                   </label>
                 </td>
+                {% endif %}
               </tr>
               {% endfor %}
             </tbody>
@@ -106,6 +110,7 @@
 </section>
 
 {% if can_edit_permissions %}
+{% if supports_public_permissions %}
 <script>
   (function () {
     const publicToggles = Array.from(document.querySelectorAll("input.public-toggle[data-permission-id]"));
@@ -150,5 +155,6 @@
     }
   })();
 </script>
+{% endif %}
 {% endif %}
 {% endblock %}

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from functools import lru_cache
 import sqlalchemy as sa
 import unicodedata
 from sqlalchemy import UniqueConstraint, func
+from sqlalchemy.orm import deferred
 from sqlalchemy.types import TypeDecorator
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -10,6 +12,17 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
 from app.utils import make_lookup_hash, normalize_lookup, slugify
 from config import encrypt_value, decrypt_value, PRIVILEGED_ROLES
+
+
+@lru_cache(maxsize=1)
+def _permissions_supports_public_flag() -> bool:
+    try:
+        inspector = sa.inspect(db.engine)
+        columns = {col.get("name") for col in inspector.get_columns("permissions")}
+        return "is_public" in columns
+    except Exception:
+        return False
+
 
 def user_is_privileged(user: User | None) -> bool:
     if not user or not getattr(user, "role", None):
@@ -184,7 +197,7 @@ class User(db.Model, UserMixin):
         permission = Permission.query.filter_by(key=key).first()
         if not permission:
             return False
-        if bool(getattr(permission, "is_public", False)):
+        if Permission.supports_public_flag() and bool(getattr(permission, "is_public", False)):
             return True
         if not self.role:
             return False
@@ -207,11 +220,26 @@ class Permission(db.Model):
     key = db.Column(db.String(128), unique=True, nullable=False, index=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
-    is_public = db.Column(db.Boolean, default=False, nullable=False, index=True)
+    # `deferred` evita romper arranques si la BD aún no tiene la columna (migración pendiente).
+    is_public = deferred(db.Column(db.Boolean, default=False, nullable=False, index=True))
 
     role_permissions = db.relationship(
         "RolePermission", back_populates="permission", lazy="dynamic", cascade="all, delete-orphan"
     )
+
+    @classmethod
+    def supports_public_flag(cls) -> bool:
+        return _permissions_supports_public_flag()
+
+    @classmethod
+    def is_key_public(cls, key: str) -> bool:
+        if not key or not cls.supports_public_flag():
+            return False
+        try:
+            value = db.session.query(cls.is_public).filter_by(key=key).scalar()
+            return bool(value)
+        except Exception:
+            return False
 
 
 class RolePermission(db.Model):

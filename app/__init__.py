@@ -10,6 +10,7 @@ from app.routes.members import members_bp
 from app.routes.admin import admin_bp
 from app.routes.api import api_bp
 from app.models import User, user_is_privileged
+from app.models import Permission
 from app.forms import LoginForm
 from app.commands import register_commands
 from app.services.permission_registry import ensure_roles_and_permissions
@@ -41,6 +42,7 @@ def create_app(config_name: str | None = None) -> Flask:
         try:
             ensure_roles_and_permissions()
         except Exception as exc:  # noqa: BLE001
+            db.session.rollback()
             app.logger.exception("No se pudieron sincronizar los permisos base", exc_info=exc)
 
     start_db_backup_scheduler(app)
@@ -73,22 +75,25 @@ def register_context(app: Flask) -> None:
     @app.context_processor
     def inject_globals():
         from flask_login import current_user
+
+        public_view_posts = Permission.is_key_public("manage_posts") or Permission.is_key_public("view_posts")
+        public_view_events = Permission.is_key_public("manage_events") or Permission.is_key_public("view_events")
         can_manage_members = current_user.is_authenticated and (
             current_user.has_permission("manage_members") or user_is_privileged(current_user)
         )
-        can_view_posts = current_user.is_authenticated and (
+        can_view_posts = public_view_posts or (current_user.is_authenticated and (
             current_user.has_permission("manage_posts")
             or current_user.has_permission("view_posts")
             or user_is_privileged(current_user)
-        )
+        ))
         can_manage_posts = current_user.is_authenticated and (
             current_user.has_permission("manage_posts") or user_is_privileged(current_user)
         )
-        can_view_events = current_user.is_authenticated and (
+        can_view_events = public_view_events or (current_user.is_authenticated and (
             current_user.has_permission("manage_events")
             or current_user.has_permission("view_events")
             or user_is_privileged(current_user)
-        )
+        ))
         can_manage_events = current_user.is_authenticated and (
             current_user.has_permission("manage_events") or user_is_privileged(current_user)
         )

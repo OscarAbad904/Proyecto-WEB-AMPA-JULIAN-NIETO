@@ -598,6 +598,7 @@ def permissions():
                 continue
             existing.setdefault((role_id, permission_id), True)
     grouped_permissions = group_permissions_by_section(permissions_list)
+    supports_public_permissions = Permission.supports_public_flag()
 
     if request.method == "POST":
         if not can_edit_permissions:
@@ -606,24 +607,25 @@ def permissions():
 
         public_permission_ids: set[int] = set()
         is_public_by_permission_id: dict[int, bool] = {}
-        for permission in permissions_list:
-            permission_id = getattr(permission, "id", None)
-            if permission_id is None:
-                continue
-            is_public = f"public_{permission_id}" in request.form
-            is_public_by_permission_id[int(permission_id)] = is_public
-            if bool(getattr(permission, "is_public", False)) != is_public:
-                permission.is_public = is_public
-                changes += 1
-            if is_public:
-                public_permission_ids.add(int(permission_id))
+        if supports_public_permissions:
+            for permission in permissions_list:
+                permission_id = getattr(permission, "id", None)
+                if permission_id is None:
+                    continue
+                is_public = f"public_{permission_id}" in request.form
+                is_public_by_permission_id[int(permission_id)] = is_public
+                if bool(getattr(permission, "is_public", False)) != is_public:
+                    permission.is_public = is_public
+                    changes += 1
+                if is_public:
+                    public_permission_ids.add(int(permission_id))
 
-        if public_permission_ids:
-            deleted = (
-                RolePermission.query.filter(RolePermission.permission_id.in_(public_permission_ids))
-                .delete(synchronize_session=False)
-            )
-            changes += int(deleted or 0)
+            if public_permission_ids:
+                deleted = (
+                    RolePermission.query.filter(RolePermission.permission_id.in_(public_permission_ids))
+                    .delete(synchronize_session=False)
+                )
+                changes += int(deleted or 0)
         for role in roles:
             role_id = getattr(role, "id", None)
             role_is_privileged = _role_is_privileged(role)
@@ -633,7 +635,7 @@ def permissions():
                 permission_id = getattr(permission, "id", None)
                 if permission_id is None:
                     continue
-                if is_public_by_permission_id.get(int(permission_id), False):
+                if supports_public_permissions and is_public_by_permission_id.get(int(permission_id), False):
                     continue
                 field_name = f"perm_{role_id}_{permission_id}"
                 allowed = field_name in request.form
@@ -672,6 +674,7 @@ def permissions():
         existing=existing,
         grouped_permissions=grouped_permissions,
         can_edit_permissions=can_edit_permissions,
+        supports_public_permissions=supports_public_permissions,
     )
 
 
