@@ -31,7 +31,6 @@ uploads/
 !.env.example
 
 # --- Secretos/credenciales/tokens locales ---
-fernet.key
 credentials_drive_oauth.json
 **/token_drive.json
 env_manager_auth.json
