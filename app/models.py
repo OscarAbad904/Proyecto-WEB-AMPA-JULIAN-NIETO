@@ -179,10 +179,14 @@ class User(db.Model, UserMixin):
         return bool(membership and membership.role == "coordinador")
 
     def has_permission(self, key: str) -> bool:
-        if not self.role or not key:
+        if not key:
             return False
         permission = Permission.query.filter_by(key=key).first()
         if not permission:
+            return False
+        if bool(getattr(permission, "is_public", False)):
+            return True
+        if not self.role:
             return False
         role_permission = RolePermission.query.filter_by(
             role_id=self.role.id, permission_id=permission.id
@@ -203,6 +207,7 @@ class Permission(db.Model):
     key = db.Column(db.String(128), unique=True, nullable=False, index=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
+    is_public = db.Column(db.Boolean, default=False, nullable=False, index=True)
 
     role_permissions = db.relationship(
         "RolePermission", back_populates="permission", lazy="dynamic", cascade="all, delete-orphan"

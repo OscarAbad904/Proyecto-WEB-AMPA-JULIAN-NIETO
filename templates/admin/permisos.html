@@ -15,6 +15,7 @@
     .perm-section-title { margin:0 0 0.35rem; color:#0f172a; letter-spacing:0.08em; font-size: 0.85rem; text-transform: uppercase; }
     .perm-section-desc { margin:0 0 0.4rem; color:#475569; }
     .role-col { min-width: 120px; }
+    .public-col { min-width: 110px; }
   </style>
 {% endblock %}
 
@@ -41,11 +42,13 @@
                 {% for role in roles %}
                 <th class="role-col">{{ role.name }}</th>
                 {% endfor %}
+                <th class="role-col public-col">Público</th>
               </tr>
             </thead>
             <tbody>
               {% for item in perms %}
               {% set perm = item.permission %}
+              {% set is_public = perm.is_public if perm.is_public is not none else False %}
               {% set checked = None %}
               <tr>
                 <td>
@@ -56,10 +59,29 @@
                 {% set checked = existing.get((role.id, perm.id), False) %}
                 <td>
                   <label class="checkbox-inline" style="justify-content:center;" aria-label="{{ item.label }} para {{ role.name }}">
-                    <input type="checkbox" name="perm_{{ role.id }}_{{ perm.id }}" {% if checked %}checked{% endif %} {% if not can_edit_permissions %}disabled{% endif %}>
+                    <input
+                      type="checkbox"
+                      name="perm_{{ role.id }}_{{ perm.id }}"
+                      data-permission-id="{{ perm.id }}"
+                      data-role-permission="1"
+                      {% if checked and not is_public %}checked{% endif %}
+                      {% if is_public or not can_edit_permissions %}disabled{% endif %}
+                    >
                   </label>
                 </td>
                 {% endfor %}
+                <td>
+                  <label class="checkbox-inline" style="justify-content:center;" aria-label="{{ item.label }} público">
+                    <input
+                      type="checkbox"
+                      name="public_{{ perm.id }}"
+                      class="public-toggle"
+                      data-permission-id="{{ perm.id }}"
+                      {% if is_public %}checked{% endif %}
+                      {% if not can_edit_permissions %}disabled{% endif %}
+                    >
+                  </label>
+                </td>
               </tr>
               {% endfor %}
             </tbody>
@@ -82,4 +104,51 @@
     {% endif %}
   </form>
 </section>
+
+{% if can_edit_permissions %}
+<script>
+  (function () {
+    const publicToggles = Array.from(document.querySelectorAll("input.public-toggle[data-permission-id]"));
+
+    function getRoleCheckboxes(permissionId) {
+      return Array.from(
+        document.querySelectorAll(`input[type="checkbox"][data-role-permission="1"][data-permission-id="${permissionId}"]`)
+      );
+    }
+
+    function setPublicState(permissionId, isPublic) {
+      const roleCheckboxes = getRoleCheckboxes(permissionId);
+      for (const checkbox of roleCheckboxes) {
+        if (isPublic) checkbox.checked = false;
+        checkbox.disabled = isPublic;
+      }
+    }
+
+    for (const toggle of publicToggles) {
+      const permissionId = toggle.getAttribute("data-permission-id");
+      setPublicState(permissionId, toggle.checked);
+
+      toggle.addEventListener("change", () => {
+        setPublicState(permissionId, toggle.checked);
+      });
+    }
+
+    const roleCheckboxes = Array.from(
+      document.querySelectorAll('input[type="checkbox"][data-role-permission="1"][data-permission-id]')
+    );
+
+    for (const checkbox of roleCheckboxes) {
+      checkbox.addEventListener("change", () => {
+        if (!checkbox.checked) return;
+        const permissionId = checkbox.getAttribute("data-permission-id");
+        const publicToggle = document.querySelector(`input.public-toggle[data-permission-id="${permissionId}"]`);
+        if (publicToggle && publicToggle.checked) {
+          publicToggle.checked = false;
+          setPublicState(permissionId, false);
+        }
+      });
+    }
+  })();
+</script>
+{% endif %}
 {% endblock %}
