@@ -1,12 +1,14 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, session, abort, jsonify
+from flask import Blueprint, render_template, request, flash, redirect, url_for, session, abort, jsonify, current_app
 from flask_login import login_required, current_user, login_user, logout_user
 from datetime import datetime, timedelta
 import secrets
+from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.models import (
     User,
     Role,
+    Permission,
     Membership,
     Suggestion,
     Comment,
@@ -24,6 +26,8 @@ from app.forms import (
     NewMemberForm,
     RecoverForm,
     ResetPasswordForm,
+    UpdatePhoneForm,
+    ChangePasswordForm,
     SuggestionForm,
     CommentForm,
     VoteForm,
@@ -34,7 +38,7 @@ from app.forms import (
 from app.utils import (
     make_lookup_hash,
     normalize_lookup,
-    generate_confirmation_token,
+    generate_email_verification_token,
     _generate_password,
     _generate_member_number,
     _send_sms_code,
@@ -66,6 +70,16 @@ def login():
         lookup_email = make_lookup_hash(form.email.data)
         user = User.query.filter_by(email_lookup=lookup_email).first()
         if user and user.check_password(form.password.data):
+            if not user.is_active:
+                flash("Tu cuenta está desactivada.", "danger")
+                return render_template("members/login.html", form=form)
+            if not user.email_verified:
+                flash("Debes verificar tu correo antes de iniciar sesión.", "warning")
+                return render_template("members/login.html", form=form)
+            if not user.registration_approved:
+                flash("Tu alta está pendiente de aprobación.", "info")
+                return render_template("members/login.html", form=form)
+
             login_user(user, remember=form.remember_me.data)
             user.last_login = datetime.utcnow()
             db.session.commit()
@@ -77,47 +91,100 @@ def login():
 
 @members_bp.route("/register", methods=["GET", "POST"])
 def register():
+    if current_user.is_authenticated:
+        return redirect(url_for("members.dashboard"))
+
+    if Permission.supports_public_flag():
+        try:
+            is_public = db.session.query(Permission.is_public).filter_by(key="public_registration").scalar()
+            if is_public is False:
+                flash("El registro de socios está cerrado temporalmente.", "info")
+                return redirect(url_for("public.home"))
+        except Exception:
+            pass
+
     form = RegisterForm()
-    can_assign_role = current_user.is_authenticated and (
-        current_user.has_permission("manage_members") or user_is_privileged(current_user)
-    )
-    if can_assign_role:
-        roles, _ = ensure_roles_and_permissions(DEFAULT_ROLE_NAMES)
-        if not roles:
-            roles = Role.query.order_by(Role.name_lookup.asc()).all()
-        form.role.choices = [(role.name_lookup, role.name) for role in roles]
-        if request.method == "GET" and not form.role.data:
-            form.role.data = normalize_lookup("socio")
-    else:
-        # Registro público: siempre Socio (evita escalada de privilegios).
-        form.role.choices = [("socio", "Socio")]
-        if request.method == "GET":
-            form.role.data = "socio"
     if form.validate_on_submit():
-        lookup_email = make_lookup_hash(form.email.data)
-        if User.query.filter_by(email_lookup=lookup_email).first():
-            flash("Ya existe una cuenta con ese correo", "warning")
-            return render_template("members/register.html", form=form)
-        requested_lookup = normalize_lookup(form.role.data)
-        role_lookup = requested_lookup if can_assign_role else normalize_lookup("socio")
-        role = Role.query.filter_by(name_lookup=role_lookup).first()
-        if not role:
-            role = Role.query.filter_by(name_lookup=normalize_lookup("socio")).first()
+        from app.services.mail_service import (
+            send_member_verification_email,
+            send_new_member_registration_notification_to_ampa,
+        )
+
+        email = (form.email.data or "").strip().lower()
+        lookup_email = make_lookup_hash(email)
+        existing_user = User.query.filter_by(email_lookup=lookup_email).first()
+
+        if existing_user:
+            if existing_user.is_active and not existing_user.email_verified:
+                token = generate_email_verification_token(existing_user.id, existing_user.email_lookup)
+                verify_url = url_for("public.verify_email", token=token, _external=True)
+                send_member_verification_email(
+                    recipient_email=existing_user.email,
+                    verify_url=verify_url,
+                    app_config=current_app.config,
+                )
+            flash(
+                "Si el correo es válido, recibirás un enlace de verificación. "
+                "Tu alta quedará pendiente de aprobación.",
+                "info",
+            )
+            return redirect(url_for("members.login"))
+
+        ensure_roles_and_permissions(DEFAULT_ROLE_NAMES)
+        role = Role.query.filter_by(name_lookup=normalize_lookup("socio")).first()
         if not role:
             role = Role(name="Socio")
             db.session.add(role)
             db.session.commit()
+
         user = User(
-            username=form.username.data,
-            email=form.email.data.lower(),
+            username=email,
+            email=email,
             role=role,
+            first_name=form.first_name.data,
+            last_name=form.last_name.data,
+            phone_number=(form.phone_number.data or "").strip() or None,
+            email_verified=False,
+            registration_approved=False,
+            privacy_accepted_at=datetime.utcnow(),
+            privacy_version=str(current_app.config.get("PRIVACY_POLICY_VERSION", "1")),
         )
-        user.set_password(form.password.data)
+        user.set_password(secrets.token_urlsafe(32))
         db.session.add(user)
-        db.session.commit()
-        generate_confirmation_token(user.email)
-        flash("Se ha enviado un correo de verificación", "info")
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            flash(
+                "Si el correo es válido, recibirás un enlace de verificación. "
+                "Tu alta quedará pendiente de aprobación.",
+                "info",
+            )
+            return redirect(url_for("members.login"))
+
+        token = generate_email_verification_token(user.id, user.email_lookup)
+        verify_url = url_for("public.verify_email", token=token, _external=True)
+        send_member_verification_email(
+            recipient_email=user.email,
+            verify_url=verify_url,
+            app_config=current_app.config,
+        )
+
+        full_name = f"{(user.first_name or '').strip()} {(user.last_name or '').strip()}".strip()
+        send_new_member_registration_notification_to_ampa(
+            member_name=full_name or "Socio",
+            member_email=user.email,
+            member_phone=user.phone_number,
+            app_config=current_app.config,
+        )
+
+        flash(
+            "Registro recibido. Hemos enviado un enlace de verificación a tu correo y "
+            "tu alta queda pendiente de aprobación.",
+            "success",
+        )
         return redirect(url_for("members.login"))
+
     return render_template("members/register.html", form=form)
 
 
@@ -133,6 +200,37 @@ def logout():
 def dashboard():
     alta_form = NewMemberForm()
     return render_template("members/dashboard.html", alta_form=alta_form)
+
+
+@members_bp.route("/mi-cuenta", methods=["GET", "POST"])
+@login_required
+def mi_cuenta():
+    phone_form = UpdatePhoneForm()
+    password_form = ChangePasswordForm()
+
+    if request.method == "GET":
+        phone_form.phone_number.data = current_user.phone_number or ""
+
+    if phone_form.submit_phone.data and phone_form.validate_on_submit():
+        current_user.phone_number = (phone_form.phone_number.data or "").strip() or None
+        db.session.commit()
+        flash("Teléfono actualizado.", "success")
+        return redirect(url_for("members.mi_cuenta"))
+
+    if password_form.submit_password.data and password_form.validate_on_submit():
+        if not current_user.check_password(password_form.current_password.data):
+            flash("Contraseña actual incorrecta.", "danger")
+            return redirect(url_for("members.mi_cuenta"))
+        current_user.set_password(password_form.new_password.data)
+        db.session.commit()
+        flash("Contraseña actualizada.", "success")
+        return redirect(url_for("members.mi_cuenta"))
+
+    return render_template(
+        "members/mi_cuenta.html",
+        phone_form=phone_form,
+        password_form=password_form,
+    )
 
 
 @members_bp.route("/socios/alta", methods=["POST"])
@@ -167,6 +265,9 @@ def alta_socio():
             postal_code=form.postal_code.data,
             role=role,
             email_verified=True,
+            registration_approved=True,
+            approved_at=datetime.utcnow(),
+            approved_by_id=current_user.id,
             two_fa_enabled=True,
         )
         user.set_password(password)

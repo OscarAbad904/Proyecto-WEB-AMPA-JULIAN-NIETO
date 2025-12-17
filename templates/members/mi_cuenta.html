@@ -1,0 +1,53 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Mi cuenta{% endblock %}
+
+{% block content %}
+  <section class="private-section">
+    <div class="private-container">
+      <h1 class="private-title">Mi cuenta</h1>
+      <p class="private-desc">Actualiza tu teléfono o cambia tu contraseña.</p>
+
+      <h2 style="margin: 1.25rem 0 0.5rem;">Teléfono</h2>
+      <form method="post" class="private-form" novalidate>
+        {{ phone_form.hidden_tag() }}
+        <div class="private-field">
+          {{ phone_form.phone_number.label }}
+          {{ phone_form.phone_number(placeholder="Teléfono", autocomplete="tel") }}
+          {% for error in phone_form.phone_number.errors %}
+            <p class="form-error">{{ error }}</p>
+          {% endfor %}
+        </div>
+        {{ phone_form.submit_phone(class_="btn-primary") }}
+      </form>
+
+      <h2 style="margin: 1.75rem 0 0.5rem;">Cambiar contraseña</h2>
+      <form method="post" class="private-form" novalidate>
+        {{ password_form.hidden_tag() }}
+        <div class="private-field">
+          {{ password_form.current_password.label }}
+          {{ password_form.current_password(placeholder="Contraseña actual", autocomplete="current-password") }}
+          {% for error in password_form.current_password.errors %}
+            <p class="form-error">{{ error }}</p>
+          {% endfor %}
+        </div>
+        <div class="private-field">
+          {{ password_form.new_password.label }}
+          {{ password_form.new_password(placeholder="Nueva contraseña", autocomplete="new-password") }}
+          {% for error in password_form.new_password.errors %}
+            <p class="form-error">{{ error }}</p>
+          {% endfor %}
+        </div>
+        <div class="private-field">
+          {{ password_form.new_password_confirm.label }}
+          {{ password_form.new_password_confirm(placeholder="Repite la contraseña", autocomplete="new-password") }}
+          {% for error in password_form.new_password_confirm.errors %}
+            <p class="form-error">{{ error }}</p>
+          {% endfor %}
+        </div>
+        {{ password_form.submit_password(class_="btn-primary") }}
+      </form>
+    </div>
+  </section>
+{% endblock %}
+

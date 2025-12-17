@@ -58,6 +58,14 @@ ROLE_VARIANTS: list[tuple[str, str]] = [
 # Catálogo de permisos de la plataforma con metadatos para UI y asignaciones iniciales.
 PERMISSION_DEFINITIONS = [
     {
+        "key": "public_registration",
+        "name": "Registro público",
+        "description": "Habilita el acceso al formulario público para solicitar alta como socio.",
+        "section": "Registro",
+        "public_only": True,
+        "default_public": True,
+    },
+    {
         "key": "access_admin_panel",
         "name": "Acceder al panel admin",
         "description": "Permite entrar al dashboard general de administración.",
@@ -210,6 +218,7 @@ PERMISSION_DEFINITIONS = [
 ]
 
 SECTION_ORDER = [
+    "Registro",
     "Usuarios",
     "Noticias",
     "Eventos",
@@ -314,6 +323,7 @@ def ensure_roles_and_permissions(
 
     definitions = {entry["key"]: entry for entry in PERMISSION_DEFINITIONS}
     perm_map: dict[str, Permission] = {perm.key: perm for perm in Permission.query.all()}
+    supports_public_permissions = Permission.supports_public_flag()
 
     created_or_updated = False
     for key, meta in definitions.items():
@@ -324,6 +334,8 @@ def ensure_roles_and_permissions(
                 name=meta.get("name") or key,
                 description=meta.get("description"),
             )
+            if supports_public_permissions and meta.get("default_public") is not None:
+                perm.is_public = bool(meta.get("default_public"))
             db.session.add(perm)
             perm_map[key] = perm
             created_or_updated = True
@@ -384,6 +396,7 @@ def group_permissions_by_section(permissions: Sequence[Permission]) -> list[tupl
             "permission": perm,
             "label": meta.get("name") or perm.name or perm.key,
             "description": meta.get("description") or perm.description or "",
+            "public_only": bool(meta.get("public_only")),
         }
         section_map.setdefault(section, []).append(entry)
 

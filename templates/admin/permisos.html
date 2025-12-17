@@ -31,17 +31,26 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% if grouped_permissions %}
       {% for section, perms in grouped_permissions %}
+      {% set public_only_section = perms|selectattr('public_only')|list|length == perms|length %}
       <div class="admin-card">
         <p class="perm-section-title">{{ section }}</p>
-        <p class="perm-section-desc">Marca qué roles pueden ver o gestionar esta sección.</p>
+        <p class="perm-section-desc">
+          {% if public_only_section %}
+            Activa o desactiva si esta secci&oacute;n es p&uacute;blica.
+          {% else %}
+            Marca qu&eacute; roles pueden ver o gestionar esta secci&oacute;n.
+          {% endif %}
+        </p>
         <div class="table-responsive">
           <table class="admin-table permissions-table">
             <thead>
               <tr>
                 <th style="min-width: 220px;">Permiso</th>
+                {% if not public_only_section %}
                 {% for role in roles %}
                 <th class="role-col">{{ role.name }}</th>
                 {% endfor %}
+                {% endif %}
                 {% if supports_public_permissions %}
                 <th class="role-col public-col">Público</th>
                 {% endif %}
@@ -57,6 +66,7 @@
                   <strong>{{ item.label }}</strong>
                   {% if item.description %}<small>{{ item.description }}</small>{% endif %}
                 </td>
+                {% if not public_only_section %}
                 {% for role in roles %}
                 {% set checked = existing.get((role.id, perm.id), False) %}
                 <td>
@@ -72,6 +82,7 @@
                   </label>
                 </td>
                 {% endfor %}
+                {% endif %}
                 {% if supports_public_permissions %}
                 <td>
                   <label class="checkbox-inline" style="justify-content:center;" aria-label="{{ item.label }} público">

@@ -158,17 +158,22 @@
                         <a href="{{ url_for('public.faq') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.faq') %} active{% endif %}">FAQ</a>
                         {% if current_user.is_authenticated %}
                         <a href="{{ url_for('members.dashboard') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('members.') %} active{% endif %}">Área privada</a>
+                        <a href="{{ url_for('members.mi_cuenta') }}" class="nav-link{% if request.endpoint == 'members.mi_cuenta' %} active{% endif %}">Mi cuenta</a>
                         {% if can_manage_members %}
-                        <a href="{{ url_for('members.register') }}" class="nav-link{% if request.endpoint == 'members.register' %} active{% endif %}">Crear cuenta</a>
+                        <a href="{{ url_for('admin.usuarios') }}" class="nav-link{% if request.endpoint == 'admin.usuarios' %} active{% endif %}">Usuarios</a>
                         {% endif %}
                         {% if can_manage_commissions %}
                         <a href="{{ url_for('admin.commissions_index') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('admin.commissions') %} active{% endif %}">Comisiones</a>
                         {% endif %}
-                        {% if can_manage_permissions %}
-                        <a href="{{ url_for('admin.permissions') }}" class="nav-link{% if request.endpoint == 'admin.permissions' %} active{% endif %}">Permisos</a>
+                         {% if can_manage_permissions %}
+                         <a href="{{ url_for('admin.permissions') }}" class="nav-link{% if request.endpoint == 'admin.permissions' %} active{% endif %}">Permisos</a>
+                         {% endif %}
+                         {% else %}
+                        {% if can_view_register %}
+                         <a href="{{ url_for('members.register') }}" class="nav-link{% if request.endpoint == 'members.register' %} active{% endif %}">Registro</a>
                         {% endif %}
-                        {% endif %}
-                        <div class="nav-auth nav-auth-desktop">
+                         {% endif %}
+                         <div class="nav-auth nav-auth-desktop">
                             {% if current_user.is_authenticated %}
                             <span class="nav-user-name">Bienvenido, {{ current_user.username }}</span>
                             <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout">Cerrar sesion</a>
@@ -213,18 +218,22 @@
                     {% if current_user.is_authenticated %}
                     <a href="{{ url_for('members.dashboard') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('members.') %} active{% endif %}" onclick="toggleMobileMenu()">Área
                         privada</a>
+                    <a href="{{ url_for('members.mi_cuenta') }}" class="nav-link{% if request.endpoint == 'members.mi_cuenta' %} active{% endif %}" onclick="toggleMobileMenu()">Mi cuenta</a>
                     {% if can_manage_members %}
-                    <a href="{{ url_for('members.register') }}" class="nav-link{% if request.endpoint == 'members.register' %} active{% endif %}" onclick="toggleMobileMenu()">Crear
-                        cuenta</a>
+                    <a href="{{ url_for('admin.usuarios') }}" class="nav-link{% if request.endpoint == 'admin.usuarios' %} active{% endif %}" onclick="toggleMobileMenu()">Usuarios</a>
                     {% endif %}
                     {% if can_manage_commissions %}
                     <a href="{{ url_for('admin.commissions_index') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('admin.commissions') %} active{% endif %}" onclick="toggleMobileMenu()">Comisiones</a>
                     {% endif %}
-                    {% if can_manage_permissions %}
-                    <a href="{{ url_for('admin.permissions') }}" class="nav-link{% if request.endpoint == 'admin.permissions' %} active{% endif %}" onclick="toggleMobileMenu()">Permisos</a>
+                     {% if can_manage_permissions %}
+                     <a href="{{ url_for('admin.permissions') }}" class="nav-link{% if request.endpoint == 'admin.permissions' %} active{% endif %}" onclick="toggleMobileMenu()">Permisos</a>
+                     {% endif %}
+                     {% else %}
+                    {% if can_view_register %}
+                     <a href="{{ url_for('members.register') }}" class="nav-link{% if request.endpoint == 'members.register' %} active{% endif %}" onclick="toggleMobileMenu()">Registro</a>
                     {% endif %}
-                    {% endif %}
-                    <div class="mobile-auth">
+                     {% endif %}
+                     <div class="mobile-auth">
                         {% if current_user.is_authenticated %}
                         <span>Hola, {{ current_user.username }}</span>
                         <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout"

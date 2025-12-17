@@ -5,57 +5,279 @@
 {% block content %}
   <section class="private-section">
     <div class="private-container">
-      <h1 class="private-title">Crear cuenta</h1>
-      <p class="private-desc">Completa tus datos para acceder al área privada de socios.</p>
-      <form method="post" class="private-form" id="register-form" novalidate>
-        {{ form.hidden_tag() }}
-        <div class="private-field">
-          {{ form.username.label }}
-          {{ form.username(placeholder="Nombre de usuario", autocomplete="username") }}
-        </div>
-        <div class="private-field">
-          {{ form.email.label }}
-          {{ form.email(placeholder="correo@ejemplo.com", autocomplete="email") }}
-        </div>
-        <div class="private-field">
-          {{ form.role.label }}
-          {{ form.role() }}
-        </div>
-        <div class="private-field">
-          {{ form.password.label }}
-          {{ form.password(placeholder="Contraseña", autocomplete="new-password") }}
-        </div>
-        <div class="private-field">
-          {{ form.password_confirm.label }}
-          {{ form.password_confirm(placeholder="Repite la contraseña", autocomplete="new-password") }}
-        </div>
-        {{ form.submit(class_="btn-primary", disabled=True) }}
-      </form>
+      <h1 class="private-title">Registro</h1>
+      <p class="private-desc"><strong>Importante:</strong> para registrarte en la web hay que ser socio previamente.</p>
+      <p class="private-desc">Si aún no eres socio, puedes solicitar el alta. Si ya eres socio, marca la casilla y regístrate en la web.</p>
+
+      <label class="private-remember" style="margin-bottom: 0.75rem;">
+        <input type="checkbox" id="already-member">
+        <span>Ya soy socio</span>
+      </label>
+
+      <button type="button" class="btn-primary full" id="open-register-form">Hacerme socio</button>
+
+      <div id="register-form-container" {% if request.method != "POST" %}hidden{% endif %}>
+        <p class="private-desc" style="margin-top: 1.25rem;">Completa tus datos. Te enviaremos un correo para verificar tu email y el AMPA aprobará el alta.</p>
+        <form method="post" class="private-form" id="register-form" novalidate>
+          {{ form.hidden_tag() }}
+          <div class="private-field">
+            {{ form.first_name.label }}
+            {{ form.first_name(placeholder="Nombre", autocomplete="given-name") }}
+            {% for error in form.first_name.errors %}
+              <p class="form-error">{{ error }}</p>
+            {% endfor %}
+          </div>
+          <div class="private-field">
+            {{ form.last_name.label }}
+            {{ form.last_name(placeholder="Apellidos", autocomplete="family-name") }}
+            {% for error in form.last_name.errors %}
+              <p class="form-error">{{ error }}</p>
+            {% endfor %}
+          </div>
+          <div class="private-field">
+            {{ form.email.label }}
+            {{ form.email(placeholder="correo@ejemplo.com", autocomplete="email") }}
+            {% for error in form.email.errors %}
+              <p class="form-error">{{ error }}</p>
+            {% endfor %}
+          </div>
+          <div class="private-field">
+            {{ form.phone_number.label }}
+            {{ form.phone_number(placeholder="Teléfono (opcional)", autocomplete="tel") }}
+            {% for error in form.phone_number.errors %}
+              <p class="form-error">{{ error }}</p>
+            {% endfor %}
+          </div>
+          <div class="private-field">
+            <div class="privacy-accept">
+              {{ form.privacy_accepted(id="privacy_accepted", disabled=True) }}
+              <div class="privacy-accept-content">
+                <div class="privacy-accept-line">
+                  <label for="privacy_accepted" class="privacy-accept-label">{{ form.privacy_accepted.label.text }}</label>
+                  <a href="#" class="privacy-link" id="open-privacy">Ver política</a>
+                </div>
+              </div>
+            </div>
+            <p class="private-desc" id="privacy-warning" style="display:none; margin: 0.35rem 0 0; color: var(--color-danger, #ef4444); font-weight: 600;"></p>
+            {% for error in form.privacy_accepted.errors %}
+              <p class="form-error">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {{ form.submit(class_="btn-primary", id="register-submit", disabled=True) }}
+        </form>
+      </div>
     </div>
   </section>
+
+  <div id="privacy-modal" class="login-modal" aria-hidden="true">
+    <div class="login-modal-dialog">
+      <button class="login-modal-close" type="button" aria-label="Cerrar" id="close-privacy">×</button>
+      <p class="eyebrow">Privacidad</p>
+      <h2>Política de privacidad</h2>
+      <p class="section-subtitle">Desplázate hasta el final para poder aceptar.</p>
+
+      <div id="privacy-scroll" class="privacy-scroll" tabindex="0" role="region" aria-label="Texto de la política de privacidad">
+        <p><strong>Responsable</strong>: AMPA CEIP Julián Nieto Tapia.</p>
+        <p><strong>Finalidad</strong>: gestionar el alta como socio/a, comunicaciones y servicios relacionados con el AMPA.</p>
+        <p><strong>Datos</strong>: nombre, apellidos, email y teléfono (opcional), además de datos derivados de la gestión del alta.</p>
+        <p><strong>Legitimación</strong>: consentimiento y relación asociativa.</p>
+        <p><strong>Destinatarios</strong>: no se cederán datos a terceros salvo obligación legal o proveedores necesarios para el servicio (p.ej. correo electrónico) bajo contrato.</p>
+        <p><strong>Conservación</strong>: durante el tiempo necesario para la gestión del alta y, en su caso, mientras exista relación como socio/a o responsabilidades legales.</p>
+        <p><strong>Derechos</strong>: acceso, rectificación, supresión, oposición, limitación y portabilidad. Puedes ejercerlos contactando con el AMPA.</p>
+        <p><strong>Información adicional</strong>: puedes solicitar información ampliada y el texto completo de la política al AMPA.</p>
+        <hr>
+        <p>Al finalizar la lectura podrás marcar la casilla de aceptación en el formulario.</p>
+        <p style="margin-bottom: 0;">Fin del texto.</p>
+      </div>
+
+      <button type="button" class="btn-primary full" id="privacy-ok" style="margin-top: 1rem;">OK</button>
+    </div>
+  </div>
 {% endblock %}
 
 {% block scripts %}
   {{ super() }}
+  <style>
+    .private-container .private-remember {
+      width: 100%;
+      justify-content: flex-start;
+      text-align: left;
+      color: #464646;
+    }
+
+    .privacy-accept {
+      display: grid;
+      grid-template-columns: 1.25rem 1fr;
+      gap: 0.75rem;
+      align-items: start;
+      text-align: left;
+      color: #464646;
+    }
+
+    .privacy-accept input[type="checkbox"] {
+      margin-top: 0.2rem;
+    }
+
+    .privacy-accept-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      align-items: center;
+      justify-content: flex-start;
+      line-height: 1.35;
+    }
+
+    .privacy-accept-label {
+      margin: 0;
+      font-weight: 600;
+      color: #464646;
+    }
+
+    .privacy-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid rgba(31, 59, 162, 0.25);
+      background: rgba(31, 59, 162, 0.08);
+      color: var(--color-accent, #1f3ba2);
+      font-weight: 800;
+      text-decoration: none;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .privacy-link:hover {
+      background: rgba(31, 59, 162, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .privacy-link:focus-visible {
+      outline: 3px solid rgba(249, 115, 22, 0.25);
+      outline-offset: 2px;
+    }
+
+    .privacy-scroll {
+      max-height: 320px;
+      overflow-y: auto;
+      padding: 0.85rem 1rem;
+      border-radius: 0.85rem;
+      border: 1px solid var(--color-border, rgba(100, 116, 139, 0.2));
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 10px 30px rgba(15, 23, 42, 0.08);
+      line-height: 1.55;
+      color: var(--color-text-base);
+    }
+
+    .privacy-scroll hr {
+      border: 0;
+      border-top: 1px solid rgba(100, 116, 139, 0.2);
+      margin: 0.9rem 0;
+    }
+
+    .form-error {
+      margin: 0.35rem 0 0;
+      color: var(--color-danger, #ef4444);
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+  </style>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
+      const openFormBtn = document.getElementById('open-register-form');
+      const alreadyMember = document.getElementById('already-member');
+      const formContainer = document.getElementById('register-form-container');
+
+      function updateCtaText() {
+        if (!openFormBtn || !alreadyMember) {
+          return;
+        }
+        openFormBtn.textContent = alreadyMember.checked ? 'Regístrame en la WEB' : 'Hacerme socio';
+
+        const submitBtn = document.getElementById('register-submit');
+        if (submitBtn && submitBtn.tagName === 'INPUT') {
+          submitBtn.value = alreadyMember.checked ? 'Regístrame en la WEB' : 'Hacerme socio';
+        }
+      }
+
+      alreadyMember?.addEventListener('change', updateCtaText);
+      updateCtaText();
+
+      openFormBtn?.addEventListener('click', function () {
+        if (!formContainer) {
+          return;
+        }
+        formContainer.hidden = false;
+        formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const first = document.getElementById('first_name');
+        first?.focus?.();
+      });
+
       const form = document.getElementById('register-form');
       if (!form) {
         return;
       }
 
-      const username = form.querySelector('#username');
+      const firstName = form.querySelector('#first_name');
+      const lastName = form.querySelector('#last_name');
       const email = form.querySelector('#email');
-      const password = form.querySelector('#password');
-      const passwordConfirm = form.querySelector('#password_confirm');
-      const role = form.querySelector('#role');
+      const phone = form.querySelector('#phone_number');
+      const privacyCheckbox = form.querySelector('#privacy_accepted');
+      const privacyWarning = document.getElementById('privacy-warning');
+      const privacyModal = document.getElementById('privacy-modal');
+      const openPrivacyBtn = document.getElementById('open-privacy');
+      const closePrivacyBtn = document.getElementById('close-privacy');
+      const privacyOkBtn = document.getElementById('privacy-ok');
+      const privacyScroll = document.getElementById('privacy-scroll');
       const submitButton = form.querySelector('input[type="submit"], button[type="submit"]');
-      const requiredFields = [username, email, role, password, passwordConfirm].filter(Boolean);
+      const requiredFields = [firstName, lastName, email].filter(Boolean);
       const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
       if (submitButton) {
         submitButton.disabled = true;
       }
+
+      let privacyRead = false;
+
+      function togglePrivacyModal(show) {
+        if (!privacyModal) {
+          return;
+        }
+        privacyModal.classList.toggle('open', show);
+        privacyModal.setAttribute('aria-hidden', show ? 'false' : 'true');
+      }
+
+      function checkPrivacyScroll() {
+        if (!privacyScroll || !privacyCheckbox) {
+          return;
+        }
+        const atBottom = privacyScroll.scrollTop + privacyScroll.clientHeight >= privacyScroll.scrollHeight - 2;
+        if (atBottom) {
+          privacyRead = true;
+          privacyCheckbox.disabled = false;
+        }
+      }
+
+      openPrivacyBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        togglePrivacyModal(true);
+      });
+      closePrivacyBtn?.addEventListener('click', () => togglePrivacyModal(false));
+      privacyOkBtn?.addEventListener('click', () => togglePrivacyModal(false));
+      privacyModal?.addEventListener('click', (e) => {
+        if (e.target === privacyModal) {
+          togglePrivacyModal(false);
+        }
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          togglePrivacyModal(false);
+        }
+      });
+      privacyScroll?.addEventListener('scroll', checkPrivacyScroll);
+      checkPrivacyScroll();
 
       function markField(field, isValid) {
         if (!field) {
@@ -83,20 +305,17 @@
         let isValid = false;
 
         switch (field) {
-          case username:
-            isValid = value.length >= 3;
+          case firstName:
+            isValid = value.length >= 2;
+            break;
+          case lastName:
+            isValid = value.length >= 2;
             break;
           case email:
             isValid = emailPattern.test(value);
             break;
-          case role:
-            isValid = !!value;
-            break;
-          case password:
-            isValid = value.length >= 8;
-            break;
-          case passwordConfirm:
-            isValid = value.length >= 8 && value === (password ? password.value.trim() : '');
+          case phone:
+            isValid = !value || value.length >= 6;
             break;
           default:
             isValid = !!value;
@@ -107,8 +326,9 @@
 
       function evaluateForm() {
         const allValid = requiredFields.every(runValidation);
+        const privacyOk = !!(privacyCheckbox && privacyRead && privacyCheckbox.checked);
         if (submitButton) {
-          submitButton.disabled = !allValid;
+          submitButton.disabled = !(allValid && privacyOk);
         }
       }
 
@@ -117,8 +337,26 @@
         field.addEventListener(eventName, evaluateForm);
       });
 
+      privacyCheckbox?.addEventListener('change', () => {
+        if (privacyWarning) {
+          privacyWarning.style.display = 'none';
+        }
+        evaluateForm();
+      });
+
       form.addEventListener('submit', function (event) {
         evaluateForm();
+        if (privacyCheckbox && (!privacyRead || !privacyCheckbox.checked)) {
+          event.preventDefault();
+          if (privacyWarning) {
+            privacyWarning.textContent = privacyRead
+              ? 'No puedes registrarte sin aceptar la política de privacidad.'
+              : 'Debes leer la política de privacidad hasta el final para poder aceptarla.';
+            privacyWarning.style.display = 'block';
+          }
+          togglePrivacyModal(true);
+          return;
+        }
         if (submitButton && submitButton.disabled) {
           event.preventDefault();
         }

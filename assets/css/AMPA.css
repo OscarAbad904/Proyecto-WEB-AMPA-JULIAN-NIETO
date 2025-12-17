@@ -659,8 +659,8 @@ body.menu-open {
 .btn-primary {
   background: linear-gradient(120deg, var(--color-accent-bright), var(--color-accent-warm));
   color: #0b1526;
-  padding: 1rem 2rem;
-  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 1rem;
   font-weight: 600;
   transition: background 0.3s;
   border: none;
@@ -1884,12 +1884,12 @@ body.menu-open {
 }
 
 .private-container {
-  max-width: 28rem;
+  max-width: 34%;
   margin: 0 auto;
   background: var(--color-panel);
   border-radius: 1.5rem;
   box-shadow: 0 25px 48px 0 rgba(3, 7, 18, 0.45);
-  padding: 3rem 2rem 2.5rem 2rem;
+  padding: 1rem;
   text-align: center;
   position: relative;
   border: 1px solid var(--color-border);
@@ -1967,7 +1967,7 @@ body.menu-open {
 }
 
 .private-field label {
-  flex: 0 0 35%;
+  flex: 0 0 auto;
   text-align: right;
   margin-bottom: 0;
 }
@@ -2029,8 +2029,8 @@ body.menu-open {
   background: linear-gradient(120deg, var(--color-accent-bright), var(--color-accent-warm));
   color: #0b1526;
   font-weight: 600;
-  padding: 0.75rem 0;
-  border-radius: 0.5rem;
+  padding: 0.5rem 0;
+  border-radius: 1rem;
   border: none;
   opacity: 0.6;
   cursor: not-allowed;

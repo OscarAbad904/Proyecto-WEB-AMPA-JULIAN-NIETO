@@ -327,6 +327,12 @@ class BaseConfig:
     MAIL_PASSWORD = _mail_password_encrypted if _mail_password_encrypted is not None else os.getenv("MAIL_PASSWORD", "")
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "")
     MAIL_CONTACT_RECIPIENT = os.getenv("MAIL_CONTACT_RECIPIENT", "")
+    MAIL_AMPA_RECIPIENT = os.getenv("MAIL_AMPA_RECIPIENT", "")
+    EMAIL_VERIFICATION_SALT = os.getenv("EMAIL_VERIFICATION_SALT") or f"{SECURITY_PASSWORD_SALT}:verify-email"
+    SET_PASSWORD_SALT = os.getenv("SET_PASSWORD_SALT") or f"{SECURITY_PASSWORD_SALT}:set-password"
+    EMAIL_VERIFICATION_TOKEN_MAX_AGE = get_int_env("EMAIL_VERIFICATION_TOKEN_MAX_AGE", 60 * 60 * 24)
+    SET_PASSWORD_TOKEN_MAX_AGE = get_int_env("SET_PASSWORD_TOKEN_MAX_AGE", 60 * 60 * 24)
+    PRIVACY_POLICY_VERSION = os.getenv("PRIVACY_POLICY_VERSION", "1")
     LOG_FILE = str(ROOT_PATH / "logs" / "ampa.log")
     LOG_LEVEL = os.getenv("LOG_LEVEL") or "INFO"
     # Carpeta raíz en Google Drive para agrupar recursos (e.g. "WEB Ampa/Noticias").

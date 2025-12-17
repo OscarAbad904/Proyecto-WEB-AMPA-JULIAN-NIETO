@@ -114,6 +114,17 @@ class User(db.Model, UserMixin):
     password_hash = db.Column(db.String(255), nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
     email_verified = db.Column(db.Boolean, default=False, nullable=False, index=True)
+    registration_approved = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=False,
+        server_default=sa.false(),
+        index=True,
+    )
+    privacy_accepted_at = db.Column(db.DateTime, nullable=True)
+    privacy_version = db.Column(db.String(32), nullable=True)
+    approved_at = db.Column(db.DateTime, nullable=True)
+    approved_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     first_name = db.Column(encrypted_string(64))
     last_name = db.Column(encrypted_string(64))
     phone_number = db.Column(encrypted_string(32), index=True)
@@ -142,6 +153,12 @@ class User(db.Model, UserMixin):
     media = db.relationship("Media", back_populates="uploader", lazy="dynamic")
     commission_memberships = db.relationship(
         "CommissionMembership", back_populates="user", lazy="dynamic"
+    )
+    approved_by = db.relationship(
+        "User",
+        remote_side=[id],
+        foreign_keys=[approved_by_id],
+        lazy="joined",
     )
 
     @property

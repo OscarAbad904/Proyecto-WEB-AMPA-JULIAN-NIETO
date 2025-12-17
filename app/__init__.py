@@ -34,6 +34,7 @@ def create_app(config_name: str | None = None) -> Flask:
     register_extensions(app)
     register_blueprints(app)
     register_context(app)
+    register_guards(app)
     register_commands(app)
     @app.route("/favicon.ico")
     def favicon():
@@ -79,6 +80,13 @@ def register_context(app: Flask) -> None:
         public_view_posts = Permission.is_key_public("manage_posts") or Permission.is_key_public("view_posts")
         public_view_events = Permission.is_key_public("manage_events") or Permission.is_key_public("view_events")
         public_view_documents = Permission.is_key_public("manage_documents") or Permission.is_key_public("view_documents")
+        public_view_register = True
+        if Permission.supports_public_flag():
+            try:
+                value = db.session.query(Permission.is_public).filter_by(key="public_registration").scalar()
+                public_view_register = True if value is None else bool(value)
+            except Exception:
+                public_view_register = True
         can_manage_members = current_user.is_authenticated and (
             current_user.has_permission("manage_members") or user_is_privileged(current_user)
         )
@@ -132,7 +140,61 @@ def register_context(app: Flask) -> None:
             "can_view_commissions": can_view_commissions,
             "can_manage_commissions": can_manage_commissions,
             "can_manage_permissions": can_manage_permissions,
+            "can_view_register": public_view_register,
         }
+
+
+def register_guards(app: Flask) -> None:
+    @app.before_request
+    def enforce_account_status():
+        from flask import request, redirect, url_for, flash, jsonify
+        from flask_login import current_user, logout_user
+
+        if not current_user.is_authenticated:
+            return None
+
+        # Restringir acceso solo a áreas privadas (socios/admin) y APIs privadas.
+        if request.blueprint not in {"members", "admin", "api"}:
+            return None
+
+        endpoint = request.endpoint or ""
+        allowed = {
+            "members.login",
+            "members.logout",
+            "members.register",
+            "members.recuperar",
+            "public.verify_email",
+            "public.resend_verification",
+            "public.set_password",
+            "api.status",
+            "api.publicaciones",
+            "api.calendario_eventos",
+        }
+        if endpoint in allowed:
+            return None
+
+        if not getattr(current_user, "is_active", True):
+            logout_user()
+            if request.blueprint == "api":
+                return jsonify({"ok": False, "error": "Cuenta desactivada"}), 403
+            flash("Tu cuenta está desactivada.", "danger")
+            return redirect(url_for("members.login"))
+
+        if not getattr(current_user, "email_verified", False):
+            logout_user()
+            if request.blueprint == "api":
+                return jsonify({"ok": False, "error": "Correo no verificado"}), 403
+            flash("Debes verificar tu correo antes de acceder.", "warning")
+            return redirect(url_for("members.login"))
+
+        if not getattr(current_user, "registration_approved", False):
+            logout_user()
+            if request.blueprint == "api":
+                return jsonify({"ok": False, "error": "Registro pendiente de aprobación"}), 403
+            flash("Tu alta está pendiente de aprobación.", "info")
+            return redirect(url_for("members.login"))
+
+        return None
 
 
 # WSGI callable expected by servers that import `app:app` (e.g. Render default)

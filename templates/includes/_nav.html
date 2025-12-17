@@ -16,10 +16,13 @@
       <a href="{{ url_for('public.contacto') }}">Contacto</a>
       {% if current_user.is_authenticated %}
         <a href="{{ url_for('members.dashboard') }}">Panel socios</a>
+        <a href="{{ url_for('members.mi_cuenta') }}">Mi cuenta</a>
         <a href="{{ url_for('members.logout') }}">Salir</a>
       {% else %}
         <a href="{{ url_for('members.login') }}">Entrar</a>
-        <a href="{{ url_for('members.register') }}">Crear cuenta</a>
+        {% if can_view_register %}
+          <a href="{{ url_for('members.register') }}">Registro</a>
+        {% endif %}
       {% endif %}
       <button class="btn-ghost" id="theme-toggle">Modo oscuro</button>
     </nav>

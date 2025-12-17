@@ -1,0 +1,20 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Verificación de correo{% endblock %}
+
+{% block content %}
+  <section class="private-section">
+    <div class="private-container">
+      <h1 class="private-title">Verificación de correo</h1>
+
+      {% if ok %}
+        <p class="private-desc">correo verificado correctamente</p>
+        <a class="btn-primary" href="{{ url_for('members.login') }}">Ir a login</a>
+      {% else %}
+        <p class="private-desc">El enlace de verificación no es válido o ha expirado.</p>
+        <a class="btn-primary" href="{{ url_for('public.resend_verification') }}">Reenviar verificación</a>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}
+

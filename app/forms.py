@@ -30,29 +30,15 @@ class LoginForm(FlaskForm):
 
 
 class RegisterForm(FlaskForm):
-    username = StringField("Usuario", validators=[DataRequired(), Length(min=3, max=64)])
-    email = EmailField("Correo", validators=[DataRequired(), Email()])
-    role = SelectField(
-        "Rol",
-        choices=[
-            ("Presidencia", "Presidencia"),
-            ("Vicepresidencia", "Vicepresidencia"),
-            ("Secretaría", "Secretaría"),
-            ("Vicesecretaría", "Vicesecretaría"),
-            ("Tesorería", "Tesorería"),
-            ("Vicetesorería", "Vicetesorería"),
-            ("Vocal", "Vocal"),
-            ("Socio", "Socio"),
-        ],
-        default="Socio",
-        validators=[DataRequired()],
+    first_name = StringField("Nombre", validators=[DataRequired(), Length(min=2, max=64)])
+    last_name = StringField("Apellidos", validators=[DataRequired(), Length(min=2, max=64)])
+    email = EmailField("Correo", validators=[DataRequired(), Email(), Length(max=256)])
+    phone_number = StringField("Teléfono", validators=[Optional(), Length(min=6, max=32)])
+    privacy_accepted = BooleanField(
+        "He leído y acepto la política de privacidad",
+        validators=[DataRequired(message="No puedes registrarte sin aceptar la política de privacidad.")],
     )
-    password = PasswordField("Contraseña", validators=[DataRequired(), Length(min=8)])
-    password_confirm = PasswordField(
-        "Repite la contraseña",
-        validators=[DataRequired(), EqualTo("password")],
-    )
-    submit = SubmitField("Crear cuenta")
+    submit = SubmitField("Solicitar alta")
 
 
 class RecoverForm(FlaskForm):
@@ -69,6 +55,35 @@ class ResetPasswordForm(FlaskForm):
         validators=[DataRequired(), EqualTo("password")],
     )
     submit = SubmitField("Cambiar contraseña")
+
+
+class ResendVerificationForm(FlaskForm):
+    email = EmailField("Correo electrónico", validators=[DataRequired(), Email()])
+    submit = SubmitField("Reenviar verificación")
+
+
+class SetPasswordForm(FlaskForm):
+    password = PasswordField("Nueva contraseña", validators=[DataRequired(), Length(min=8)])
+    password_confirm = PasswordField(
+        "Repite la contraseña",
+        validators=[DataRequired(), EqualTo("password")],
+    )
+    submit = SubmitField("Guardar contraseña")
+
+
+class UpdatePhoneForm(FlaskForm):
+    phone_number = StringField("Teléfono", validators=[Optional(), Length(min=6, max=32)])
+    submit_phone = SubmitField("Guardar teléfono")
+
+
+class ChangePasswordForm(FlaskForm):
+    current_password = PasswordField("Contraseña actual", validators=[DataRequired(), Length(min=8)])
+    new_password = PasswordField("Nueva contraseña", validators=[DataRequired(), Length(min=8)])
+    new_password_confirm = PasswordField(
+        "Repite la contraseña",
+        validators=[DataRequired(), EqualTo("new_password")],
+    )
+    submit_password = SubmitField("Cambiar contraseña")
 
 
 class NewMemberForm(FlaskForm):

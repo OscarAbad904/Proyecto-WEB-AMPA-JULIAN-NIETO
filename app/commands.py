@@ -1,5 +1,6 @@
 import click
 from flask import Flask
+from datetime import datetime
 from app.extensions import db
 from app.models import Role, User
 from app.utils import normalize_lookup
@@ -19,7 +20,15 @@ def register_commands(app: Flask):
             admin_role = Role(name="admin")
             db.session.add(admin_role)
             db.session.commit()
-        admin = User(username=username, email=email, is_active=True, email_verified=True, role=admin_role)
+        admin = User(
+            username=username,
+            email=email,
+            is_active=True,
+            email_verified=True,
+            registration_approved=True,
+            approved_at=datetime.utcnow(),
+            role=admin_role,
+        )
         admin.set_password(password)
         db.session.add(admin)
         db.session.commit()

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse, parse_qs
 from flask import current_app
 from itsdangerous import URLSafeTimedSerializer
+from typing import Any
 
 def normalize_lookup(value: str | None) -> str:
     if not value:
@@ -79,6 +80,44 @@ def confirm_token(token: str, expiration: int = 3600) -> str | bool:
     except Exception:  # noqa: BLE001
         return False
     return email
+
+
+def generate_email_verification_token(user_id: int, email_lookup: str) -> str:
+    serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+    salt = current_app.config.get("EMAIL_VERIFICATION_SALT") or current_app.config["SECURITY_PASSWORD_SALT"]
+    payload = {"user_id": int(user_id), "email_lookup": str(email_lookup)}
+    return serializer.dumps(payload, salt=salt)
+
+
+def confirm_email_verification_token(token: str, expiration: int) -> dict[str, Any] | None:
+    serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+    salt = current_app.config.get("EMAIL_VERIFICATION_SALT") or current_app.config["SECURITY_PASSWORD_SALT"]
+    try:
+        data = serializer.loads(token, salt=salt, max_age=expiration)
+    except Exception:  # noqa: BLE001
+        return None
+    if not isinstance(data, dict):
+        return None
+    return data
+
+
+def generate_set_password_token(user_id: int, password_hash: str) -> str:
+    serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+    salt = current_app.config.get("SET_PASSWORD_SALT") or current_app.config["SECURITY_PASSWORD_SALT"]
+    payload = {"user_id": int(user_id), "ph": str(password_hash or "")}
+    return serializer.dumps(payload, salt=salt)
+
+
+def confirm_set_password_token(token: str, expiration: int) -> dict[str, Any] | None:
+    serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+    salt = current_app.config.get("SET_PASSWORD_SALT") or current_app.config["SECURITY_PASSWORD_SALT"]
+    try:
+        data = serializer.loads(token, salt=salt, max_age=expiration)
+    except Exception:  # noqa: BLE001
+        return None
+    if not isinstance(data, dict):
+        return None
+    return data
 
 
 def _generate_password(length: int = 10) -> str:

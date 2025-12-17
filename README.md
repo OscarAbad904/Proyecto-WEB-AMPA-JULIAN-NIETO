@@ -192,3 +192,35 @@ Comprueba:
   - `GOOGLE_CALENDAR_ID`
   - `GOOGLE_CALENDAR_CACHE_TTL`
 
+---
+
+## 9) Alta pública de socios (registro/login)
+
+Flujo:
+
+1. **Registro público**: `GET/POST /socios/register`
+   - Crea usuario con rol **Socio**.
+   - `email_verified=False` y `registration_approved=False`.
+   - Guarda aceptación de privacidad (`privacy_accepted_at`, `privacy_version`).
+   - Envía:
+     - Email de verificación al socio (enlace `GET /verify-email/<token>`)
+     - Email al AMPA con asunto **exacto**: `Nuevo registro de Socio`
+2. **Verificación de correo**: `GET /verify-email/<token>`
+   - Marca `email_verified=True`.
+3. **Aprobación por admin**: `POST /admin/usuarios/<id>/aprobar` (UI en `/admin/usuarios`)
+   - Marca `registration_approved=True`, `approved_at` y `approved_by_id`.
+   - Envía email con enlace para establecer contraseña: `GET/POST /set-password/<token>`
+4. **Login**: `POST /socios/login`
+   - Bloqueado si `email_verified` es `False` o `registration_approved` es `False`.
+
+Variables de entorno relacionadas:
+
+- SMTP:
+  - `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USE_TLS`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_DEFAULT_SENDER`
+- Destinatario AMPA (notificación de altas):
+  - `MAIL_AMPA_RECIPIENT`
+- Expiración de tokens (segundos):
+  - `EMAIL_VERIFICATION_TOKEN_MAX_AGE` (por defecto 86400)
+  - `SET_PASSWORD_TOKEN_MAX_AGE` (por defecto 86400)
+- Privacidad:
+  - `PRIVACY_POLICY_VERSION`

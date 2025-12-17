@@ -1,8 +1,16 @@
 from flask import Blueprint, render_template, request, current_app, flash, redirect, url_for, abort
 from flask_login import current_user, login_required
 import re
-from app.models import Post, Permission, user_is_privileged
-from app.utils import _normalize_drive_url
+from app.extensions import db
+from app.models import Post, Permission, User, user_is_privileged
+from app.forms import ResendVerificationForm, SetPasswordForm
+from app.utils import (
+    _normalize_drive_url,
+    make_lookup_hash,
+    confirm_email_verification_token,
+    confirm_set_password_token,
+    generate_email_verification_token,
+)
 
 public_bp = Blueprint("public", __name__, template_folder="../../templates/public")
 
@@ -216,3 +224,94 @@ def contacto():
 @public_bp.route("/faq")
 def faq():
     return render_template("public/faq.html")
+
+
+@public_bp.route("/verify-email/<token>")
+def verify_email(token: str):
+    max_age = int(current_app.config.get("EMAIL_VERIFICATION_TOKEN_MAX_AGE", 60 * 60 * 24))
+    data = confirm_email_verification_token(token, expiration=max_age)
+    if not data:
+        return render_template("members/verify_email.html", ok=False)
+
+    user_id = data.get("user_id")
+    email_lookup = data.get("email_lookup")
+    user = User.query.get(int(user_id)) if user_id is not None else None
+    if not user or not email_lookup or user.email_lookup != str(email_lookup):
+        return render_template("members/verify_email.html", ok=False)
+
+    if not user.email_verified:
+        user.email_verified = True
+        db.session.commit()
+
+    return render_template("members/verify_email.html", ok=True)
+
+
+@public_bp.route("/verify-email/resend", methods=["GET", "POST"])
+def resend_verification():
+    form = ResendVerificationForm()
+    if form.validate_on_submit():
+        from app.services.mail_service import send_member_verification_email
+
+        lookup_email = make_lookup_hash(form.email.data)
+        user = User.query.filter_by(email_lookup=lookup_email).first()
+        if user and not user.email_verified and user.is_active:
+            token = generate_email_verification_token(user.id, user.email_lookup)
+            verify_url = url_for("public.verify_email", token=token, _external=True)
+            send_member_verification_email(
+                recipient_email=user.email,
+                verify_url=verify_url,
+                app_config=current_app.config,
+            )
+
+        flash(
+            "Si existe una cuenta con ese correo, hemos reenviado el enlace de verificación.",
+            "info",
+        )
+        return redirect(url_for("members.login"))
+
+    return render_template("members/resend_verification.html", form=form)
+
+
+@public_bp.route("/set-password/<token>", methods=["GET", "POST"])
+def set_password(token: str):
+    max_age = int(current_app.config.get("SET_PASSWORD_TOKEN_MAX_AGE", 60 * 60 * 24))
+    data = confirm_set_password_token(token, expiration=max_age)
+    user = None
+    token_valid = bool(data)
+    if token_valid:
+        user_id = data.get("user_id")
+        expected_ph = data.get("ph")
+        user = User.query.get(int(user_id)) if user_id is not None else None
+        token_valid = bool(user and expected_ph and user.password_hash == str(expected_ph))
+
+    if not token_valid:
+        return render_template(
+            "members/set_password.html",
+            form=SetPasswordForm(),
+            ok=False,
+        )
+
+    if not user.is_active:
+        return render_template(
+            "members/set_password.html",
+            form=SetPasswordForm(),
+            ok=False,
+            error="La cuenta está desactivada.",
+        )
+
+    if not user.registration_approved:
+        return render_template(
+            "members/set_password.html",
+            form=SetPasswordForm(),
+            ok=False,
+            error="Tu alta aún no está aprobada.",
+        )
+
+    form = SetPasswordForm()
+    if form.validate_on_submit():
+        user.set_password(form.password.data)
+        db.session.commit()
+        flash("Contraseña establecida correctamente. Ya puedes iniciar sesión.", "success")
+        return redirect(url_for("members.login"))
+
+    return render_template("members/set_password.html", form=form, ok=True)

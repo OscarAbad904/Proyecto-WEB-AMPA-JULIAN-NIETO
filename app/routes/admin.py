@@ -3,6 +3,8 @@ from flask_login import login_required, current_user
 from datetime import datetime
 import re
 import unicodedata
+from sqlalchemy.exc import IntegrityError
+from email_validator import validate_email, EmailNotValidError
 
 from app.extensions import db, csrf
 from app.models import (
@@ -30,12 +32,13 @@ from app.forms import (
     CommissionMeetingForm,
     EVENT_CATEGORY_LABELS,
 )
-from app.utils import slugify, _normalize_drive_url, _parse_datetime_local
+from app.utils import slugify, _normalize_drive_url, _parse_datetime_local, make_lookup_hash
 from app.media_utils import upload_news_image_variants, delete_news_images
 from app.services.permission_registry import (
     DEFAULT_ROLE_NAMES,
     ensure_roles_and_permissions,
     group_permissions_by_section,
+    PERMISSION_DEFINITIONS,
 )
 from config import PRIVILEGED_ROLES
 
@@ -560,6 +563,8 @@ def permissions():
     if not can_view_permissions:
         abort(403)
 
+    public_only_keys = {meta["key"] for meta in PERMISSION_DEFINITIONS if meta.get("public_only")}
+
     def _role_is_privileged(role: Role) -> bool:
         role_name = (getattr(role, "name", "") or "").strip().lower()
         if role_name in PRIVILEGED_ROLES:
@@ -593,6 +598,8 @@ def permissions():
         if role_id is None or not _role_is_privileged(role):
             continue
         for permission in permissions_list:
+            if (getattr(permission, "key", "") or "") in public_only_keys:
+                continue
             permission_id = getattr(permission, "id", None)
             if permission_id is None:
                 continue
@@ -632,6 +639,8 @@ def permissions():
             if role_id is None:
                 continue
             for permission in permissions_list:
+                if (getattr(permission, "key", "") or "") in public_only_keys:
+                    continue
                 permission_id = getattr(permission, "id", None)
                 if permission_id is None:
                     continue
@@ -693,10 +702,247 @@ def admin_sugerencias():
 @admin_bp.route("/usuarios")
 @login_required
 def usuarios():
-    if not (
-        current_user.has_permission("manage_members")
-        or current_user.has_permission("view_members")
-        or user_is_privileged(current_user)
-    ):
+    can_manage = current_user.has_permission("manage_members") or user_is_privileged(current_user)
+    can_view = can_manage or current_user.has_permission("view_members")
+    if not can_view:
         abort(403)
-    return render_template("admin/usuarios.html")
+
+    roles = Role.query.order_by(Role.name_lookup.asc()).all()
+    pending_users = (
+        User.query.filter_by(registration_approved=False)
+        .order_by(User.created_at.desc().nullslast(), User.id.desc())
+        .all()
+    )
+    all_users = User.query.order_by(User.created_at.desc().nullslast(), User.id.desc()).all()
+
+    return render_template(
+        "admin/usuarios.html",
+        pending_users=pending_users,
+        users=all_users,
+        roles=roles,
+        can_manage_members=can_manage,
+    )
+
+
+def _require_manage_members() -> None:
+    if not (current_user.has_permission("manage_members") or user_is_privileged(current_user)):
+        abort(403)
+
+
+@admin_bp.route("/usuarios/<int:user_id>/aprobar", methods=["POST"])
+@login_required
+def aprobar_usuario(user_id: int):
+    _require_manage_members()
+    from app.services.mail_service import send_set_password_email
+    from app.utils import generate_set_password_token
+
+    user = User.query.get_or_404(user_id)
+    if not user.registration_approved:
+        user.registration_approved = True
+        user.approved_at = datetime.utcnow()
+        user.approved_by_id = current_user.id
+        db.session.commit()
+
+    token = generate_set_password_token(user.id, user.password_hash)
+    set_password_url = url_for("public.set_password", token=token, _external=True)
+    result = send_set_password_email(
+        recipient_email=user.email,
+        set_password_url=set_password_url,
+        app_config=current_app.config,
+    )
+    if result.get("ok"):
+        flash("Alta aprobada. Se ha enviado el enlace para establecer contraseña.", "success")
+    else:
+        flash(
+            "Alta aprobada, pero no se pudo enviar el correo. Puedes reenviarlo desde esta pantalla.",
+            "warning",
+        )
+    return redirect(url_for("admin.usuarios"))
+
+
+@admin_bp.route("/usuarios/<int:user_id>/rol", methods=["POST"])
+@login_required
+def cambiar_rol_usuario(user_id: int):
+    _require_manage_members()
+    role_id = request.form.get("role_id", type=int)
+    if not role_id:
+        flash("Rol inválido.", "warning")
+        return redirect(url_for("admin.usuarios"))
+
+    role = Role.query.get(role_id)
+    if not role:
+        flash("Rol no encontrado.", "warning")
+        return redirect(url_for("admin.usuarios"))
+
+    user = User.query.get_or_404(user_id)
+    user.role_id = role.id
+    db.session.commit()
+    flash("Rol actualizado.", "success")
+    return redirect(url_for("admin.usuarios"))
+
+
+@admin_bp.route("/usuarios/<int:user_id>/estado", methods=["POST"])
+@login_required
+def cambiar_estado_usuario(user_id: int):
+    _require_manage_members()
+    is_active = request.form.get("is_active") == "1"
+    if int(user_id) == int(current_user.id) and not is_active:
+        flash("No puedes desactivar tu propia cuenta.", "warning")
+        return redirect(url_for("admin.usuarios"))
+
+    user = User.query.get_or_404(user_id)
+    user.is_active = bool(is_active)
+    db.session.commit()
+    flash("Estado actualizado.", "success")
+    return redirect(url_for("admin.usuarios"))
+
+
+@admin_bp.route("/usuarios/<int:user_id>/reenviar-set-password", methods=["POST"])
+@login_required
+def reenviar_set_password(user_id: int):
+    _require_manage_members()
+    from app.services.mail_service import send_set_password_email
+    from app.utils import generate_set_password_token
+
+    user = User.query.get_or_404(user_id)
+    if not user.registration_approved:
+        flash("La cuenta aún no está aprobada.", "warning")
+        return redirect(url_for("admin.usuarios"))
+
+    token = generate_set_password_token(user.id, user.password_hash)
+    set_password_url = url_for("public.set_password", token=token, _external=True)
+    result = send_set_password_email(
+        recipient_email=user.email,
+        set_password_url=set_password_url,
+        app_config=current_app.config,
+    )
+    if result.get("ok"):
+        flash("Enlace enviado.", "success")
+    else:
+        flash("No se pudo enviar el correo.", "danger")
+    return redirect(url_for("admin.usuarios"))
+
+
+@admin_bp.route("/usuarios/<int:user_id>/datos", methods=["POST"])
+@login_required
+def actualizar_datos_usuario(user_id: int):
+    _require_manage_members()
+
+    user = User.query.get_or_404(user_id)
+
+    first_name = (request.form.get("first_name") or "").strip()
+    last_name = (request.form.get("last_name") or "").strip()
+    phone_number = (request.form.get("phone_number") or "").strip()
+
+    errors: list[str] = []
+    if not (2 <= len(first_name) <= 64):
+        errors.append("El nombre debe tener entre 2 y 64 caracteres.")
+    if not (2 <= len(last_name) <= 64):
+        errors.append("Los apellidos deben tener entre 2 y 64 caracteres.")
+    if phone_number and not (6 <= len(phone_number) <= 32):
+        errors.append("El teléfono debe tener entre 6 y 32 caracteres.")
+
+    if errors:
+        for message in errors:
+            flash(message, "warning")
+        return redirect(url_for("admin.usuarios"))
+
+    user.first_name = first_name
+    user.last_name = last_name
+    user.phone_number = phone_number or None
+    db.session.commit()
+    flash("Datos de usuario actualizados.", "success")
+    return redirect(url_for("admin.usuarios"))
+
+
+@admin_bp.route("/usuarios/<int:user_id>/reenviar-verificacion", methods=["POST"])
+@login_required
+def reenviar_verificacion_usuario(user_id: int):
+    _require_manage_members()
+    from app.services.mail_service import send_member_verification_email
+    from app.utils import generate_email_verification_token
+
+    user = User.query.get_or_404(user_id)
+    if not user.is_active:
+        flash("La cuenta está desactivada.", "warning")
+        return redirect(url_for("admin.usuarios"))
+    if user.email_verified:
+        flash("El correo ya está verificado.", "info")
+        return redirect(url_for("admin.usuarios"))
+
+    token = generate_email_verification_token(user.id, user.email_lookup)
+    verify_url = url_for("public.verify_email", token=token, _external=True)
+    result = send_member_verification_email(
+        recipient_email=user.email,
+        verify_url=verify_url,
+        app_config=current_app.config,
+    )
+    if result.get("ok"):
+        flash("Se ha enviado el enlace de verificación al usuario.", "success")
+    else:
+        flash("No se pudo enviar el correo de verificación.", "danger")
+    return redirect(url_for("admin.usuarios"))
+
+
+@admin_bp.route("/usuarios/<int:user_id>/email", methods=["POST"])
+@login_required
+def actualizar_email_usuario(user_id: int):
+    _require_manage_members()
+    from app.services.mail_service import send_member_verification_email
+    from app.utils import generate_email_verification_token
+
+    user = User.query.get_or_404(user_id)
+    raw_email = (request.form.get("email") or "").strip()
+    current_email = (user.email or "").strip().lower()
+
+    if not raw_email:
+        flash("El correo es obligatorio.", "warning")
+        return redirect(url_for("admin.usuarios"))
+
+    if len(raw_email) > 256:
+        flash("Correo inválido.", "warning")
+        return redirect(url_for("admin.usuarios"))
+
+    try:
+        new_email = validate_email(raw_email, check_deliverability=False).email
+    except EmailNotValidError:
+        flash("Correo inválido.", "warning")
+        return redirect(url_for("admin.usuarios"))
+
+    if new_email.strip().lower() == current_email:
+        flash("No hay cambios en el correo.", "info")
+        return redirect(url_for("admin.usuarios"))
+
+    lookup_email = make_lookup_hash(new_email)
+    existing = User.query.filter_by(email_lookup=lookup_email).first()
+    if existing and int(existing.id) != int(user.id):
+        flash("Ya existe una cuenta con ese correo.", "warning")
+        return redirect(url_for("admin.usuarios"))
+
+    user.email = new_email
+    if current_email and (user.username or "").strip().lower() == current_email:
+        user.username = new_email
+    user.email_verified = False
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("No se pudo cambiar el correo (ya existe o datos inválidos).", "danger")
+        return redirect(url_for("admin.usuarios"))
+
+    token = generate_email_verification_token(user.id, user.email_lookup)
+    verify_url = url_for("public.verify_email", token=token, _external=True)
+    result = send_member_verification_email(
+        recipient_email=user.email,
+        verify_url=verify_url,
+        app_config=current_app.config,
+    )
+    if result.get("ok"):
+        flash("Correo actualizado. Se ha enviado un enlace de verificación al nuevo correo.", "success")
+    else:
+        flash(
+            "Correo actualizado, pero no se pudo enviar el correo de verificación. Puedes reenviarlo desde el modal.",
+            "warning",
+        )
+    return redirect(url_for("admin.usuarios"))

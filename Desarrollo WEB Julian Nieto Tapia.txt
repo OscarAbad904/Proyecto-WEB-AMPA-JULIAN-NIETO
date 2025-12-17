@@ -1,0 +1,6 @@
+- Crear permisos de votación en hilos.
+- Crear subir bajar documentos a proyectos en comisiones con permisos.
+- Enviar correo de confirmación en altas nuevas
+- En altas nuevas enviar correo de confirmación al Ampa y una vez validado por el AMPA con un enlace de confirmación enviar un correo de confirmación con contraseña aleatoria al nuevo socio registrado.
+- Añadir en permisos 'Publico' esta opción ha de desmarcar el resto ya que hace que el área o funcion sea publico.
+- Crear un área para la gestión de usuarios registrados, cambiar roles, eliminar cuentas etc...
