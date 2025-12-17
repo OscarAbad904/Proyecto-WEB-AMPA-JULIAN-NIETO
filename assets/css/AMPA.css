@@ -173,11 +173,11 @@ footer {
   }
 
   .header-title-ampa {
-    font-size: 1rem;
+    font-size: 0.8rem;
   }
 
   .header-title-colegio {
-    font-size: 0.9rem;
+    font-size: 0.72rem;
   }
 
   /* Hero y secciones principales */
@@ -343,7 +343,7 @@ footer {
 }
 
 .header-title-ampa {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #1e293b;
@@ -351,12 +351,12 @@ footer {
 
 @media (min-width: 768px) {
   .header-title-ampa {
-    font-size: 1.8rem;
+    font-size: 1.44rem;
   }
 }
 
 .header-title-colegio {
-  font-size: 1.05rem;
+  font-size: 0.84rem;
   font-weight: 500;
   color: #64748b;
   margin-top: 0.1em;
@@ -410,7 +410,7 @@ footer {
 }
 
 .mobile-menu-links a {
-  font-size: 1.1rem;
+  font-size: 0.88rem;
   font-weight: 500;
   border-radius: 0.5rem;
   padding: 0.75rem 1rem;
@@ -606,7 +606,7 @@ body.menu-open {
   padding: 0rem 0.5rem;
   border-radius: 5rem;
   background: rgb(255 255 255 / 100%);
-  font-size: 1.6rem;
+  font-size: 1.28rem;
   font-weight: bold;
   margin-block: 0.5rem;
   color: #1e293b;
@@ -617,7 +617,7 @@ body.menu-open {
 
 @media (min-width: 768px) {
   .hero-title {
-    font-size: 2.5rem;
+    font-size: 2rem;
   }
 }
 
@@ -634,6 +634,7 @@ body.menu-open {
   isolation: isolate;
   box-shadow: 0 0 0 0.5rem rgba(255, 255, 255, 0.5),
     0rem 0rem 1.5rem 1.5rem rgba(255, 255, 255, 1);
+  font-size: 0.95rem;
 }
 
 @media (min-width: 768px) {
@@ -1749,7 +1750,7 @@ body.menu-open {
 .nav-link {
   position: relative;
   padding: 0.5rem 0;
-  font-size: 1.1rem;
+  font-size: 0.88rem;
   color: var(--color-text-base);
   text-decoration: none;
   font-weight: 500;
@@ -2131,19 +2132,19 @@ section {
 }
 
 .footer-logo-title-ampa {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: #1e293b;
 }
 
 @media (min-width: 768px) {
   .footer-logo-title-ampa {
-    font-size: 1.8rem;
+    font-size: 1.44rem;
   }
 }
 
 .footer-logo-title-colegio {
-  font-size: 1.05rem;
+  font-size: 0.84rem;
   font-weight: 500;
   color: #797f85;
   margin-top: 0.1em;

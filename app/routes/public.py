@@ -26,6 +26,16 @@ def _can_view_events() -> bool:
     )
 
 
+def _can_view_documents() -> bool:
+    if Permission.is_key_public("manage_documents") or Permission.is_key_public("view_documents"):
+        return True
+    return current_user.is_authenticated and (
+        current_user.has_permission("manage_documents")
+        or current_user.has_permission("view_documents")
+        or user_is_privileged(current_user)
+    )
+
+
 def _normalize_post_images(post: Post) -> Post:
     """Ensure cover and modal images point to a renderable URL."""
     normalized_cover = _normalize_drive_url(post.cover_image)
@@ -109,6 +119,8 @@ def eventos():
 @public_bp.route("/calendario")
 def calendario():
     """Vista pública del calendario de eventos del AMPA."""
+    if not _can_view_events():
+        abort(403)
     return render_template("public/calendario.html")
 
 
@@ -121,6 +133,8 @@ def evento_detalle(slug):
 
 @public_bp.route("/documentos")
 def documentos():
+    if not _can_view_documents():
+        abort(403)
     return render_template("public/documentos.html")
 
 

@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 import sqlalchemy as sa
 
-from app.models import user_is_privileged, CommissionMeeting, CommissionMembership, Commission
+from app.models import Permission, user_is_privileged, CommissionMeeting, CommissionMembership, Commission
 
 api_bp = Blueprint("api", __name__)
 
@@ -49,6 +49,18 @@ def calendario_eventos():
         }
     """
     from app.services.calendar_service import get_calendar_events
+
+    # Restringir acceso: solo público si el permiso de eventos está marcado como público.
+    is_public = Permission.is_key_public("manage_events") or Permission.is_key_public("view_events")
+    if not is_public:
+        if not current_user.is_authenticated:
+            return jsonify({"ok": False, "error": "Acceso no autorizado"}), 403
+        if not (
+            current_user.has_permission("manage_events")
+            or current_user.has_permission("view_events")
+            or user_is_privileged(current_user)
+        ):
+            return jsonify({"ok": False, "error": "No tienes permisos para ver el calendario"}), 403
     
     # Obtener parámetros de la request
     rango_inicial = request.args.get("rango_inicial")

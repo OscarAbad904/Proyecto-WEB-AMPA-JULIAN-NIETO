@@ -78,6 +78,7 @@ def register_context(app: Flask) -> None:
 
         public_view_posts = Permission.is_key_public("manage_posts") or Permission.is_key_public("view_posts")
         public_view_events = Permission.is_key_public("manage_events") or Permission.is_key_public("view_events")
+        public_view_documents = Permission.is_key_public("manage_documents") or Permission.is_key_public("view_documents")
         can_manage_members = current_user.is_authenticated and (
             current_user.has_permission("manage_members") or user_is_privileged(current_user)
         )
@@ -94,9 +95,16 @@ def register_context(app: Flask) -> None:
             or current_user.has_permission("view_events")
             or user_is_privileged(current_user)
         ))
+        # El calendario público consume eventos, así que lo ligamos al permiso de eventos.
+        can_view_calendar = can_view_events
         can_manage_events = current_user.is_authenticated and (
             current_user.has_permission("manage_events") or user_is_privileged(current_user)
         )
+        can_view_documents = public_view_documents or (current_user.is_authenticated and (
+            current_user.has_permission("manage_documents")
+            or current_user.has_permission("view_documents")
+            or user_is_privileged(current_user)
+        ))
         can_view_commissions = (
             current_user.is_authenticated and current_user.has_permission("view_commissions")
         )
@@ -118,7 +126,9 @@ def register_context(app: Flask) -> None:
             "can_view_posts": can_view_posts,
             "can_manage_posts": can_manage_posts,
             "can_view_events": can_view_events,
+            "can_view_calendar": can_view_calendar,
             "can_manage_events": can_manage_events,
+            "can_view_documents": can_view_documents,
             "can_view_commissions": can_view_commissions,
             "can_manage_commissions": can_manage_commissions,
             "can_manage_permissions": can_manage_permissions,

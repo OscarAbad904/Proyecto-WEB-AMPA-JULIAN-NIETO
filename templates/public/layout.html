@@ -148,8 +148,12 @@
                         {% if can_view_events %}
                         <a href="{{ url_for('public.eventos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.eventos') %} active{% endif %}">Eventos</a>
                         {% endif %}
+                        {% if can_view_calendar %}
                         <a href="{{ url_for('public.calendario') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.calendario') %} active{% endif %}">Calendario</a>
+                        {% endif %}
+                        {% if can_view_documents %}
                         <a href="{{ url_for('public.documentos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.documentos') %} active{% endif %}">Documentos</a>
+                        {% endif %}
                         <a href="{{ url_for('public.contacto') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.contacto') %} active{% endif %}">Contacto</a>
                         <a href="{{ url_for('public.faq') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.faq') %} active{% endif %}">FAQ</a>
                         {% if current_user.is_authenticated %}
@@ -195,10 +199,14 @@
                     {% if can_view_events %}
                     <a href="{{ url_for('public.eventos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.eventos') %} active{% endif %}" onclick="toggleMobileMenu()">Eventos</a>
                     {% endif %}
+                    {% if can_view_calendar %}
                     <a href="{{ url_for('public.calendario') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.calendario') %} active{% endif %}"
                         onclick="toggleMobileMenu()">Calendario</a>
+                    {% endif %}
+                    {% if can_view_documents %}
                     <a href="{{ url_for('public.documentos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.documentos') %} active{% endif %}"
                         onclick="toggleMobileMenu()">Documentos</a>
+                    {% endif %}
                     <a href="{{ url_for('public.contacto') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.contacto') %} active{% endif %}"
                         onclick="toggleMobileMenu()">Contacto</a>
                     <a href="{{ url_for('public.faq') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.faq') %} active{% endif %}" onclick="toggleMobileMenu()">FAQ</a>
@@ -276,13 +284,17 @@
                         {% if can_view_events %}
                         <a href="{{ url_for('public.eventos') }}" class="footer-link">Eventos</a>
                         {% endif %}
+                        {% if can_view_calendar %}
                         <a href="{{ url_for('public.calendario') }}" class="footer-link">Calendario</a>
+                        {% endif %}
                     </div>
                 </div>
                 <div>
                     <div class="footer-section-title">Recursos</div>
                     <div class="footer-links">
+                        {% if can_view_documents %}
                         <a href="{{ url_for('public.documentos') }}" class="footer-link">Documentos</a>
+                        {% endif %}
                         <a href="{{ url_for('public.contacto') }}" class="footer-link">Contacto</a>
                         <a href="{{ url_for('public.faq') }}" class="footer-link">FAQ</a>
                         {% if current_user.is_authenticated %}
@@ -585,11 +597,6 @@
         }
         document.addEventListener('DOMContentLoaded', () => {
             const modal = document.getElementById('login-modal');
-            modal?.addEventListener('click', (event) => {
-                if (event.target === modal) {
-                    toggleLoginModal(false);
-                }
-            });
             document.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape') {
                     toggleLoginModal(false);

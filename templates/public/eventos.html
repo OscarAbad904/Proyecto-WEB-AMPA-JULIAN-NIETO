@@ -62,7 +62,9 @@
       <div class="events-footer fade-in">
         <div>
           <p class="events-desc">Consulta todas las fechas y actividades programadas en el calendario.</p>
+          {% if can_view_calendar %}
           <a class="btn-primary" href="{{ url_for('public.calendario') }}">Ver calendario completo</a>
+          {% endif %}
         </div>
         <div class="events-calendar">
           <div class="event-item">

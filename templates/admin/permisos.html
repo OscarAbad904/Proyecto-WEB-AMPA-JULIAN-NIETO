@@ -101,7 +101,7 @@
     {% if can_edit_permissions %}
     <div class="permissions-actions">
       <button type="submit" class="btn-primary">Guardar cambios</button>
-      <a class="btn-link" href="{{ url_for('admin.dashboard_admin') }}">Cancelar</a>
+      <a class="btn-primary btn-primary--blue" href="{{ url_for('admin.dashboard_admin') }}">Cancelar</a>
     </div>
     {% else %}
     <p class="muted" style="margin:0 0 1rem;">Solo tienes acceso de lectura. Solicita el permiso "Gestionar permisos" para editar esta tabla.</p>
