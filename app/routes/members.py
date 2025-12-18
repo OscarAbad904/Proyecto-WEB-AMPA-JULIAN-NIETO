@@ -130,8 +130,9 @@ def register():
                         result.get("error"),
                     )
             flash(
-                "Si el correo es válido, recibirás un enlace de verificación. "
-                "Tu alta quedará pendiente de aprobación.",
+                "Si el correo es valido, recibiras un enlace de verificacion. "
+                "Revisa tu bandeja de entrada y, si no aparece, el correo no deseado o spam. "
+                "Tu alta quedara pendiente de aprobacion.",
                 "info",
             )
             return redirect(url_for("members.login"))
@@ -162,8 +163,9 @@ def register():
         except IntegrityError:
             db.session.rollback()
             flash(
-                "Si el correo es válido, recibirás un enlace de verificación. "
-                "Tu alta quedará pendiente de aprobación.",
+                "Si el correo es valido, recibiras un enlace de verificacion. "
+                "Revisa tu bandeja de entrada y, si no aparece, el correo no deseado o spam. "
+                "Tu alta quedara pendiente de aprobacion.",
                 "info",
             )
             return redirect(url_for("members.login"))
@@ -197,8 +199,9 @@ def register():
 
         if verification_result.get("ok"):
             flash(
-                "Registro recibido. Hemos enviado un enlace de verificación a tu correo y "
-                "tu alta queda pendiente de aprobación.",
+                "Registro recibido. Hemos enviado un enlace de verificacion a tu correo. "
+                "Revisa tu bandeja de entrada y, si no aparece, el correo no deseado o spam. "
+                "Tu alta queda pendiente de aprobacion.",
                 "success",
             )
         else:

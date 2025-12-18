@@ -1982,6 +1982,12 @@ body.menu-open {
 }
 
 @media (max-width: 640px) {
+  .private-container {
+    max-width: 100%;
+    width: calc(100% - 1rem);
+    margin: 0.5rem;
+  }
+
   .private-field {
     flex-direction: column;
     align-items: flex-start;
