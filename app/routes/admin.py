@@ -12,6 +12,12 @@ from app.models import (
     Event,
     User,
     Document,
+    Enrollment,
+    Membership,
+    Suggestion,
+    Comment,
+    Vote,
+    Media,
     Commission,
     CommissionMembership,
     CommissionProject,
@@ -794,6 +800,105 @@ def cambiar_estado_usuario(user_id: int):
     user.is_active = bool(is_active)
     db.session.commit()
     flash("Estado actualizado.", "success")
+    return redirect(url_for("admin.usuarios"))
+
+
+@admin_bp.route("/usuarios/<int:user_id>/eliminar", methods=["POST"])
+@login_required
+def eliminar_usuario(user_id: int):
+    _require_manage_members()
+
+    if int(user_id) == int(current_user.id):
+        flash("No puedes eliminar tu propia cuenta.", "warning")
+        return redirect(url_for("admin.usuarios"))
+
+    user = User.query.get_or_404(user_id)
+    if user.is_active:
+        flash("Solo puedes eliminar un socio cuando est\xE1 desactivado.", "warning")
+        return redirect(url_for("admin.usuarios"))
+
+    if user_is_privileged(user):
+        flash("No se puede eliminar una cuenta privilegiada.", "danger")
+        return redirect(url_for("admin.usuarios"))
+
+    blockers: list[str] = []
+    if user.posts.count():
+        blockers.append("publicaciones")
+    if user.events.count():
+        blockers.append("eventos")
+    if user.documents.count():
+        blockers.append("documentos")
+    if user.media.count():
+        blockers.append("archivos")
+    if blockers:
+        flash(
+            "No se puede eliminar porque el usuario tiene contenido asociado: "
+            + ", ".join(blockers)
+            + ".",
+            "warning",
+        )
+        return redirect(url_for("admin.usuarios"))
+
+    try:
+        User.query.filter_by(approved_by_id=user.id).update(
+            {User.approved_by_id: None}, synchronize_session=False
+        )
+        CommissionProject.query.filter_by(responsible_id=user.id).update(
+            {CommissionProject.responsible_id: None}, synchronize_session=False
+        )
+
+        Enrollment.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+        Membership.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+        CommissionMembership.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+
+        suggestion_ids = [
+            suggestion_id
+            for (suggestion_id,) in db.session.query(Suggestion.id)
+            .filter_by(created_by=user.id)
+            .all()
+        ]
+        if suggestion_ids:
+            Vote.query.filter(Vote.suggestion_id.in_(suggestion_ids)).delete(
+                synchronize_session=False
+            )
+            Comment.query.filter(Comment.suggestion_id.in_(suggestion_ids)).update(
+                {Comment.parent_id: None}, synchronize_session=False
+            )
+            Comment.query.filter(Comment.suggestion_id.in_(suggestion_ids)).delete(
+                synchronize_session=False
+            )
+            Suggestion.query.filter(Suggestion.id.in_(suggestion_ids)).delete(
+                synchronize_session=False
+            )
+
+        Vote.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+
+        comment_ids = [
+            comment_id
+            for (comment_id,) in db.session.query(Comment.id).filter_by(created_by=user.id).all()
+        ]
+        if comment_ids:
+            Comment.query.filter(Comment.parent_id.in_(comment_ids)).update(
+                {Comment.parent_id: None}, synchronize_session=False
+            )
+            Comment.query.filter(Comment.id.in_(comment_ids)).delete(synchronize_session=False)
+
+        db.session.delete(user)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash(
+            "No se pudo eliminar el socio (tiene datos asociados que deben eliminarse antes).",
+            "danger",
+        )
+        return redirect(url_for("admin.usuarios"))
+    except Exception as exc:  # noqa: BLE001
+        db.session.rollback()
+        current_app.logger.exception("Error eliminando usuario", exc_info=exc)
+        flash("No se pudo eliminar el socio.", "danger")
+        return redirect(url_for("admin.usuarios"))
+
+    flash("Socio eliminado.", "success")
     return redirect(url_for("admin.usuarios"))
 
 

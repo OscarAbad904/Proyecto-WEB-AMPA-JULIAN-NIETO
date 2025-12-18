@@ -1,10 +1,20 @@
 :root {
+  /* Reduce tipografía global ~20% (afecta a unidades rem). */
+  font-size: 80%;
   --header-height: 7rem;
   /* altura aproximada del header sticky */
   --page-top-overlap: 1rem;
   /* solapa el main bajo el header para que los fondos se toquen */
   --footer-min-height: 18rem;
   /* altura minima del footer */
+
+  /* Hero (logo): control de animación */
+  --hero-logo-offset-desktop: 0rem;
+  --hero-logo-float-desktop: 1.5rem;
+  --hero-logo-offset-mobile: -2rem;
+  --hero-logo-float-mobile: 1rem;
+  --hero-logo-float-duration: 6s;
+
   /* Colores claros con buen contraste */
   --color-bg-deep: #f0f4f8;
   --color-bg-dark: #f8fafc;
@@ -36,11 +46,11 @@ body {
   background: linear-gradient(150deg, #f0f9ff 0%, #e0f2fe 60%, #dbeafe 100%);
   background-attachment: fixed;
   color: var(--color-text-base);
-  min-height: 98vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   font-family: 'Inter', sans-serif;
-  padding-top: var(--header-height);
+  padding-top: calc(var(--header-height) + env(safe-area-inset-top, 0px));
 }
 
 main.page-content {
@@ -56,6 +66,7 @@ main.page-content {
 }
 
 body.home-page {
+  --page-top-overlap: 0rem;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.1)),
     url('../images/navidad/Fondo Pagina Principal.png');
@@ -64,6 +75,7 @@ body.home-page {
   background-position: center center, 50% 45%;
   background-attachment: scroll, fixed;
   animation: home-bg-pan 18s ease-in-out infinite alternate;
+  margin: 0;
 }
 
 @keyframes home-bg-pan {
@@ -135,11 +147,12 @@ footer {
 
 @media (max-width: 768px) {
   :root {
-    font-size: 15px;
+    font-size: 12px;
   }
 
   .container-nav {
     padding: 0.65rem 1rem;
+    width: 100%;
   }
 
   .buscador-desktop {
@@ -156,6 +169,15 @@ footer {
 
   .menu-mobile-btn {
     display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+  }
+
+  /* En algunos Android el SVG no se renderiza; usamos el icono CSS. */
+  .menu-mobile-icon {
+    display: none;
   }
 
   .mobile-menu {
@@ -251,11 +273,43 @@ footer {
 
   0%,
   100% {
-    transform: translateY(-4.5rem);
+    transform: translateY(-3.5rem);
   }
 
   50% {
     transform: translateY(-2.5rem);
+  }
+}
+
+/* Hero logo: animación para escritorio */
+@keyframes hero-logo-float-desktop {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(calc(-1 * var(--hero-logo-float-desktop, 1.5rem)));
+  }
+}
+
+/* Hero logo: animación para móvil */
+@keyframes hero-logo-float-mobile {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(calc(-1 * var(--hero-logo-float-mobile, 1rem)));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-logo-floating {
+    animation: none;
   }
 }
 
@@ -283,6 +337,7 @@ footer {
   border-bottom: 1px solid rgba(100, 116, 139, 0.15);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   transition: background var(--transition-normal), box-shadow var(--transition-normal);
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .header-fixed.scrolled {
@@ -307,7 +362,7 @@ footer {
 .header-logo-group {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: 1rem;
 }
 
 .logo-bg {
@@ -382,6 +437,37 @@ footer {
   transition: background var(--transition-normal);
 }
 
+.menu-mobile-bars {
+  width: 22px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 999px;
+  position: relative;
+  display: block;
+  font-size: 0; /* si el CSS no carga, el span muestra '☰' como fallback */
+  line-height: 0;
+  overflow: visible;
+}
+
+.menu-mobile-bars::before,
+.menu-mobile-bars::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: currentColor;
+  border-radius: 999px;
+}
+
+.menu-mobile-bars::before {
+  top: -6px;
+}
+
+.menu-mobile-bars::after {
+  top: 6px;
+}
+
 .menu-mobile-btn:hover {
   background: rgba(0, 0, 0, 0.05);
 }
@@ -406,7 +492,7 @@ footer {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding-top: 1rem;
+  padding: 1.5rem;
 }
 
 .mobile-menu-links a {
@@ -515,6 +601,22 @@ body.menu-open {
   overflow: hidden;
 }
 
+/* En móvil el menú puede ser más alto que la pantalla: hacerlo scrollable sin “cortar” el header. */
+@media (max-width: 768px) {
+  #mobile-menu {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: calc(var(--header-height) + env(safe-area-inset-top, 0px));
+    max-height: calc(100vh - (var(--header-height) + env(safe-area-inset-top, 0px)));
+    max-height: calc(100dvh - (var(--header-height) + env(safe-area-inset-top, 0px)));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    z-index: 1150;
+    margin-top: 0;
+  }
+}
+
 /* HERO SECTION */
 .hero-section {
   flex: 1 1 auto;
@@ -549,7 +651,11 @@ body.menu-open {
 }
 
 .hero-logo-floating {
-  animation: float 6s ease-in-out infinite;
+  margin-top: var(--hero-logo-offset-desktop, 0.5rem);
+  animation-name: hero-logo-float-desktop;
+  animation-duration: var(--hero-logo-float-duration, 6s);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
   max-height: calc(60vh - var(--header-height));
   display: flex;
   align-items: center;
@@ -577,8 +683,8 @@ body.menu-open {
   border-radius: 3rem;
   background: rgb(255 255 255 / 100%);
   object-fit: contain;
-  width: 25%;
-  height: 25%;
+  width: 40%;
+  height: 40%;
   filter: none;
   position: relative;
   z-index: 1;
@@ -634,7 +740,7 @@ body.menu-open {
   isolation: isolate;
   box-shadow: 0 0 0 0.5rem rgba(255, 255, 255, 0.5),
     0rem 0rem 1.5rem 1.5rem rgba(255, 255, 255, 1);
-  font-size: 0.95rem;
+  font-size: 0.7rem;
 }
 
 @media (min-width: 768px) {
@@ -771,21 +877,18 @@ body.menu-open {
 @media (max-width: 768px) {
 
   .hero-logo-floating {
-    animation: float-mobile 6s ease-in-out infinite;
+    margin-top: var(--hero-logo-offset-mobile, 0.5rem);
+    animation-name: hero-logo-float-mobile;
   }
 
   .hero-logo-bg {
-    margin-top: 1;
+    margin-top: 0;
     width: clamp(9rem, 60vw, 13rem);
     height: clamp(9rem, 60vw, 13rem);
   }
 }
 
 @media (max-width: 480px) {
-  .hero-logo-floating {
-    margin-top: 0rem;
-  }
-
   .hero-logo-bg {
     margin-top: 0rem;
     width: clamp(8rem, 70vw, 12rem);
@@ -1596,15 +1699,20 @@ body.menu-open {
 .footer {
   background: linear-gradient(180deg, #f0f4f8 0%, #e2e8f0 100%);
   border-top: 1px solid rgba(100, 116, 139, 0.15);
-  padding-top: 1rem;
+  padding-block: 0.5rem;
   padding-inline: 10rem;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+}
+
+/* Quita márgenes por defecto (p) que hacen el footer más alto. */
+.footer p {
+  margin: 0;
 }
 
 .footer-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 @media (max-width: 768px) {
@@ -1622,7 +1730,7 @@ body.menu-open {
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto;
-    gap: 0.5rem;
+    gap: 0.35rem;
     max-width: 360px;
     margin: 0 auto;
   }
@@ -1649,7 +1757,7 @@ body.menu-open {
 
   .footer-section-title {
     font-size: 0.8rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.4rem;
   }
 
   .footer-links {
@@ -1659,7 +1767,7 @@ body.menu-open {
 
   .footer-contact-list {
     font-size: 0.875rem;
-    gap: 0.4rem;
+    gap: 0.3rem;
     align-items: center;
   }
 }
@@ -1695,8 +1803,9 @@ body.menu-open {
 
 .footer-section-title {
   font-weight: 600;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
   color: #1e293b;
+  line-height: 1.1;
 }
 
 .footer-links {
@@ -1710,6 +1819,7 @@ body.menu-open {
   color: #475569;
   text-decoration: none;
   transition: color 0.2s;
+  line-height: 1.2;
 }
 
 .footer-link:hover {
@@ -1719,9 +1829,10 @@ body.menu-open {
 .footer-contact-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.3rem;
   font-size: 0.6rem;
   color: var(--color-text-soft);
+  line-height: 1.25;
 }
 
 .footer-bottom {
@@ -1729,6 +1840,8 @@ body.menu-open {
   text-align: center;
   font-size: 0.6rem;
   color: var(--color-text-soft);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
 }
 
 .footer {
@@ -2117,8 +2230,8 @@ section {
 
 @media (max-width: 768px) {
   section {
-    padding-top: 2.5rem;
-    padding-bottom: 2.5rem;
+    padding-top: 4rem;
+    padding-bottom: 1rem;
   }
 }
 
@@ -2159,7 +2272,7 @@ section {
 
 /* Header: nombre del colegio en una sola linea */
 .header-title-colegio {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 500;
   color: #797f85;
   margin-top: 0.1em;
@@ -2252,7 +2365,7 @@ section {
 
 @media (max-width: 1024px) {
   .header-flex {
-    gap: 2rem;
+    gap: 0.7rem;
   }
 
   .nav-desktop {
@@ -2778,5 +2891,26 @@ section {
 
   .vote-actions.inline {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Fix: en algunos Android (ej. OPPO A60) el SVG del menú puede no repintarse hasta rotar. */
+@media (max-width: 768px) {
+  .header-fixed .menu-mobile-btn {
+    color: var(--color-text-base, #1e293b);
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .header-fixed .menu-mobile-icon {
+    stroke: currentColor;
+    fill: none;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+
+  .header-fixed .menu-mobile-icon path {
+    stroke: currentColor;
   }
 }

@@ -86,8 +86,20 @@ function randomizeHeroShapes(clearExisting = false) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+    const syncHeaderHeight = () => {
+        const header = document.querySelector('.header-fixed');
+        if (!header) return;
+        const height = Math.ceil(header.getBoundingClientRect().height);
+        document.documentElement.style.setProperty('--header-height', `${height}px`);
+    };
+
     randomizeHeroShapes();
-    window.addEventListener('resize', () => randomizeHeroShapes());
+    syncHeaderHeight();
+
+    window.addEventListener('resize', () => {
+        randomizeHeroShapes();
+        syncHeaderHeight();
+    });
 
     // Evita que los globos se acumulen cuando la pestaña está oculta/minimizada
     document.addEventListener('visibilitychange', () => {
@@ -105,6 +117,12 @@ function toggleMobileMenu() {
     if (!menu) return;
     menu.classList.toggle('open');
     document.body.classList.toggle('menu-open', menu.classList.contains('open'));
+
+    const isOpen = menu.classList.contains('open');
+    const btn = document.querySelector('.menu-mobile-btn');
+    if (btn) {
+        btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
 }
 
 // News filtering

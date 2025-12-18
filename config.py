@@ -431,6 +431,7 @@ class BaseConfig:
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
     CACHE_TYPE = "SimpleCache"
+    SEND_FILE_MAX_AGE_DEFAULT = 0
 
 
 class ProductionConfig(BaseConfig):
