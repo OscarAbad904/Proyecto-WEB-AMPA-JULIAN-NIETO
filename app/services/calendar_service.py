@@ -23,6 +23,8 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
 
+from config import unwrap_fernet_json_layers
+
 
 # Scopes unificados para Drive, Calendar y Gmail (envío)
 UNIFIED_SCOPES = [
@@ -75,15 +77,33 @@ def _get_unified_credentials() -> Credentials | None:
             except Exception as exc:
                 current_app.logger.warning("No se pudo escribir credentials_drive_oauth.json: %s", exc)
 
-        # Cargar token JSON (preferimos env; si no, disco)
+        # Cargar token JSON (preferimos env; si no, disco). Si el env está cifrado o es inválido,
+        # intentamos desencriptar o hacer fallback a token_drive.json.
         token_payload: dict[str, Any] | None = None
+        token_env_json: str | None = None
+
         if token_env:
+            token_env_json = token_env
             try:
-                token_payload = json.loads(token_env)
-            except Exception as exc:
-                current_app.logger.error("GOOGLE_DRIVE_TOKEN_JSON no es JSON válido: %s", exc)
-                return None
-        elif token_path.exists():
+                token_payload = json.loads(token_env_json)
+            except Exception:
+                # Puede venir encriptado por Fernet (p.ej. guardado desde el gestor)
+                token_env_json = unwrap_fernet_json_layers(token_env)
+                if token_env_json:
+                    try:
+                        token_payload = json.loads(token_env_json)
+                    except Exception as exc:
+                        current_app.logger.error(
+                            "GOOGLE_DRIVE_TOKEN_JSON no es JSON válido (ni tras desencriptar): %s",
+                            exc,
+                        )
+                        token_payload = None
+                else:
+                    current_app.logger.warning(
+                        "GOOGLE_DRIVE_TOKEN_JSON no es JSON válido; intentando usar token_drive.json si existe."
+                    )
+
+        if token_payload is None and token_path.exists():
             try:
                 token_payload = json.loads(token_path.read_text(encoding="utf-8"))
             except Exception as exc:
@@ -98,7 +118,19 @@ def _get_unified_credentials() -> Credentials | None:
                     "'flask regenerate-google-token' (acceso offline + consent) y actualiza "
                     "GOOGLE_DRIVE_TOKEN_JSON."
                 )
-                return None
+                # Fallback: si existe token en disco, puede ser distinto y válido.
+                if token_path.exists() and not token_env:
+                    return None
+
+                if token_path.exists():
+                    try:
+                        disk_payload = json.loads(token_path.read_text(encoding="utf-8"))
+                        if disk_payload.get("refresh_token"):
+                            token_payload = disk_payload
+                    except Exception:
+                        return None
+                if not token_payload.get("refresh_token"):
+                    return None
 
             # Validar scopes si vienen en el JSON
             token_scopes = token_payload.get("scopes")
@@ -117,7 +149,28 @@ def _get_unified_credentials() -> Credentials | None:
                         "con 'flask regenerate-google-token' y actualiza GOOGLE_DRIVE_TOKEN_JSON.",
                         ", ".join(missing_scopes),
                     )
-                    return None
+
+                    # Fallback: si el env trae un token viejo pero en disco hay uno nuevo, probarlo.
+                    if token_path.exists():
+                        try:
+                            disk_payload = json.loads(token_path.read_text(encoding="utf-8"))
+                            disk_scopes = disk_payload.get("scopes")
+                            if isinstance(disk_scopes, str):
+                                disk_scopes_list = disk_scopes.split()
+                            elif isinstance(disk_scopes, list):
+                                disk_scopes_list = disk_scopes
+                            else:
+                                disk_scopes_list = []
+
+                            disk_missing = sorted(set(UNIFIED_SCOPES) - set(disk_scopes_list))
+                            if not disk_missing and disk_payload.get("refresh_token"):
+                                token_payload = disk_payload
+                                missing_scopes = []
+                        except Exception:
+                            pass
+
+                    if missing_scopes:
+                        return None
             else:
                 current_app.logger.warning(
                     "El token OAuth no incluye el campo 'scopes'. Si hay errores 403, regenera el token."
@@ -558,6 +611,9 @@ def regenerate_token_with_calendar_scope() -> dict:
             include_granted_scopes="true",
         )
 
+        granted_scopes = sorted(list(getattr(creds, "scopes", None) or []))
+        missing_scopes = sorted(set(UNIFIED_SCOPES) - set(granted_scopes))
+
         if not getattr(creds, "refresh_token", None):
             return {
                 "ok": False,
@@ -568,19 +624,35 @@ def regenerate_token_with_calendar_scope() -> dict:
                 ),
             }
         
-        # Guardar nuevo token
+        # Guardar nuevo token (aunque falte algún scope, para facilitar diagnóstico)
         with open(token_path, "w", encoding="utf-8") as token:
             token.write(creds.to_json())
+
+        if missing_scopes:
+            return {
+                "ok": False,
+                "message": (
+                    "El token se generó, pero Google NO concedió todos los scopes requeridos. "
+                    f"Faltan: {', '.join(missing_scopes)}. "
+                    "Revisa en Google Cloud Console: (1) que Gmail API esté habilitada, "
+                    "(2) que tu OAuth Consent Screen permita el scope gmail.send (app en testing + usuario en Test users), "
+                    "y (3) revoca el acceso de la app en tu cuenta Google y vuelve a autorizar."
+                ),
+                "token_path": str(token_path),
+                "scopes_granted": granted_scopes,
+                "scopes_required": UNIFIED_SCOPES,
+            }
         
         current_app.logger.info(
-            "Token regenerado con scopes: %s", UNIFIED_SCOPES
+            "Token regenerado. Scopes concedidos: %s", granted_scopes
         )
         
         return {
             "ok": True,
             "message": "Token regenerado exitosamente con scopes unificados (Drive/Calendar/Gmail send)",
             "token_path": str(token_path),
-            "scopes": UNIFIED_SCOPES,
+            "scopes_granted": granted_scopes,
+            "scopes_required": UNIFIED_SCOPES,
         }
         
     except Exception as exc:

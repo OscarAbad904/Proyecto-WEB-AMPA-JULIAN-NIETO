@@ -91,13 +91,35 @@ def register_commands(app: Flask):
         if result.get("ok"):
             print(f"✅ {result['message']}")
             print(f"\n📁 Token guardado en: {result.get('token_path')}")
-            print(f"   Scopes incluidos: {result.get('scopes')}")
+            if result.get("scopes_granted") is not None:
+                print(f"   Scopes concedidos: {result.get('scopes_granted')}")
+            if result.get("scopes_required") is not None:
+                print(f"   Scopes requeridos: {result.get('scopes_required')}")
             print("\n📋 Próximos pasos:")
-            print("   1. Lee el contenido de token_drive.json")
-            print("   2. Encríptalo con tu clave Fernet")
-            print("   3. Súbelo a Render como GOOGLE_DRIVE_TOKEN_JSON")
+            print("   1. Copia el contenido (JSON) o el valor cifrado (Fernet)")
+            print("   2. Súbelo a Render como GOOGLE_DRIVE_TOKEN_JSON")
+
+            # Imprimir token cifrado listo para pegar en Render
+            try:
+                from config import encrypt_value
+
+                token_path = result.get("token_path")
+                if token_path:
+                    with open(token_path, "r", encoding="utf-8") as fh:
+                        token_json = fh.read()
+                    encrypted = encrypt_value(token_json)
+                    print("\n🔒 Valor cifrado (Fernet) para GOOGLE_DRIVE_TOKEN_JSON:")
+                    print(encrypted)
+            except Exception as exc:
+                print(f"\n⚠️  No se pudo generar el valor cifrado automáticamente: {exc}")
         else:
             print(f"❌ Error: {result['message']}")
+            if result.get("token_path"):
+                print(f"\n📁 Token generado (para diagnóstico): {result.get('token_path')}")
+            if result.get("scopes_granted") is not None:
+                print(f"   Scopes concedidos: {result.get('scopes_granted')}")
+            if result.get("scopes_required") is not None:
+                print(f"   Scopes requeridos: {result.get('scopes_required')}")
 
     @app.cli.command("test-gmail-send")
     @click.argument("to_email")
