@@ -1143,113 +1143,77 @@ def test_calendar():
 @manager_app.route("/api/test-mail")
 @login_required
 def test_mail():
-    """Prueba el envío de correo electrónico"""
+    """Prueba el envío de correo electrónico (Gmail API OAuth)."""
     try:
-        # Leer la configuración directamente del .env y desencriptar
-        env = load_env()
-        
-        mail_server = env.get("MAIL_SERVER", "smtp.gmail.com")
-        mail_port = int(env.get("MAIL_PORT", "587"))
-        mail_use_tls = env.get("MAIL_USE_TLS", "true").lower() in ("true", "1", "yes")
-        mail_username = env.get("MAIL_USERNAME", "")
-        
-        # Desencriptar contraseña
-        mail_password_raw = env.get("MAIL_PASSWORD", "")
-        try:
-            mail_password = decrypt_value(mail_password_raw) if mail_password_raw else ""
-        except:
-            mail_password = mail_password_raw  # Si no está encriptada, usar el valor directo
-        
-        mail_sender = env.get("MAIL_DEFAULT_SENDER", mail_username)
-        # Priorizar MAIL_CONTACT_RECIPIENT, si no existe usar el email de la sesión
-        recipient = env.get("MAIL_CONTACT_RECIPIENT") or session.get("email")
-        
-        if not recipient:
-            return jsonify({"ok": False, "error": "No hay email de destinatario (MAIL_CONTACT_RECIPIENT no definido)"})
-        
-        if not mail_username or not mail_password:
-            return jsonify({"ok": False, "error": "Falta configurar MAIL_USERNAME o MAIL_PASSWORD"})
-        
-        # Conectar directamente con smtplib
-        import smtplib
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-        
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = "[AMPA] Prueba de configuración de correo"
-        msg['From'] = mail_sender
-        msg['To'] = recipient
-        
-        text_body = f"""¡Hola!
+        # Recargar variables de entorno para asegurar valores actualizados
+        load_dotenv(ENV_PATH, override=True)
+        app = create_ampa_app(os.getenv("FLASK_ENV", "development"))
 
-Este es un correo de prueba enviado desde el Gestor de Configuración AMPA.
+        with app.app_context():
+            from app.services.mail_service import send_email_gmail_api
 
-Si recibes este mensaje, la configuración de correo es correcta.
+            # Priorizar MAIL_CONTACT_RECIPIENT, si no existe usar el email de la sesión
+            recipient = app.config.get("MAIL_CONTACT_RECIPIENT") or session.get("email")
+            if not recipient:
+                return jsonify(
+                    {
+                        "ok": False,
+                        "error": "No hay email de destinatario (MAIL_CONTACT_RECIPIENT no definido).",
+                    }
+                )
 
-Detalles de configuración:
-- Servidor SMTP: {mail_server}
-- Puerto: {mail_port}
-- TLS: {'Sí' if mail_use_tls else 'No'}
-- Usuario: {mail_username}
-- Remitente: {mail_sender}
+            text_body = (
+                "¡Hola!\n\n"
+                "Este es un correo de prueba enviado desde el Gestor de Configuración AMPA.\n"
+                "Proveedor: Gmail API (OAuth 2.0)\n\n"
+                "Si recibes este mensaje, la configuración de correo es correcta.\n\n"
+                "Requisitos:\n"
+                "- GOOGLE_DRIVE_TOKEN_JSON con refresh_token\n"
+                "- Scopes unificados, incluyendo https://www.googleapis.com/auth/gmail.send\n"
+            )
 
-Saludos,
-Gestor de Configuración AMPA
-"""
-        
-        html_body = f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #4f46e5;">✅ Prueba de Correo Exitosa</h2>
-            <p>¡Hola!</p>
-            <p>Este es un correo de prueba enviado desde el <strong>Gestor de Configuración AMPA</strong>.</p>
-            <p>Si recibes este mensaje, la configuración de correo es correcta.</p>
-            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-            <h4 style="color: #374151;">📧 Detalles de configuración:</h4>
-            <ul style="color: #6b7280;">
-                <li><strong>Servidor SMTP:</strong> {mail_server}</li>
-                <li><strong>Puerto:</strong> {mail_port}</li>
-                <li><strong>TLS:</strong> {'Sí' if mail_use_tls else 'No'}</li>
-                <li><strong>Usuario:</strong> {mail_username}</li>
-                <li><strong>Remitente:</strong> {mail_sender}</li>
-            </ul>
-            <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">Gestor de Configuración AMPA</p>
-        </div>
-        """
-        
-        msg.attach(MIMEText(text_body, 'plain'))
-        msg.attach(MIMEText(html_body, 'html'))
-        
-        # Conectar y enviar
-        if mail_use_tls:
-            server = smtplib.SMTP(mail_server, mail_port)
-            server.starttls()
-        else:
-            server = smtplib.SMTP_SSL(mail_server, mail_port)
-        
-        server.login(mail_username, mail_password)
-        server.sendmail(mail_sender, [recipient], msg.as_string())
-        server.quit()
-        
-        return jsonify({
-            "ok": True, 
-            "message": f"Correo de prueba enviado a {recipient}"
-        })
-            
+            html_body = """
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #4f46e5;">✅ Prueba de Correo (Gmail API) Exitosa</h2>
+                <p>¡Hola!</p>
+                <p>Este es un correo de prueba enviado desde el <strong>Gestor de Configuración AMPA</strong>.</p>
+                <p>Proveedor: <strong>Gmail API (OAuth 2.0)</strong></p>
+                <p>Si recibes este mensaje, la configuración de correo es correcta.</p>
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+                <h4 style="color: #374151;">📌 Requisitos:</h4>
+                <ul style="color: #6b7280;">
+                    <li><code>GOOGLE_DRIVE_TOKEN_JSON</code> con <code>refresh_token</code></li>
+                    <li>Scope <code>https://www.googleapis.com/auth/gmail.send</code> incluido</li>
+                </ul>
+                <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">Gestor de Configuración AMPA</p>
+            </div>
+            """
+
+            result = send_email_gmail_api(
+                subject="[AMPA] Prueba de configuración de correo (Gmail API)",
+                body_text=text_body,
+                body_html=html_body,
+                recipient=recipient,
+                app_config=app.config,
+            )
+
+            if result.get("ok"):
+                return jsonify(
+                    {
+                        "ok": True,
+                        "message": f"Correo de prueba enviado a {recipient}",
+                        "provider": result.get("provider"),
+                        "id": result.get("id"),
+                    }
+                )
+            return jsonify({"ok": False, "error": result.get("error") or "Error desconocido"})
+
     except Exception as e:
         import traceback
-        error_msg = str(e)
+
         full_error = traceback.format_exc()
         print(f"Error en test_mail: {full_error}")  # Log para debug
-        
-        # Mensajes de error más amigables
-        if "Authentication" in error_msg or "credentials" in error_msg.lower():
-            error_msg = f"Error de autenticación. Verifica MAIL_USERNAME y MAIL_PASSWORD. Detalle: {error_msg}"
-        elif "Connection" in error_msg or "connect" in error_msg.lower():
-            error_msg = f"No se pudo conectar al servidor SMTP. Verifica MAIL_SERVER y MAIL_PORT. ({error_msg})"
-        elif "timed out" in error_msg.lower():
-            error_msg = "Tiempo de espera agotado. El servidor SMTP no responde."
-        
-        return jsonify({"ok": False, "error": error_msg})
+        return jsonify({"ok": False, "error": str(e)})
 
 
 @manager_app.route("/api/variables-info")

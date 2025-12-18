@@ -257,14 +257,20 @@ def resend_verification():
         if user and not user.email_verified and user.is_active:
             token = generate_email_verification_token(user.id, user.email_lookup)
             verify_url = url_for("public.verify_email", token=token, _external=True)
-            send_member_verification_email(
+            result = send_member_verification_email(
                 recipient_email=user.email,
                 verify_url=verify_url,
                 app_config=current_app.config,
             )
+            if not result.get("ok"):
+                current_app.logger.error(
+                    "Fallo reenviando verificación de email (público) a %s: %s",
+                    user.email,
+                    result.get("error"),
+                )
 
         flash(
-            "Si existe una cuenta con ese correo, hemos reenviado el enlace de verificación.",
+            "Si existe una cuenta con ese correo, hemos intentado reenviar el enlace de verificación.",
             "info",
         )
         return redirect(url_for("members.login"))

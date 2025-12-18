@@ -72,17 +72,17 @@ def register_commands(app: Flask):
 
     @app.cli.command("regenerate-google-token")
     def regenerate_google_token():
-        """Regenerate OAuth token with Calendar scope.
+        """Regenerate OAuth token with unified scopes (Drive/Calendar/Gmail send).
         
         This command must be run ONCE locally to generate a token that includes
-        both Drive and Calendar permissions. After regeneration, upload the
+        Drive, Calendar and Gmail (send) permissions. After regeneration, upload the
         resulting token_drive.json to Render as an environment variable.
         
         IMPORTANT: This will open a browser for Google OAuth authorization.
         """
         from app.services.calendar_service import regenerate_token_with_calendar_scope
         
-        print("\n🔐 Regenerando token OAuth con permisos de Calendar...\n")
+        print("\n🔐 Regenerando token OAuth con scopes unificados (Drive/Calendar/Gmail send)...\n")
         print("⚠️  IMPORTANTE: Esto abrirá el navegador para autorización de Google.")
         print("   Asegúrate de autorizar TODOS los permisos solicitados.\n")
         
@@ -98,6 +98,29 @@ def register_commands(app: Flask):
             print("   3. Súbelo a Render como GOOGLE_DRIVE_TOKEN_JSON")
         else:
             print(f"❌ Error: {result['message']}")
+
+    @app.cli.command("test-gmail-send")
+    @click.argument("to_email")
+    def test_gmail_send(to_email: str):
+        """Send a test email using Gmail API (OAuth)."""
+        from app.services.mail_service import send_email_gmail_api
+
+        result = send_email_gmail_api(
+            subject="[AMPA] Prueba de envío (Gmail API)",
+            body_text=(
+                "Hola,\n\n"
+                "Este es un correo de prueba enviado usando Gmail API (OAuth 2.0).\n\n"
+                "Si recibes este mensaje, la configuración de Gmail API es correcta.\n"
+            ),
+            recipient=to_email,
+            app_config=app.config,
+        )
+
+        if result.get("ok"):
+            print("✅ OK: Gmail API send")
+            print(f"Message ID: {result.get('id')}")
+        else:
+            raise SystemExit(f"❌ ERROR: {result.get('error')}")
 
     @app.cli.command("backup-db-to-drive")
     @click.option("--force", is_flag=True, help="Ejecuta aunque DB_BACKUP_ENABLED=false.")

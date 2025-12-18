@@ -24,6 +24,7 @@ APIs necesarias en Google Cloud:
 
 - **Google Drive API**
 - **Google Calendar API**
+- **Gmail API**
 
 ---
 
@@ -60,6 +61,8 @@ Esto se hace **en local** porque abre navegador para completar OAuth.
 
 Notas importantes:
 
+- El token debe incluir `refresh_token` (necesario en Render). Si no aparece, revoca el acceso de la app en tu cuenta Google y vuelve a ejecutar `flask regenerate-google-token`.
+- Los scopes actuales son unificados e incluyen envío por Gmail API (`https://www.googleapis.com/auth/gmail.send`).
 - Si autorizas con otra cuenta, verás errores tipo “File not found (404)” al intentar acceder a carpetas que pertenecen a otra cuenta/drive.
 - Si cambias el `credentials_drive_oauth.json` (otro OAuth client), puede que tengas que regenerar el token.
 
@@ -106,6 +109,20 @@ El token generado en el paso 3 ya incluye el scope de Calendar:
 
 - `https://www.googleapis.com/auth/calendar.events.readonly`
 
+## 5b) Configurar Gmail (envío de correos)
+
+El envío de correos (verificación, contacto, aprobación/establecer contraseña) se realiza con **Gmail API** (OAuth 2.0).
+
+Variables principales:
+
+- `MAIL_DEFAULT_SENDER` (From): debe ser el correo autenticado o un alias válido (“Send mail as”) configurado en Gmail.
+- `MAIL_CONTACT_RECIPIENT`: destino del formulario de contacto (si se omite, se usa `MAIL_DEFAULT_SENDER`).
+- `MAIL_AMPA_RECIPIENT`: destino de notificaciones internas de altas (si se omite, se usa `MAIL_DEFAULT_SENDER`).
+
+Comandos útiles:
+
+- Probar envío: `flask test-gmail-send TU_EMAIL_DESTINO`
+
 ---
 
 ## 6) Dónde copiar cada cosa (local vs Render)
@@ -145,6 +162,7 @@ Además, configura en Render:
 
 - `GOOGLE_DRIVE_ROOT_FOLDER_ID` y el resto de IDs de carpetas
 - `GOOGLE_CALENDAR_ID`
+- `MAIL_DEFAULT_SENDER`, `MAIL_CONTACT_RECIPIENT`, `MAIL_AMPA_RECIPIENT`
 
 Importante:
 
@@ -191,6 +209,10 @@ Comprueba:
 - Calendar:
   - `GOOGLE_CALENDAR_ID`
   - `GOOGLE_CALENDAR_CACHE_TTL`
+- Correo (Gmail API):
+  - `MAIL_DEFAULT_SENDER`
+  - `MAIL_CONTACT_RECIPIENT`
+  - `MAIL_AMPA_RECIPIENT`
 
 ---
 
@@ -215,10 +237,14 @@ Flujo:
 
 Variables de entorno relacionadas:
 
-- SMTP:
-  - `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USE_TLS`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_DEFAULT_SENDER`
-- Destinatario AMPA (notificación de altas):
-  - `MAIL_AMPA_RECIPIENT`
+- Envío de correos (Gmail API OAuth 2.0):
+  - `GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON` / `GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE`
+  - `GOOGLE_DRIVE_TOKEN_JSON` (debe incluir `refresh_token` y scopes unificados, incluyendo `gmail.send`)
+- Cabeceras/destinatarios:
+  - `MAIL_DEFAULT_SENDER` (From)
+  - `MAIL_CONTACT_RECIPIENT` (destino del formulario de contacto)
+  - `MAIL_AMPA_RECIPIENT` (notificación de altas)
+- (Deprecated, no usados): `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USE_TLS`, `MAIL_USERNAME`, `MAIL_PASSWORD`
 - Expiración de tokens (segundos):
   - `EMAIL_VERIFICATION_TOKEN_MAX_AGE` (por defecto 86400)
   - `SET_PASSWORD_TOKEN_MAX_AGE` (por defecto 86400)

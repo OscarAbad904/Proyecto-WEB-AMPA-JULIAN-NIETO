@@ -118,11 +118,17 @@ def register():
             if existing_user.is_active and not existing_user.email_verified:
                 token = generate_email_verification_token(existing_user.id, existing_user.email_lookup)
                 verify_url = url_for("public.verify_email", token=token, _external=True)
-                send_member_verification_email(
+                result = send_member_verification_email(
                     recipient_email=existing_user.email,
                     verify_url=verify_url,
                     app_config=current_app.config,
                 )
+                if not result.get("ok"):
+                    current_app.logger.error(
+                        "Fallo reenviando verificación de email (registro) a %s: %s",
+                        existing_user.email,
+                        result.get("error"),
+                    )
             flash(
                 "Si el correo es válido, recibirás un enlace de verificación. "
                 "Tu alta quedará pendiente de aprobación.",
@@ -164,25 +170,43 @@ def register():
 
         token = generate_email_verification_token(user.id, user.email_lookup)
         verify_url = url_for("public.verify_email", token=token, _external=True)
-        send_member_verification_email(
+        verification_result = send_member_verification_email(
             recipient_email=user.email,
             verify_url=verify_url,
             app_config=current_app.config,
         )
+        if not verification_result.get("ok"):
+            current_app.logger.error(
+                "Fallo enviando verificación de email a %s: %s",
+                user.email,
+                verification_result.get("error"),
+            )
 
         full_name = f"{(user.first_name or '').strip()} {(user.last_name or '').strip()}".strip()
-        send_new_member_registration_notification_to_ampa(
+        notification_result = send_new_member_registration_notification_to_ampa(
             member_name=full_name or "Socio",
             member_email=user.email,
             member_phone=user.phone_number,
             app_config=current_app.config,
         )
+        if not notification_result.get("ok"):
+            current_app.logger.error(
+                "Fallo enviando notificación interna de nuevo registro (AMPA): %s",
+                notification_result.get("error"),
+            )
 
-        flash(
-            "Registro recibido. Hemos enviado un enlace de verificación a tu correo y "
-            "tu alta queda pendiente de aprobación.",
-            "success",
-        )
+        if verification_result.get("ok"):
+            flash(
+                "Registro recibido. Hemos enviado un enlace de verificación a tu correo y "
+                "tu alta queda pendiente de aprobación.",
+                "success",
+            )
+        else:
+            flash(
+                "Registro recibido, pero no se pudo enviar el enlace de verificación por email. "
+                "Inténtalo de nuevo más tarde (reenviar verificación) o contacta con el AMPA.",
+                "danger",
+            )
         return redirect(url_for("members.login"))
 
     return render_template("members/register.html", form=form)

@@ -7,6 +7,7 @@ con sistema de cache interno para optimizar llamadas a la API.
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from datetime import datetime, timedelta
@@ -15,6 +16,7 @@ from typing import Any
 from html import unescape
 
 from flask import current_app
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -22,10 +24,11 @@ from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 
-# Scopes unificados para Drive y Calendar
+# Scopes unificados para Drive, Calendar y Gmail (envío)
 UNIFIED_SCOPES = [
     "https://www.googleapis.com/auth/drive.file",
     "https://www.googleapis.com/auth/calendar.events.readonly",
+    "https://www.googleapis.com/auth/gmail.send",
 ]
 
 # Cache interno para eventos del calendario
@@ -39,11 +42,10 @@ _calendar_service = None
 
 
 def _get_unified_credentials() -> Credentials | None:
-    """
-    Obtiene credenciales OAuth unificadas para Drive y Calendar.
-    
-    Reutiliza el sistema de tokens existente pero con scopes ampliados.
-    Si el token no tiene los scopes necesarios, solicita reautorización.
+    """Obtiene credenciales OAuth unificadas para Drive, Calendar y Gmail.
+
+    - En producción (DEBUG=False) NO inicia flujos interactivos.
+    - En Render debe existir GOOGLE_DRIVE_TOKEN_JSON con refresh_token.
     """
     try:
         base_path = Path(current_app.config.get("ROOT_PATH") or current_app.root_path)
@@ -54,76 +56,151 @@ def _get_unified_credentials() -> Credentials | None:
                 str(base_path / "credentials_drive_oauth.json"),
             )
         )
-        
-        # Intentar cargar token desde variable de entorno si no existe el archivo
-        token_env = current_app.config.get("GOOGLE_DRIVE_TOKEN_JSON")
+
+        token_env = (current_app.config.get("GOOGLE_DRIVE_TOKEN_JSON") or "").strip()
+        creds_json = (current_app.config.get("GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON") or "").strip()
+
+        # Materializar archivos desde variables de entorno (útil en Render con FS efímero)
         if token_env and not token_path.exists():
             try:
                 token_path.parent.mkdir(parents=True, exist_ok=True)
                 token_path.write_text(token_env, encoding="utf-8")
             except Exception as exc:
-                current_app.logger.warning(
-                    "No se pudo escribir token_drive.json: %s", exc
-                )
+                current_app.logger.warning("No se pudo escribir token_drive.json: %s", exc)
 
-        # Intentar cargar credenciales desde variable de entorno
-        creds_json = current_app.config.get("GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON")
         if creds_json and not credentials_path.exists():
             try:
                 credentials_path.parent.mkdir(parents=True, exist_ok=True)
                 credentials_path.write_text(creds_json, encoding="utf-8")
             except Exception as exc:
+                current_app.logger.warning("No se pudo escribir credentials_drive_oauth.json: %s", exc)
+
+        # Cargar token JSON (preferimos env; si no, disco)
+        token_payload: dict[str, Any] | None = None
+        if token_env:
+            try:
+                token_payload = json.loads(token_env)
+            except Exception as exc:
+                current_app.logger.error("GOOGLE_DRIVE_TOKEN_JSON no es JSON válido: %s", exc)
+                return None
+        elif token_path.exists():
+            try:
+                token_payload = json.loads(token_path.read_text(encoding="utf-8"))
+            except Exception as exc:
+                current_app.logger.error("token_drive.json no es JSON válido: %s", exc)
+                return None
+
+        if token_payload:
+            # Validar refresh_token (obligatorio en Render)
+            if not token_payload.get("refresh_token"):
+                current_app.logger.error(
+                    "El token OAuth no incluye refresh_token. Regenera el token con "
+                    "'flask regenerate-google-token' (acceso offline + consent) y actualiza "
+                    "GOOGLE_DRIVE_TOKEN_JSON."
+                )
+                return None
+
+            # Validar scopes si vienen en el JSON
+            token_scopes = token_payload.get("scopes")
+            if isinstance(token_scopes, str):
+                token_scopes_list = token_scopes.split()
+            elif isinstance(token_scopes, list):
+                token_scopes_list = token_scopes
+            else:
+                token_scopes_list = []
+
+            if token_scopes_list:
+                missing_scopes = sorted(set(UNIFIED_SCOPES) - set(token_scopes_list))
+                if missing_scopes:
+                    current_app.logger.error(
+                        "El token OAuth no incluye los scopes requeridos (%s). Regenera el token "
+                        "con 'flask regenerate-google-token' y actualiza GOOGLE_DRIVE_TOKEN_JSON.",
+                        ", ".join(missing_scopes),
+                    )
+                    return None
+            else:
                 current_app.logger.warning(
-                    "No se pudo escribir credentials_drive_oauth.json: %s", exc
+                    "El token OAuth no incluye el campo 'scopes'. Si hay errores 403, regenera el token."
                 )
 
-        creds = None
-        if token_path.exists():
+        creds: Credentials | None = None
+        if token_payload:
+            creds = Credentials.from_authorized_user_info(token_payload, UNIFIED_SCOPES)
+        elif token_path.exists():
             creds = Credentials.from_authorized_user_file(str(token_path), UNIFIED_SCOPES)
 
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                try:
-                    creds.refresh(Request())
-                except Exception as e:
-                    current_app.logger.warning(
-                        "Error refrescando token, intentando reautorizar: %s", e
-                    )
-                    creds = None
-            
-            if not creds:
-                if not credentials_path.exists():
-                    current_app.logger.warning(
-                        "No se encontró el archivo de credenciales OAuth."
-                    )
-                    return None
-                
-                # Verificar que las credenciales no son de demostración
-                creds_content = credentials_path.read_text(encoding="utf-8")
-                if "TU_CLIENT_ID" in creds_content or "TU_SECRET" in creds_content:
-                    current_app.logger.warning(
-                        "Las credenciales contienen valores de demostración."
-                    )
-                    return None
-                
-                # Flujo de autorización local (solo para desarrollo)
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    str(credentials_path),
-                    UNIFIED_SCOPES,
+        if creds and not creds.valid:
+            if not creds.refresh_token:
+                current_app.logger.error(
+                    "El token OAuth no es válido y no tiene refresh_token. Regenera el token con "
+                    "'flask regenerate-google-token'."
                 )
-                creds = flow.run_local_server(port=0)
-            
-            # Guardar token actualizado
-            with open(token_path, "w", encoding="utf-8") as token:
-                token.write(creds.to_json())
+                return None
+            try:
+                creds.refresh(Request())
+            except RefreshError as exc:
+                current_app.logger.error(
+                    "No se pudo refrescar el token OAuth (posible revocación/invalid_grant). "
+                    "Regenera el token con 'flask regenerate-google-token'. Detalle: %s",
+                    exc,
+                )
+                return None
+            except Exception as exc:
+                current_app.logger.error("Error inesperado refrescando token OAuth: %s", exc)
+                return None
+
+            # Persistir token actualizado (best-effort)
+            try:
+                with open(token_path, "w", encoding="utf-8") as token_file:
+                    token_file.write(creds.to_json())
+            except Exception as exc:
+                current_app.logger.warning("No se pudo persistir token_drive.json: %s", exc)
+
+        if not creds:
+            if not credentials_path.exists():
+                current_app.logger.warning("No se encontró el archivo de credenciales OAuth.")
+                return None
+
+            # Verificar que las credenciales no son de demostración
+            creds_content = credentials_path.read_text(encoding="utf-8")
+            if "TU_CLIENT_ID" in creds_content or "TU_SECRET" in creds_content:
+                current_app.logger.warning("Las credenciales contienen valores de demostración.")
+                return None
+
+            if not current_app.debug:
+                current_app.logger.error(
+                    "No hay un token OAuth válido para Google (Drive/Calendar/Gmail). En producción "
+                    "no se puede iniciar el flujo interactivo. Configura GOOGLE_DRIVE_TOKEN_JSON "
+                    "(con refresh_token) y GOOGLE_DRIVE_OAUTH_CREDENTIALS_JSON/FILE."
+                )
+                return None
+
+            flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), UNIFIED_SCOPES)
+            creds = flow.run_local_server(port=0, access_type="offline", prompt="consent")
+
+            if not getattr(creds, "refresh_token", None):
+                current_app.logger.error(
+                    "El token generado no incluye refresh_token. Revoca el acceso de la app en tu "
+                    "cuenta Google y vuelve a ejecutar 'flask regenerate-google-token'."
+                )
+                return None
+
+            try:
+                with open(token_path, "w", encoding="utf-8") as token_file:
+                    token_file.write(creds.to_json())
+            except Exception as exc:
+                current_app.logger.warning("No se pudo persistir token_drive.json: %s", exc)
 
         return creds
-    
+
     except Exception as exc:
-        current_app.logger.error(
-            "Error obteniendo credenciales unificadas: %s", exc
-        )
+        current_app.logger.error("Error obteniendo credenciales unificadas: %s", exc)
         return None
+
+
+def get_unified_credentials() -> Credentials | None:
+    """API pública para reutilizar credenciales unificadas en otros servicios."""
+    return _get_unified_credentials()
 
 
 def _get_calendar_service():
@@ -421,10 +498,10 @@ def get_upcoming_events(limit: int = 10) -> list[dict]:
 
 def regenerate_token_with_calendar_scope() -> dict:
     """
-    Regenera el token OAuth incluyendo el scope de Calendar.
+    Regenera el token OAuth con scopes unificados (Drive/Calendar/Gmail send).
     
     IMPORTANTE: Esta función debe ejecutarse UNA SOLA VEZ en local
-    para generar un token con los permisos de Calendar.
+    para generar un token con refresh_token y los permisos unificados.
     Después, el token resultante debe subirse a Render.
     
     Returns:
@@ -473,8 +550,23 @@ def regenerate_token_with_calendar_scope() -> dict:
             UNIFIED_SCOPES,
         )
         
-        # Ejecutar autorización local
-        creds = flow.run_local_server(port=0)
+        # Ejecutar autorización local (forzar refresh_token con acceso offline)
+        creds = flow.run_local_server(
+            port=0,
+            access_type="offline",
+            prompt="consent",
+            include_granted_scopes="true",
+        )
+
+        if not getattr(creds, "refresh_token", None):
+            return {
+                "ok": False,
+                "message": (
+                    "El token generado no incluye refresh_token. "
+                    "Revoca el acceso de esta app en tu cuenta de Google y vuelve a ejecutar "
+                    "'flask regenerate-google-token'."
+                ),
+            }
         
         # Guardar nuevo token
         with open(token_path, "w", encoding="utf-8") as token:
@@ -486,7 +578,7 @@ def regenerate_token_with_calendar_scope() -> dict:
         
         return {
             "ok": True,
-            "message": "Token regenerado exitosamente con permisos de Calendar",
+            "message": "Token regenerado exitosamente con scopes unificados (Drive/Calendar/Gmail send)",
             "token_path": str(token_path),
             "scopes": UNIFIED_SCOPES,
         }
