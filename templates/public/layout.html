@@ -160,7 +160,7 @@
                         <a href="{{ url_for('members.dashboard') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('members.') %} active{% endif %}">Área privada</a>
                         <a href="{{ url_for('members.mi_cuenta') }}" class="nav-link{% if request.endpoint == 'members.mi_cuenta' %} active{% endif %}">Mi cuenta</a>
                         {% if can_manage_members %}
-                        <a href="{{ url_for('admin.usuarios') }}" class="nav-link{% if request.endpoint == 'admin.usuarios' %} active{% endif %}">Usuarios</a>
+                        <a href="{{ url_for('admin.usuarios') }}" class="nav-link nav-link--with-badge{% if request.endpoint == 'admin.usuarios' %} active{% endif %}">Usuarios <span class="nav-badge" data-pending-users-badge style="display:none;"></span></a>
                         {% endif %}
                         {% if can_manage_commissions %}
                         <a href="{{ url_for('admin.commissions_index') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('admin.commissions') %} active{% endif %}">Comisiones</a>
@@ -221,7 +221,7 @@
                         privada</a>
                     <a href="{{ url_for('members.mi_cuenta') }}" class="nav-link{% if request.endpoint == 'members.mi_cuenta' %} active{% endif %}" onclick="toggleMobileMenu()">Mi cuenta</a>
                     {% if can_manage_members %}
-                    <a href="{{ url_for('admin.usuarios') }}" class="nav-link{% if request.endpoint == 'admin.usuarios' %} active{% endif %}" onclick="toggleMobileMenu()">Usuarios</a>
+                    <a href="{{ url_for('admin.usuarios') }}" class="nav-link nav-link--with-badge{% if request.endpoint == 'admin.usuarios' %} active{% endif %}" onclick="toggleMobileMenu()">Usuarios <span class="nav-badge" data-pending-users-badge style="display:none;"></span></a>
                     {% endif %}
                     {% if can_manage_commissions %}
                     <a href="{{ url_for('admin.commissions_index') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('admin.commissions') %} active{% endif %}" onclick="toggleMobileMenu()">Comisiones</a>
@@ -580,14 +580,19 @@
             border: 1px solid var(--color-border, rgba(100, 116, 139, 0.2));
             background: rgba(255, 255, 255, 0.9);
             border-radius: 0.75rem;
-            width: 38px;
-            height: 38px;
-            font-size: 1.1rem;
+            width: 44px;
+            height: 44px;
+            font-size: 1.25rem;
+            line-height: 1;
             cursor: pointer;
             color: var(--color-text-base);
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            z-index: 10;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
             box-shadow: var(--shadow-sm, 0 4px 12px rgba(0, 0, 0, 0.05));
             transition: transform var(--transition-fast, 0.2s ease), box-shadow var(--transition-fast, 0.2s ease), background var(--transition-fast, 0.2s ease);
         }
@@ -596,6 +601,11 @@
             transform: translateY(-1px);
             background: #fff;
             box-shadow: var(--shadow-md, 0 12px 24px rgba(0, 0, 0, 0.08));
+        }
+
+        .login-modal-close:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18), var(--shadow-md, 0 12px 24px rgba(0, 0, 0, 0.08));
         }
     </style>
     <script>
@@ -613,6 +623,47 @@
                 }
             });
         });
+
+        (function () {
+            const badgeEls = document.querySelectorAll('[data-pending-users-badge]');
+            if (!badgeEls || !badgeEls.length) return;
+
+            const endpoint = {{ url_for('admin.usuarios_pending_count') | tojson }};
+
+            function renderCount(pending) {
+                const n = Number(pending) || 0;
+                badgeEls.forEach((el) => {
+                    if (n > 0) {
+                        el.textContent = String(n);
+                        el.style.display = 'inline-flex';
+                    } else {
+                        el.textContent = '';
+                        el.style.display = 'none';
+                    }
+                });
+            }
+
+            async function refreshCount() {
+                try {
+                    const res = await fetch(endpoint, { credentials: 'same-origin' });
+                    if (!res.ok) {
+                        renderCount(0);
+                        return;
+                    }
+                    const data = await res.json();
+                    if (!data || !data.ok) {
+                        renderCount(0);
+                        return;
+                    }
+                    renderCount(data.pending);
+                } catch (_) {
+                    // Silencioso.
+                }
+            }
+
+            refreshCount();
+            window.setInterval(refreshCount, 15000);
+        })();
     </script>
     {% block scripts %}{% endblock %}
 </body>

@@ -119,6 +119,16 @@
     @media (max-width: 760px) {
       .user-edit-grid { grid-template-columns: 1fr; }
     }
+
+    /* Botón cerrar: más grande, siempre clicable y sin quedar bajo la scrollbar. */
+    .login-modal-dialog.user-modal-dialog .login-modal-close {
+      width: 46px;
+      height: 46px;
+      border-radius: 999px;
+      top: 0.85rem;
+      right: 1.35rem;
+      z-index: 50;
+    }
   </style>
 {% endblock %}
 
@@ -161,9 +171,9 @@
                   <td>{{ u.phone_number or '' }}</td>
                   <td>
                     {% if u.email_verified %}
-                      <span class="chip chip-live">Sí</span>
+                      <span class="chip chip-live" data-email-verified-chip="{{ u.id }}">Sí</span>
                     {% else %}
-                      <span class="chip chip-off">No</span>
+                      <span class="chip chip-off" data-email-verified-chip="{{ u.id }}">No</span>
                     {% endif %}
                   </td>
                   <td>{{ u.created_at or '' }}</td>
@@ -214,9 +224,9 @@
                 <td>{{ u.role.name if u.role else '' }}</td>
                 <td>
                   {% if u.email_verified %}
-                    <span class="chip chip-live">Sí</span>
+                    <span class="chip chip-live" data-email-verified-chip="{{ u.id }}">Sí</span>
                   {% else %}
-                    <span class="chip chip-off">No</span>
+                    <span class="chip chip-off" data-email-verified-chip="{{ u.id }}">No</span>
                   {% endif %}
                 </td>
                 <td>
@@ -274,7 +284,19 @@
                 {% if not u.registration_approved %}
                   <form method="post" action="{{ url_for('admin.aprobar_usuario', user_id=u.id) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn-primary btn-mini">Aprobar alta</button>
+                    <button
+                      type="{{ 'submit' if u.email_verified else 'button' }}"
+                      class="btn-primary btn-mini"
+                      data-requires-email-verified="1"
+                      data-user-id="{{ u.id }}"
+                      {% if not u.email_verified %}
+                        aria-disabled="true"
+                        data-disabled="1"
+                        data-disabled-reason="Hasta que el usuario no valide su correo, no se podrá aprobar el alta."
+                        title="Hasta que el usuario no valide su correo, no se podrá aprobar el alta."
+                        style="opacity:0.6; cursor:not-allowed;"
+                      {% endif %}
+                    >Aprobar alta</button>
                   </form>
                 {% endif %}
 
@@ -284,7 +306,19 @@
                   {% if u.is_active %}
                     <button type="submit" class="btn-primary btn-mini btn-danger">Desactivar</button>
                   {% else %}
-                    <button type="submit" class="btn-primary btn-mini">Activar</button>
+                    <button
+                      type="{{ 'submit' if u.email_verified else 'button' }}"
+                      class="btn-primary btn-mini"
+                      data-requires-email-verified="1"
+                      data-user-id="{{ u.id }}"
+                      {% if not u.email_verified %}
+                        aria-disabled="true"
+                        data-disabled="1"
+                        data-disabled-reason="Hasta que el usuario no valide su correo, no se podrá activar la cuenta."
+                        title="Hasta que el usuario no valide su correo, no se podrá activar la cuenta."
+                        style="opacity:0.6; cursor:not-allowed;"
+                      {% endif %}
+                    >Activar</button>
                   {% endif %}
                 </form>
 
@@ -375,6 +409,77 @@
       </div>
     {% endfor %}
   {% endif %}
+
+  <script>
+    (function () {
+      const TOOLTIP_DEFAULT = 'Hasta que el usuario no valide su correo, no se podrá activar la cuenta.';
+
+      // Polling ligero para refrescar verificación y habilitar botones.
+      const userIds = {{ (users | map(attribute='id') | list) | tojson }};
+      const statusUrlBase = {{ url_for('admin.usuarios_status') | tojson }};
+
+      function setChip(userId, verified) {
+        const chips = document.querySelectorAll('[data-email-verified-chip="' + String(userId) + '"]');
+        chips.forEach(function (chip) {
+          chip.textContent = verified ? 'Sí' : 'No';
+          chip.classList.toggle('chip-live', !!verified);
+          chip.classList.toggle('chip-off', !verified);
+        });
+      }
+
+      function setButtonState(userId, verified) {
+        const buttons = document.querySelectorAll('button[data-requires-email-verified="1"][data-user-id="' + String(userId) + '"]');
+        buttons.forEach(function (btn) {
+          if (verified) {
+            btn.removeAttribute('aria-disabled');
+            btn.removeAttribute('data-disabled');
+            btn.removeAttribute('data-disabled-reason');
+            btn.removeAttribute('title');
+            btn.setAttribute('type', 'submit');
+            btn.style.opacity = '';
+            btn.style.cursor = '';
+          } else {
+            // Mantener el motivo existente si ya lo hay
+            if (!btn.getAttribute('data-disabled-reason')) {
+              btn.setAttribute('data-disabled-reason', TOOLTIP_DEFAULT);
+            }
+            if (!btn.getAttribute('title')) {
+              btn.setAttribute('title', btn.getAttribute('data-disabled-reason') || TOOLTIP_DEFAULT);
+            }
+            btn.setAttribute('aria-disabled', 'true');
+            btn.setAttribute('data-disabled', '1');
+            btn.setAttribute('type', 'button');
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
+          }
+        });
+      }
+
+      async function refreshStatuses() {
+        try {
+          if (!userIds || !userIds.length) return;
+          const url = statusUrlBase + '?ids=' + encodeURIComponent(userIds.join(','));
+          const res = await fetch(url, { credentials: 'same-origin' });
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data || !data.ok || !data.users) return;
+
+          Object.keys(data.users).forEach(function (idStr) {
+            const u = data.users[idStr];
+            const verified = !!(u && u.email_verified);
+            setChip(idStr, verified);
+            setButtonState(idStr, verified);
+          });
+        } catch (e) {
+          // Silencioso: si falla, el usuario puede refrescar manualmente.
+        }
+      }
+
+      // Arranque inmediato y cada 10s.
+      refreshStatuses();
+      window.setInterval(refreshStatuses, 10000);
+    })();
+  </script>
 {% endblock %}
 
 {% block scripts %}

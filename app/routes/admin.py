@@ -734,6 +734,57 @@ def usuarios():
     )
 
 
+@admin_bp.route("/usuarios/status")
+@login_required
+def usuarios_status():
+    """Endpoint ligero para refrescar estados en la pantalla de usuarios."""
+    can_manage = current_user.has_permission("manage_members") or user_is_privileged(current_user)
+    can_view = can_manage or current_user.has_permission("view_members")
+    if not can_view:
+        abort(403)
+
+    raw_ids = (request.args.get("ids") or "").strip()
+    if not raw_ids:
+        return jsonify({"ok": True, "users": {}})
+
+    ids: list[int] = []
+    for part in raw_ids.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            ids.append(int(part))
+        except ValueError:
+            continue
+
+    if not ids:
+        return jsonify({"ok": True, "users": {}})
+
+    users = User.query.filter(User.id.in_(ids)).all()
+    payload = {
+        str(u.id): {
+            "email_verified": bool(u.email_verified),
+            "registration_approved": bool(u.registration_approved),
+            "is_active": bool(u.is_active),
+        }
+        for u in users
+    }
+    return jsonify({"ok": True, "users": payload})
+
+
+@admin_bp.route("/usuarios/pending-count")
+@login_required
+def usuarios_pending_count():
+    """Número de usuarios con aprobación pendiente (para el badge del menú)."""
+    can_manage = current_user.has_permission("manage_members") or user_is_privileged(current_user)
+    can_view = can_manage or current_user.has_permission("view_members")
+    if not can_view:
+        abort(403)
+
+    pending = User.query.filter_by(registration_approved=False).count()
+    return jsonify({"ok": True, "pending": int(pending)})
+
+
 def _require_manage_members() -> None:
     if not (current_user.has_permission("manage_members") or user_is_privileged(current_user)):
         abort(403)
@@ -746,6 +797,12 @@ def aprobar_usuario(user_id: int):
     from app.services.mail_service import send_member_approval_email
 
     user = User.query.get_or_404(user_id)
+    if not user.email_verified:
+        flash(
+            "No puedes aprobar el alta hasta que el usuario verifique su correo.",
+            "warning",
+        )
+        return redirect(url_for("admin.usuarios"))
     if not user.registration_approved:
         user.registration_approved = True
         user.approved_at = datetime.utcnow()
@@ -797,6 +854,12 @@ def cambiar_estado_usuario(user_id: int):
         return redirect(url_for("admin.usuarios"))
 
     user = User.query.get_or_404(user_id)
+    if is_active and not user.email_verified:
+        flash(
+            "No puedes activar la cuenta hasta que el usuario verifique su correo.",
+            "warning",
+        )
+        return redirect(url_for("admin.usuarios"))
     old_status = user.is_active
     user.is_active = bool(is_active)
 
@@ -927,6 +990,9 @@ def reenviar_set_password(user_id: int):
     from app.utils import generate_set_password_token
 
     user = User.query.get_or_404(user_id)
+    if not user.email_verified:
+        flash("El usuario aún no ha verificado su correo.", "warning")
+        return redirect(url_for("admin.usuarios"))
     if not user.registration_approved:
         flash("La cuenta aún no está aprobada.", "warning")
         return redirect(url_for("admin.usuarios"))
