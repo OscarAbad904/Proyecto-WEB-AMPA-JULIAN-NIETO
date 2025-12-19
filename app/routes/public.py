@@ -228,22 +228,60 @@ def faq():
 
 @public_bp.route("/verify-email/<token>")
 def verify_email(token: str):
+    """
+    Punto de entrada desde el correo. 
+    Valida el token y redirige al panel de creación de contraseña.
+    """
+    from app.utils import confirm_email_verification_token
     max_age = int(current_app.config.get("EMAIL_VERIFICATION_TOKEN_MAX_AGE", 60 * 60 * 24))
     data = confirm_email_verification_token(token, expiration=max_age)
+    
     if not data:
         return render_template("members/verify_email.html", ok=False)
 
-    user_id = data.get("user_id")
-    email_lookup = data.get("email_lookup")
-    user = User.query.get(int(user_id)) if user_id is not None else None
-    if not user or not email_lookup or user.email_lookup != str(email_lookup):
-        return render_template("members/verify_email.html", ok=False)
+    # Redirigir directamente al panel de creación de contraseña
+    return redirect(url_for("public.create_password", token=token))
 
-    if not user.email_verified:
+
+@public_bp.route("/crear-contrasena/<token>", methods=["GET", "POST"])
+def create_password(token: str):
+    """
+    Panel para crear la contraseña por primera vez.
+    Al guardar, se marca el email como verificado y se loguea al usuario.
+    """
+    from app.forms import SetPasswordForm
+    from app.utils import confirm_email_verification_token
+    from flask_login import login_user
+
+    max_age = int(current_app.config.get("EMAIL_VERIFICATION_TOKEN_MAX_AGE", 60 * 60 * 24))
+    data = confirm_email_verification_token(token, expiration=max_age)
+    
+    if not data:
+        flash("El enlace ha expirado o es inválido.", "danger")
+        return redirect(url_for("members.login"))
+
+    user_id = data.get("user_id")
+    user = User.query.get(int(user_id)) if user_id is not None else None
+    
+    if not user:
+        flash("Usuario no encontrado.", "danger")
+        return redirect(url_for("members.login"))
+
+    form = SetPasswordForm()
+    if form.validate_on_submit():
+        # Paso 1: Establecer contraseña
+        user.set_password(form.password.data)
+        # Paso 2: Marcar email como verificado (si no lo estaba)
         user.email_verified = True
         db.session.commit()
+        
+        # Paso 3: Loguear al usuario automáticamente
+        login_user(user)
+        
+        flash("¡Cuenta activada con éxito! Ya puedes acceder a tu panel.", "success")
+        return redirect(url_for("public.home"))
 
-    return render_template("members/verify_email.html", ok=True)
+    return render_template("members/set_password.html", form=form, token=token)
 
 
 @public_bp.route("/verify-email/resend", methods=["GET", "POST"])

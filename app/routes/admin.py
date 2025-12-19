@@ -29,6 +29,10 @@ from app.models import (
     _generate_unique_event_slug,
     _generate_unique_commission_slug,
 )
+from app.services.mail_service import (
+    send_member_deactivation_email,
+    send_member_reactivation_email
+)
 from app.forms import (
     PostForm,
     EventForm,
@@ -756,6 +760,57 @@ def usuarios():
     )
 
 
+@admin_bp.route("/usuarios/status")
+@login_required
+def usuarios_status():
+    """Endpoint ligero para refrescar estados en la pantalla de usuarios."""
+    can_manage = current_user.has_permission("manage_members") or user_is_privileged(current_user)
+    can_view = can_manage or current_user.has_permission("view_members")
+    if not can_view:
+        abort(403)
+
+    raw_ids = (request.args.get("ids") or "").strip()
+    if not raw_ids:
+        return jsonify({"ok": True, "users": {}})
+
+    ids: list[int] = []
+    for part in raw_ids.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            ids.append(int(part))
+        except ValueError:
+            continue
+
+    if not ids:
+        return jsonify({"ok": True, "users": {}})
+
+    users = User.query.filter(User.id.in_(ids)).all()
+    payload = {
+        str(u.id): {
+            "email_verified": bool(u.email_verified),
+            "registration_approved": bool(u.registration_approved),
+            "is_active": bool(u.is_active),
+        }
+        for u in users
+    }
+    return jsonify({"ok": True, "users": payload})
+
+
+@admin_bp.route("/usuarios/pending-count")
+@login_required
+def usuarios_pending_count():
+    """Número de usuarios con aprobación pendiente (para el badge del menú)."""
+    can_manage = current_user.has_permission("manage_members") or user_is_privileged(current_user)
+    can_view = can_manage or current_user.has_permission("view_members")
+    if not can_view:
+        abort(403)
+
+    pending = User.query.filter_by(registration_approved=False).count()
+    return jsonify({"ok": True, "pending": int(pending)})
+
+
 def _require_manage_members() -> None:
     if not (current_user.has_permission("manage_members") or user_is_privileged(current_user)):
         abort(403)
@@ -765,28 +820,30 @@ def _require_manage_members() -> None:
 @login_required
 def aprobar_usuario(user_id: int):
     _require_manage_members()
-    from app.services.mail_service import send_set_password_email
-    from app.utils import generate_set_password_token
+    from app.services.mail_service import send_member_approval_email
 
     user = User.query.get_or_404(user_id)
+    if not user.email_verified:
+        flash(
+            "No puedes aprobar el alta hasta que el usuario verifique su correo.",
+            "warning",
+        )
+        return redirect(url_for("admin.usuarios"))
     if not user.registration_approved:
         user.registration_approved = True
         user.approved_at = datetime.utcnow()
         user.approved_by_id = current_user.id
         db.session.commit()
 
-    token = generate_set_password_token(user.id, user.password_hash)
-    set_password_url = url_for("public.set_password", token=token, _external=True)
-    result = send_set_password_email(
+    result = send_member_approval_email(
         recipient_email=user.email,
-        set_password_url=set_password_url,
         app_config=current_app.config,
     )
     if result.get("ok"):
-        flash("Alta aprobada. Se ha enviado el enlace para establecer contraseña.", "success")
+        flash("Alta aprobada. Se ha enviado el correo de bienvenida.", "success")
     else:
         flash(
-            "Alta aprobada, pero no se pudo enviar el correo. Puedes reenviarlo desde esta pantalla.",
+            "Alta aprobada, pero no se pudo enviar el correo de bienvenida. Puedes reenviarlo desde esta pantalla.",
             "warning",
         )
     return redirect(url_for("admin.usuarios"))
@@ -823,10 +880,30 @@ def cambiar_estado_usuario(user_id: int):
         return redirect(url_for("admin.usuarios"))
 
     user = User.query.get_or_404(user_id)
-    if getattr(user, "deleted_at", None):
-        flash("No puedes cambiar el estado de un socio eliminado.", "warning")
+    if is_active and not user.email_verified:
+        flash(
+            "No puedes activar la cuenta hasta que el usuario verifique su correo.",
+            "warning",
+        )
         return redirect(url_for("admin.usuarios"))
+    old_status = user.is_active
     user.is_active = bool(is_active)
+
+    if old_status and not user.is_active:
+        # Deactivating
+        user.deactivated_at = datetime.utcnow()
+        send_member_deactivation_email(
+            recipient_email=user.email,
+            app_config=current_app.config
+        )
+    elif not old_status and user.is_active:
+        # Reactivating
+        user.deactivated_at = None
+        send_member_reactivation_email(
+            recipient_email=user.email,
+            app_config=current_app.config
+        )
+
     db.session.commit()
     flash("Estado actualizado.", "success")
     return redirect(url_for("admin.usuarios"))
@@ -882,6 +959,9 @@ def reenviar_set_password(user_id: int):
     from app.utils import generate_set_password_token
 
     user = User.query.get_or_404(user_id)
+    if not user.email_verified:
+        flash("El usuario aún no ha verificado su correo.", "warning")
+        return redirect(url_for("admin.usuarios"))
     if not user.registration_approved:
         flash("La cuenta aún no está aprobada.", "warning")
         return redirect(url_for("admin.usuarios"))

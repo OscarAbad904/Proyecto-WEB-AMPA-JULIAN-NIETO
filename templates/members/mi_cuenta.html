@@ -8,46 +8,100 @@
       <h1 class="private-title">Mi cuenta</h1>
       <p class="private-desc">Actualiza tu teléfono o cambia tu contraseña.</p>
 
+      <h2 style="margin: 1.25rem 0 0.5rem;">Estado de la cuenta</h2>
+      <div class="private-field" style="margin-bottom: 1.5rem;">
+        <div style="padding: 0.85rem 1rem; border-radius: 0.75rem; background: rgba(255, 255, 255, 0.92); border: 1px solid var(--color-border, rgba(100, 116, 139, 0.2)); font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+          <span>Estado:</span>
+          {% if not current_user.is_active %}
+            <span style="color: var(--color-danger, #ef4444);">Inactivo</span>
+          {% elif not current_user.registration_approved %}
+            <span style="color: var(--color-accent-warm, #f97316);">Pendiente de Activación</span>
+          {% else %}
+            <span style="color: #166534;">Activo</span>
+          {% endif %}
+        </div>
+        {% if not current_user.registration_approved %}
+          <p class="private-desc" style="margin-top: 0.5rem; font-size: 0.9rem;">Tu solicitud de alta está siendo revisada por el AMPA. Te avisaremos por correo cuando sea aprobada.</p>
+        {% endif %}
+      </div>
+
       <h2 style="margin: 1.25rem 0 0.5rem;">Teléfono</h2>
       <form method="post" class="private-form" novalidate>
         {{ phone_form.hidden_tag() }}
         <div class="private-field">
           {{ phone_form.phone_number.label }}
           {{ phone_form.phone_number(placeholder="Teléfono", autocomplete="tel") }}
-          {% for error in phone_form.phone_number.errors %}
-            <p class="form-error">{{ error }}</p>
-          {% endfor %}
+          {{ phone_form.submit_phone(class_="btn-primary", style="width: auto; margin-top: 0; padding: 0.75rem 1.5rem;") }}
         </div>
-        {{ phone_form.submit_phone(class_="btn-primary") }}
+        {% for error in phone_form.phone_number.errors %}
+          <p class="form-error" style="text-align: left; margin-top: -0.5rem; margin-bottom: 1rem;">{{ error }}</p>
+        {% endfor %}
       </form>
 
-      <h2 style="margin: 1.75rem 0 0.5rem;">Cambiar contraseña</h2>
-      <form method="post" class="private-form" novalidate>
-        {{ password_form.hidden_tag() }}
-        <div class="private-field">
-          {{ password_form.current_password.label }}
-          {{ password_form.current_password(placeholder="Contraseña actual", autocomplete="current-password") }}
-          {% for error in password_form.current_password.errors %}
-            <p class="form-error">{{ error }}</p>
-          {% endfor %}
-        </div>
-        <div class="private-field">
-          {{ password_form.new_password.label }}
-          {{ password_form.new_password(placeholder="Nueva contraseña", autocomplete="new-password") }}
-          {% for error in password_form.new_password.errors %}
-            <p class="form-error">{{ error }}</p>
-          {% endfor %}
-        </div>
-        <div class="private-field">
-          {{ password_form.new_password_confirm.label }}
-          {{ password_form.new_password_confirm(placeholder="Repite la contraseña", autocomplete="new-password") }}
-          {% for error in password_form.new_password_confirm.errors %}
-            <p class="form-error">{{ error }}</p>
-          {% endfor %}
-        </div>
-        {{ password_form.submit_password(class_="btn-primary") }}
-      </form>
+      <h2 style="margin: 1.75rem 0 0.5rem;">Seguridad</h2>
+      <div id="password-section" style="text-align: center;">
+        <button type="button" class="btn-primary" id="btn-show-password" style="margin-bottom: 1rem; width: auto; padding: 0.75rem 2rem; display: inline-block;">Cambiar contraseña</button>
+        
+        <form method="post" class="private-form" id="password-form" style="display: none;" novalidate>
+          {{ password_form.hidden_tag() }}
+          <div class="private-field">
+            {{ password_form.current_password.label }}
+            {{ password_form.current_password(placeholder="Contraseña actual", autocomplete="current-password") }}
+            {% for error in password_form.current_password.errors %}
+              <p class="form-error">{{ error }}</p>
+            {% endfor %}
+          </div>
+          <div class="private-field">
+            {{ password_form.new_password.label }}
+            {{ password_form.new_password(placeholder="Nueva contraseña", autocomplete="new-password") }}
+            {% for error in password_form.new_password.errors %}
+              <p class="form-error">{{ error }}</p>
+            {% endfor %}
+          </div>
+          <div class="private-field">
+            {{ password_form.new_password_confirm.label }}
+            {{ password_form.new_password_confirm(placeholder="Repite la contraseña", autocomplete="new-password") }}
+            {% for error in password_form.new_password_confirm.errors %}
+              <p class="form-error">{{ error }}</p>
+            {% endfor %}
+          </div>
+          <div class="private-form-actions">
+            {{ password_form.submit_password(class_="btn-primary") }}
+            <button type="button" class="btn-secondary" id="btn-cancel-password" style="background: #64748b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; cursor: pointer;">Cancelar</button>
+          </div>
+        </form>
+      </div>
     </div>
   </section>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const btnShow = document.getElementById('btn-show-password');
+      const btnCancel = document.getElementById('btn-cancel-password');
+      const form = document.getElementById('password-form');
+
+      if (btnShow && form) {
+        btnShow.addEventListener('click', function() {
+          form.style.display = 'block';
+          btnShow.style.display = 'none';
+        });
+      }
+
+      if (btnCancel && form && btnShow) {
+        btnCancel.addEventListener('click', function() {
+          form.style.display = 'none';
+          btnShow.style.display = 'inline-block';
+        });
+      }
+
+      // Si hay errores en el formulario de contraseña, mostrarlo automáticamente
+      {% if password_form.errors %}
+        if (form && btnShow) {
+          form.style.display = 'block';
+          btnShow.style.display = 'none';
+        }
+      {% endif %}
+    });
+  </script>
 {% endblock %}
 

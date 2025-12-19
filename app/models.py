@@ -125,6 +125,7 @@ class User(db.Model, UserMixin):
     privacy_version = db.Column(db.String(32), nullable=True)
     approved_at = db.Column(db.DateTime, nullable=True)
     approved_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    deactivated_at = db.Column(db.DateTime, nullable=True)
     first_name = db.Column(encrypted_string(64))
     last_name = db.Column(encrypted_string(64))
     phone_number = db.Column(encrypted_string(32), index=True)
@@ -144,16 +145,16 @@ class User(db.Model, UserMixin):
     deleted_at = db.Column(db.DateTime, nullable=True, index=True)
 
     role = db.relationship("Role", back_populates="users")
-    memberships = db.relationship("Membership", back_populates="user", lazy="dynamic")
-    posts = db.relationship("Post", back_populates="author", lazy="dynamic")
-    events = db.relationship("Event", back_populates="organizer", lazy="dynamic")
-    documents = db.relationship("Document", back_populates="uploader", lazy="dynamic")
-    suggestions = db.relationship("Suggestion", back_populates="creator", lazy="dynamic")
-    comments = db.relationship("Comment", back_populates="author", lazy="dynamic")
-    votes = db.relationship("Vote", back_populates="user", lazy="dynamic")
-    media = db.relationship("Media", back_populates="uploader", lazy="dynamic")
+    memberships = db.relationship("Membership", back_populates="user", lazy="dynamic", cascade="all, delete-orphan")
+    posts = db.relationship("Post", back_populates="author", lazy="dynamic", cascade="all, delete-orphan")
+    events = db.relationship("Event", back_populates="organizer", lazy="dynamic", cascade="all, delete-orphan")
+    documents = db.relationship("Document", back_populates="uploader", lazy="dynamic", cascade="all, delete-orphan")
+    suggestions = db.relationship("Suggestion", back_populates="creator", lazy="dynamic", cascade="all, delete-orphan")
+    comments = db.relationship("Comment", back_populates="author", lazy="dynamic", cascade="all, delete-orphan")
+    votes = db.relationship("Vote", back_populates="user", lazy="dynamic", cascade="all, delete-orphan")
+    media = db.relationship("Media", back_populates="uploader", lazy="dynamic", cascade="all, delete-orphan")
     commission_memberships = db.relationship(
-        "CommissionMembership", back_populates="user", lazy="dynamic"
+        "CommissionMembership", back_populates="user", lazy="dynamic", cascade="all, delete-orphan"
     )
     approved_by = db.relationship(
         "User",
@@ -214,6 +215,13 @@ class User(db.Model, UserMixin):
             .filter(Commission.is_active.is_(True))
         )
         return [membership.commission for membership in active_memberships]
+
+    @property
+    def deletion_date(self):
+        if not self.is_active and self.deactivated_at:
+            from datetime import timedelta
+            return self.deactivated_at + timedelta(days=30)
+        return None
 
     def is_commission_coordinator(self, commission) -> bool:
         if not commission:
