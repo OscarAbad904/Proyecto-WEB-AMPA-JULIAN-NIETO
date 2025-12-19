@@ -1404,7 +1404,7 @@ body.menu-open {
 }
 
 .event-category.green {
-  color: var(--color-accent-cool);
+  color: #16a34a;
 }
 
 .event-title {
@@ -1438,6 +1438,20 @@ body.menu-open {
   }
 }
 
+.alert {
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--color-text-base);
+}
+
+.alert code {
+  background: rgba(15, 23, 42, 0.08);
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.35rem;
+}
+
 .events-calendar {
   display: flex;
   flex-direction: column;
@@ -1453,7 +1467,7 @@ body.menu-open {
   display: flex;
   align-items: center;
   gap: 1rem;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(15, 23, 42, 0.04);
   border-radius: 0.9rem;
   padding: 1rem;
   border: 1px solid var(--color-border);
@@ -1462,7 +1476,7 @@ body.menu-open {
 .event-date {
   width: 4rem;
   text-align: center;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(15, 23, 42, 0.05);
   border-radius: 0.75rem;
   padding: 0.75rem 0.5rem;
   border: 1px solid var(--color-border);
@@ -1478,12 +1492,14 @@ body.menu-open {
 }
 
 .event-date-day.green {
-  color: var(--color-accent-bright);
+  color: #16a34a;
 }
 
 .event-date-month {
   font-size: 0.875rem;
-  color: #d1d5db;
+  color: var(--color-text-soft);
+  font-weight: 800;
+  letter-spacing: 0.08em;
 }
 
 .event-info-title {
