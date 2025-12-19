@@ -265,9 +265,9 @@ footer {
   font-size: 0.75rem;
   font-weight: 800;
   line-height: 1;
-  background: rgba(239, 68, 68, 0.12);
-  color: #b91c1c;
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgb(255, 0, 0);
+  color: #ffffff;
+  border: 1px solid rgba(66, 0, 0, 0.877);
 }
 
 .nav-link:hover {
