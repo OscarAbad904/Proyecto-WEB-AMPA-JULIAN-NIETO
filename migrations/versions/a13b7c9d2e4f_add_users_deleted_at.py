@@ -1,7 +1,7 @@
 """Add deleted_at to users for soft deletion.
 
 Revision ID: a13b7c9d2e4f
-Revises: f974fc3bdece
+Revises: 970298341ca4
 Create Date: 2025-12-19 00:00:00.000000
 """
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 revision = "a13b7c9d2e4f"
-down_revision = "f974fc3bdece"
+down_revision = "970298341ca4"
 branch_labels = None
 depends_on = None
 
@@ -23,4 +23,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_users_deleted_at", table_name="users")
     op.drop_column("users", "deleted_at")
-
