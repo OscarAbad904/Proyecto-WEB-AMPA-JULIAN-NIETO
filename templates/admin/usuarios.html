@@ -227,7 +227,9 @@
                   {% endif %}
                 </td>
                 <td>
-                  {% if u.is_active %}
+                  {% if u.deleted_at %}
+                    <span class="chip chip-off">Eliminado</span>
+                  {% elif u.is_active %}
                     <span class="chip chip-live">Sí</span>
                   {% else %}
                     <span class="chip chip-off">No</span>
@@ -278,17 +280,19 @@
                   </form>
                 {% endif %}
 
-                <form method="post" action="{{ url_for('admin.cambiar_estado_usuario', user_id=u.id) }}">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <input type="hidden" name="is_active" value="{{ 0 if u.is_active else 1 }}">
-                  {% if u.is_active %}
-                    <button type="submit" class="btn-primary btn-mini btn-danger">Desactivar</button>
-                  {% else %}
-                    <button type="submit" class="btn-primary btn-mini">Activar</button>
-                  {% endif %}
-                </form>
+                {% if not u.deleted_at %}
+                  <form method="post" action="{{ url_for('admin.cambiar_estado_usuario', user_id=u.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="is_active" value="{{ 0 if u.is_active else 1 }}">
+                    {% if u.is_active %}
+                      <button type="submit" class="btn-primary btn-mini btn-danger">Desactivar</button>
+                    {% else %}
+                      <button type="submit" class="btn-primary btn-mini">Activar</button>
+                    {% endif %}
+                  </form>
+                {% endif %}
 
-                {% if not u.is_active and u.id != current_user.id %}
+                {% if not u.deleted_at and (not u.is_active) and u.id != current_user.id %}
                   <form
                     method="post"
                     action="{{ url_for('admin.eliminar_usuario', user_id=u.id) }}"

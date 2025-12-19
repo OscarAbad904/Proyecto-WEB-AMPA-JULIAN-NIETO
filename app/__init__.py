@@ -173,6 +173,13 @@ def register_guards(app: Flask) -> None:
         if endpoint in allowed:
             return None
 
+        if getattr(current_user, "deleted_at", None):
+            logout_user()
+            if request.blueprint == "api":
+                return jsonify({"ok": False, "error": "Cuenta eliminada"}), 403
+            flash("Tu cuenta ha sido eliminada.", "danger")
+            return redirect(url_for("members.login"))
+
         if not getattr(current_user, "is_active", True):
             logout_user()
             if request.blueprint == "api":

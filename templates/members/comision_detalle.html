@@ -43,7 +43,7 @@
           {% for member in members %}
           <li class="list-item">
             <div>
-              <strong>{{ member.user.username }}</strong>
+              <strong>{{ member.user.display_name }}</strong>
               <span class="badge">{{ member.role }}</span>
             </div>
             {% if can_manage_members and member.is_active %}
@@ -72,7 +72,7 @@
             <div class="meta">
               <span class="badge">{{ project.status }}</span>
               {% if project.responsible %}
-              <span>Responsable: {{ project.responsible.username }}</span>
+              <span>Responsable: {{ project.responsible.display_name }}</span>
               {% endif %}
             </div>
             <h4>{{ project.title }}</h4>

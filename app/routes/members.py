@@ -60,6 +60,14 @@ def _get_commission_and_membership(slug: str):
 def _user_is_commission_coordinator(membership: CommissionMembership | None) -> bool:
     return bool(membership and membership.role == "coordinador")
 
+def _commission_can_manage(membership: CommissionMembership | None, area: str) -> bool:
+    if not membership or not membership.is_active:
+        return False
+    role = (membership.role or "").strip().lower()
+    if role == "coordinador":
+        return area in {"members", "projects", "meetings"}
+    return False
+
 
 @members_bp.route("/login", methods=["GET", "POST"])
 def login():
@@ -70,6 +78,9 @@ def login():
         lookup_email = make_lookup_hash(form.email.data)
         user = User.query.filter_by(email_lookup=lookup_email).first()
         if user and user.check_password(form.password.data):
+            if getattr(user, "deleted_at", None):
+                flash("Tu cuenta ha sido eliminada.", "danger")
+                return render_template("members/login.html", form=form)
             if not user.is_active:
                 flash("Tu cuenta está desactivada.", "danger")
                 return render_template("members/login.html", form=form)
@@ -586,7 +597,12 @@ def commission_detail(slug: str):
         abort(403)
 
     members = (
-        commission.memberships.filter_by(is_active=True)
+        commission.memberships.join(User)
+        .filter(
+            CommissionMembership.is_active.is_(True),
+            User.is_active.is_(True),
+            User.deleted_at.is_(None),
+        )
         .order_by(CommissionMembership.role.asc())
         .all()
     )
@@ -604,15 +620,9 @@ def commission_detail(slug: str):
     )
 
     is_coordinator = bool(membership and membership.role == "coordinador")
-    can_manage_members = current_user.has_permission("manage_commission_members") and (
-        is_coordinator or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
-    )
-    can_manage_projects = current_user.has_permission("manage_commission_projects") and (
-        is_coordinator or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
-    )
-    can_manage_meetings = current_user.has_permission("manage_commission_meetings") and (
-        is_coordinator or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
-    )
+    can_manage_members = _commission_can_manage(membership, "members") or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+    can_manage_projects = _commission_can_manage(membership, "projects") or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+    can_manage_meetings = _commission_can_manage(membership, "meetings") or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
     can_edit_commission = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
 
     return render_template(
@@ -636,11 +646,17 @@ def commission_detail(slug: str):
 def commission_member_new(slug: str):
     commission, membership = _get_commission_and_membership(slug)
     is_coord = _user_is_commission_coordinator(membership)
-    if not (current_user.has_permission("manage_commission_members") and (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user))):
+    if not (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
         abort(403)
 
     form = CommissionMemberForm()
-    form.user_id.choices = [(u.id, u.username) for u in User.query.filter_by(is_active=True).order_by(User.username.asc())]
+    active_users = (
+        User.query.filter_by(is_active=True, registration_approved=True)
+        .filter(User.deleted_at.is_(None))
+        .all()
+    )
+    active_users_sorted = sorted(active_users, key=lambda user: user.display_name.casefold())
+    form.user_id.choices = [(user.id, user.display_name) for user in active_users_sorted]
 
     if form.validate_on_submit():
         existing = CommissionMembership.query.filter_by(
@@ -669,7 +685,7 @@ def commission_member_new(slug: str):
 def commission_member_disable(slug: str, membership_id: int):
     commission, membership = _get_commission_and_membership(slug)
     is_coord = _user_is_commission_coordinator(membership)
-    if not (current_user.has_permission("manage_commission_members") and (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user))):
+    if not (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
         abort(403)
 
     target = CommissionMembership.query.filter_by(id=membership_id, commission_id=commission.id).first_or_404()
@@ -685,12 +701,18 @@ def commission_member_disable(slug: str, membership_id: int):
 def commission_project_form(slug: str, project_id: int | None = None):
     commission, membership = _get_commission_and_membership(slug)
     is_coord = _user_is_commission_coordinator(membership)
-    if not (current_user.has_permission("manage_commission_projects") and (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user))):
+    if not (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
         abort(403)
 
     project = CommissionProject.query.filter_by(id=project_id, commission_id=commission.id).first() if project_id else None
     form = CommissionProjectForm(obj=project)
-    user_choices = [(u.id, u.username) for u in User.query.filter_by(is_active=True).order_by(User.username.asc())]
+    active_users = (
+        User.query.filter_by(is_active=True, registration_approved=True)
+        .filter(User.deleted_at.is_(None))
+        .all()
+    )
+    active_users_sorted = sorted(active_users, key=lambda user: user.display_name.casefold())
+    user_choices = [(user.id, user.display_name) for user in active_users_sorted]
     form.responsible_id.choices = [(0, "Sin responsable")] + user_choices
 
     if form.validate_on_submit():
@@ -736,7 +758,7 @@ def commission_project_form(slug: str, project_id: int | None = None):
 def commission_meeting_form(slug: str, meeting_id: int | None = None):
     commission, membership = _get_commission_and_membership(slug)
     is_coord = _user_is_commission_coordinator(membership)
-    if not (current_user.has_permission("manage_commission_meetings") and (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user))):
+    if not (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
         abort(403)
 
     meeting = CommissionMeeting.query.filter_by(id=meeting_id, commission_id=commission.id).first() if meeting_id else None

@@ -51,27 +51,61 @@
           </tr>
         </thead>
         <tbody>
-          {% for member in members %}
+          {% for member in members_active %}
           <tr>
-            <td>{{ member.user.username }}</td>
+            <td>{{ member.user.display_name }}</td>
             <td>{{ member.role }}</td>
             <td>
-              <span class="chip {% if member.is_active %}chip-live{% else %}chip-off{% endif %}">
-                {{ "Activo" if member.is_active else "Inactivo" }}
-              </span>
+              <span class="chip chip-live">Activo</span>
             </td>
             <td>
-              {% if member.is_active %}
               <form method="post" action="{{ url_for('admin.commission_member_disable_admin', commission_id=commission.id, membership_id=member.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-link">Desactivar</button>
               </form>
-              {% endif %}
             </td>
           </tr>
           {% else %}
           <tr>
             <td colspan="4" class="muted">Sin miembros.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="admin-card">
+    <h3 style="margin: 0 0 0.85rem;">Histórico</h3>
+    <div class="table-responsive">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Rol</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for member in members_history %}
+          <tr>
+            <td>{{ member.user.display_name }}</td>
+            <td>{{ member.role }}</td>
+            <td>
+              {% if member.user.deleted_at %}
+                <span class="chip chip-off">Eliminado</span>
+              {% elif not member.user.is_active %}
+                <span class="chip chip-off">Usuario desactivado</span>
+              {% elif not member.is_active %}
+                <span class="chip chip-off">Desactivado en comisión</span>
+              {% else %}
+                <span class="chip chip-live">Activo</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="3" class="muted">Sin histórico.</td>
           </tr>
           {% endfor %}
         </tbody>

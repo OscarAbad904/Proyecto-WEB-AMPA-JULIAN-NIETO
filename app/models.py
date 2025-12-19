@@ -141,6 +141,7 @@ class User(db.Model, UserMixin):
     created_at = db.Column(db.DateTime, server_default=func.now())
     last_login = db.Column(db.DateTime)
     avatar_url = db.Column(db.String(255))
+    deleted_at = db.Column(db.DateTime, nullable=True, index=True)
 
     role = db.relationship("Role", back_populates="users")
     memberships = db.relationship("Membership", back_populates="user", lazy="dynamic")
@@ -184,6 +185,23 @@ class User(db.Model, UserMixin):
 
     def check_password(self, password: str) -> bool:
         return check_password_hash(self.password_hash, password)
+
+    @property
+    def is_deleted(self) -> bool:
+        return bool(self.deleted_at)
+
+    @property
+    def full_name(self) -> str:
+        return f"{(self.first_name or '').strip()} {(self.last_name or '').strip()}".strip()
+
+    @property
+    def display_name(self) -> str:
+        return (
+            self.full_name
+            or (self.username or "").strip()
+            or (self.email or "").strip()
+            or f"Usuario {self.id}"
+        )
 
     @property
     def is_admin(self) -> bool:

@@ -394,8 +394,27 @@ def commission_members(commission_id: int):
         abort(403)
     commission = Commission.query.get_or_404(commission_id)
     form = CommissionMemberForm()
-    form.user_id.choices = [(u.id, u.username) for u in User.query.filter_by(is_active=True).order_by(User.username.asc())]
-    members = commission.memberships.order_by(CommissionMembership.created_at.desc()).all()
+    active_users = (
+        User.query.filter_by(is_active=True, registration_approved=True)
+        .filter(User.deleted_at.is_(None))
+        .all()
+    )
+    active_users_sorted = sorted(active_users, key=lambda user: user.display_name.casefold())
+    form.user_id.choices = [(user.id, user.display_name) for user in active_users_sorted]
+    from sqlalchemy.orm import joinedload
+
+    memberships = (
+        commission.memberships.options(joinedload(CommissionMembership.user))
+        .order_by(CommissionMembership.created_at.desc())
+        .all()
+    )
+    members_active = [
+        m
+        for m in memberships
+        if m.is_active and m.user.is_active and m.user.deleted_at is None
+    ]
+    active_member_ids = {m.id for m in members_active}
+    members_history = [m for m in memberships if m.id not in active_member_ids]
 
     if form.validate_on_submit():
         existing = CommissionMembership.query.filter_by(
@@ -420,7 +439,8 @@ def commission_members(commission_id: int):
     return render_template(
         "admin/comision_miembros.html",
         commission=commission,
-        members=members,
+        members_active=members_active,
+        members_history=members_history,
         form=form,
     )
 
@@ -454,7 +474,13 @@ def commission_project_edit(commission_id: int, project_id: int | None = None):
     commission = Commission.query.get_or_404(commission_id)
     project = CommissionProject.query.filter_by(id=project_id, commission_id=commission.id).first() if project_id else None
     form = CommissionProjectForm(obj=project)
-    user_choices = [(u.id, u.username) for u in User.query.filter_by(is_active=True).order_by(User.username.asc())]
+    active_users = (
+        User.query.filter_by(is_active=True, registration_approved=True)
+        .filter(User.deleted_at.is_(None))
+        .all()
+    )
+    active_users_sorted = sorted(active_users, key=lambda user: user.display_name.casefold())
+    user_choices = [(user.id, user.display_name) for user in active_users_sorted]
     form.responsible_id.choices = [(0, "Sin responsable")] + user_choices
 
     if form.validate_on_submit():
@@ -797,6 +823,9 @@ def cambiar_estado_usuario(user_id: int):
         return redirect(url_for("admin.usuarios"))
 
     user = User.query.get_or_404(user_id)
+    if getattr(user, "deleted_at", None):
+        flash("No puedes cambiar el estado de un socio eliminado.", "warning")
+        return redirect(url_for("admin.usuarios"))
     user.is_active = bool(is_active)
     db.session.commit()
     flash("Estado actualizado.", "success")
@@ -813,6 +842,9 @@ def eliminar_usuario(user_id: int):
         return redirect(url_for("admin.usuarios"))
 
     user = User.query.get_or_404(user_id)
+    if getattr(user, "deleted_at", None):
+        flash("El socio ya est\xE1 marcado como eliminado.", "info")
+        return redirect(url_for("admin.usuarios"))
     if user.is_active:
         flash("Solo puedes eliminar un socio cuando est\xE1 desactivado.", "warning")
         return redirect(url_for("admin.usuarios"))
@@ -821,84 +853,24 @@ def eliminar_usuario(user_id: int):
         flash("No se puede eliminar una cuenta privilegiada.", "danger")
         return redirect(url_for("admin.usuarios"))
 
-    blockers: list[str] = []
-    if user.posts.count():
-        blockers.append("publicaciones")
-    if user.events.count():
-        blockers.append("eventos")
-    if user.documents.count():
-        blockers.append("documentos")
-    if user.media.count():
-        blockers.append("archivos")
-    if blockers:
-        flash(
-            "No se puede eliminar porque el usuario tiene contenido asociado: "
-            + ", ".join(blockers)
-            + ".",
-            "warning",
-        )
-        return redirect(url_for("admin.usuarios"))
-
     try:
-        User.query.filter_by(approved_by_id=user.id).update(
-            {User.approved_by_id: None}, synchronize_session=False
-        )
-        CommissionProject.query.filter_by(responsible_id=user.id).update(
-            {CommissionProject.responsible_id: None}, synchronize_session=False
-        )
-
-        Enrollment.query.filter_by(user_id=user.id).delete(synchronize_session=False)
-        Membership.query.filter_by(user_id=user.id).delete(synchronize_session=False)
-        CommissionMembership.query.filter_by(user_id=user.id).delete(synchronize_session=False)
-
-        suggestion_ids = [
-            suggestion_id
-            for (suggestion_id,) in db.session.query(Suggestion.id)
-            .filter_by(created_by=user.id)
-            .all()
-        ]
-        if suggestion_ids:
-            Vote.query.filter(Vote.suggestion_id.in_(suggestion_ids)).delete(
-                synchronize_session=False
-            )
-            Comment.query.filter(Comment.suggestion_id.in_(suggestion_ids)).update(
-                {Comment.parent_id: None}, synchronize_session=False
-            )
-            Comment.query.filter(Comment.suggestion_id.in_(suggestion_ids)).delete(
-                synchronize_session=False
-            )
-            Suggestion.query.filter(Suggestion.id.in_(suggestion_ids)).delete(
-                synchronize_session=False
-            )
-
-        Vote.query.filter_by(user_id=user.id).delete(synchronize_session=False)
-
-        comment_ids = [
-            comment_id
-            for (comment_id,) in db.session.query(Comment.id).filter_by(created_by=user.id).all()
-        ]
-        if comment_ids:
-            Comment.query.filter(Comment.parent_id.in_(comment_ids)).update(
-                {Comment.parent_id: None}, synchronize_session=False
-            )
-            Comment.query.filter(Comment.id.in_(comment_ids)).delete(synchronize_session=False)
-
-        db.session.delete(user)
+        user.deleted_at = datetime.utcnow()
+        user.is_active = False
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
         flash(
-            "No se pudo eliminar el socio (tiene datos asociados que deben eliminarse antes).",
+            "No se pudo marcar el socio como eliminado.",
             "danger",
         )
         return redirect(url_for("admin.usuarios"))
     except Exception as exc:  # noqa: BLE001
         db.session.rollback()
         current_app.logger.exception("Error eliminando usuario", exc_info=exc)
-        flash("No se pudo eliminar el socio.", "danger")
+        flash("No se pudo marcar el socio como eliminado.", "danger")
         return redirect(url_for("admin.usuarios"))
 
-    flash("Socio eliminado.", "success")
+    flash("Socio marcado como eliminado.", "success")
     return redirect(url_for("admin.usuarios"))
 
 

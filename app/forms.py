@@ -220,7 +220,6 @@ class CommissionMemberForm(FlaskForm):
         "Rol en la comision",
         choices=[
             ("coordinador", "Coordinador"),
-            ("vocal", "Vocal"),
             ("miembro", "Miembro"),
         ],
         validators=[DataRequired()],
