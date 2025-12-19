@@ -15,6 +15,7 @@ from app.forms import LoginForm
 from app.commands import register_commands
 from app.services.permission_registry import ensure_roles_and_permissions
 from app.services.db_backup_scheduler import start_db_backup_scheduler
+from app.services.user_cleanup_scheduler import start_user_cleanup_scheduler
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -36,6 +37,21 @@ def create_app(config_name: str | None = None) -> Flask:
     register_context(app)
     register_guards(app)
     register_commands(app)
+    
+    @app.errorhandler(400)
+    def handle_bad_request(e):
+        from flask import request, jsonify
+        if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "message": "Solicitud incorrecta o error de seguridad (CSRF)."}), 400
+        return e
+
+    @app.errorhandler(500)
+    def handle_server_error(e):
+        from flask import request, jsonify
+        if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "message": "Error interno del servidor al procesar el registro."}), 500
+        return e
+
     @app.route("/favicon.ico")
     def favicon():
         return app.send_static_file("favicon.png")
@@ -47,6 +63,7 @@ def create_app(config_name: str | None = None) -> Flask:
             app.logger.exception("No se pudieron sincronizar los permisos base", exc_info=exc)
 
     start_db_backup_scheduler(app)
+    start_user_cleanup_scheduler(app)
 
     return app
 
@@ -163,6 +180,7 @@ def register_guards(app: Flask) -> None:
             "members.logout",
             "members.register",
             "members.recuperar",
+            "members.mi_cuenta",
             "public.verify_email",
             "public.resend_verification",
             "public.set_password",
@@ -188,11 +206,10 @@ def register_guards(app: Flask) -> None:
             return redirect(url_for("members.login"))
 
         if not getattr(current_user, "registration_approved", False):
-            logout_user()
             if request.blueprint == "api":
                 return jsonify({"ok": False, "error": "Registro pendiente de aprobación"}), 403
-            flash("Tu alta está pendiente de aprobación.", "info")
-            return redirect(url_for("members.login"))
+            flash("Tu alta está pendiente de aprobación. Solo puedes acceder a tu perfil.", "info")
+            return redirect(url_for("public.home"))
 
         return None
 

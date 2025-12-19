@@ -11,12 +11,13 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 from datetime import datetime
 from email.message import EmailMessage
 from email.utils import getaddresses, parseaddr
 from typing import Any
 
-from flask import current_app
+from flask import current_app, render_template, url_for
 from google.auth.exceptions import RefreshError
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -98,6 +99,7 @@ def send_email_gmail_api(
     sender: str | None = None,
     reply_to: str | None = None,
     body_html: str | None = None,
+    inline_images: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """
     Envía un correo usando Gmail API (RFC822 raw).
@@ -155,6 +157,19 @@ def send_email_gmail_api(
         msg.set_content(body_text or "", subtype="plain", charset="utf-8")
         if body_html:
             msg.add_alternative(body_html, subtype="html", charset="utf-8")
+            if inline_images:
+                for img in inline_images:
+                    try:
+                        with open(img["path"], "rb") as f:
+                            img_data = f.read()
+                        msg.get_payload()[1].add_related(
+                            img_data,
+                            maintype="image",
+                            subtype=img.get("subtype", "png"),
+                            cid=f'<{img["cid"]}>',
+                        )
+                    except Exception as e:
+                        current_app.logger.error(f"Error adjuntando imagen inline {img.get('path')}: {e}")
 
         raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
 
@@ -275,7 +290,28 @@ def send_member_verification_email(
     app_config: Any,
 ) -> dict[str, Any]:
     subject = "Verifica tu correo"
-    body = (
+
+    # Ruta física del logo para incrustarlo (CID)
+    logo_path = os.path.join(current_app.static_folder, "images/general/Logo_AMPA_400x400.png")
+    
+    # Renderizar HTML usando el CID para la imagen
+    body_html = render_template(
+        "email/verification.html",
+        verify_url=verify_url,
+        logo_url="cid:logo_ampa"
+    )
+
+    # Definir la imagen inline
+    inline_images = [
+        {
+            "cid": "logo_ampa",
+            "path": logo_path,
+            "subtype": "png"
+        }
+    ]
+
+    # Texto plano como fallback
+    body_text = (
         "Hola,\n\n"
         "Para completar tu alta como socio/a, verifica tu correo usando este enlace:\n\n"
         f"{verify_url}\n\n"
@@ -283,7 +319,82 @@ def send_member_verification_email(
     )
     return send_email_gmail_api(
         subject=subject,
-        body_text=body,
+        body_text=body_text,
+        body_html=body_html,
+        inline_images=inline_images,
+        recipient=recipient_email,
+        app_config=app_config,
+    )
+
+
+def send_member_deactivation_email(
+    *,
+    recipient_email: str,
+    app_config: Any,
+) -> dict[str, Any]:
+    subject = "Aviso: Tu cuenta ha sido desactivada"
+    
+    logo_path = os.path.join(current_app.static_folder, "images/general/Logo_AMPA_400x400.png")
+    
+    body_html = render_template("email/deactivation.html")
+
+    inline_images = [
+        {
+            "cid": "logo_ampa",
+            "path": logo_path,
+            "subtype": "png"
+        }
+    ]
+
+    body_text = (
+        "Hola,\n\n"
+        "Tu cuenta en el AMPA Julián Nieto ha sido desactivada manualmente.\n"
+        "Si crees que es un error, contacta con nosotros para reactivarla.\n\n"
+        "Importante: Las cuentas inactivas por más de 30 días serán eliminadas automáticamente."
+    )
+    return send_email_gmail_api(
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        inline_images=inline_images,
+        recipient=recipient_email,
+        app_config=app_config,
+    )
+
+
+def send_member_reactivation_email(
+    *,
+    recipient_email: str,
+    app_config: Any,
+) -> dict[str, Any]:
+    subject = "Tu cuenta ha sido reactivada"
+    
+    logo_path = os.path.join(current_app.static_folder, "images/general/Logo_AMPA_400x400.png")
+    login_url = url_for("public.home", _external=True)
+
+    body_html = render_template(
+        "email/reactivation.html",
+        login_url=login_url
+    )
+
+    inline_images = [
+        {
+            "cid": "logo_ampa",
+            "path": logo_path,
+            "subtype": "png"
+        }
+    ]
+
+    body_text = (
+        "¡Hola!\n\n"
+        "Tu cuenta en el AMPA Julián Nieto ha sido reactivada. Ya puedes volver a acceder:\n\n"
+        f"{login_url}"
+    )
+    return send_email_gmail_api(
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        inline_images=inline_images,
         recipient=recipient_email,
         app_config=app_config,
     )
@@ -318,22 +429,46 @@ def send_new_member_registration_notification_to_ampa(
     )
 
 
-def send_set_password_email(
+def send_member_approval_email(
     *,
     recipient_email: str,
-    set_password_url: str,
     app_config: Any,
 ) -> dict[str, Any]:
-    subject = "Establece tu contraseña"
-    body = (
-        "Hola,\n\n"
-        "Tu alta ha sido aprobada. Para acceder al área de socios, establece tu contraseña aquí:\n\n"
-        f"{set_password_url}\n\n"
-        "Este enlace caduca. Si no has solicitado el alta, puedes ignorar este mensaje.\n"
+    subject = "¡Tu alta ha sido aprobada!"
+    
+    # Ruta física del logo para incrustarlo (CID)
+    logo_path = os.path.join(current_app.static_folder, "images/general/Logo_AMPA_400x400.png")
+    
+    # URL de login
+    login_url = url_for("public.home", _external=True)
+
+    # Renderizar HTML
+    body_html = render_template(
+        "email/approval.html",
+        login_url=login_url
+    )
+
+    # Definir la imagen inline
+    inline_images = [
+        {
+            "cid": "logo_ampa",
+            "path": logo_path,
+            "subtype": "png"
+        }
+    ]
+
+    # Texto plano como fallback
+    body_text = (
+        "¡Hola!\n\n"
+        "Tu alta en el AMPA Julián Nieto ha sido aprobada. Ya puedes acceder a tu cuenta:\n\n"
+        f"{login_url}\n\n"
+        "¡Bienvenido/a!"
     )
     return send_email_gmail_api(
         subject=subject,
-        body_text=body,
+        body_text=body_text,
+        body_html=body_html,
+        inline_images=inline_images,
         recipient=recipient_email,
         app_config=app_config,
     )

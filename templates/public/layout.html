@@ -342,14 +342,14 @@
                 {{ header_login_form.csrf_token(id="csrf_header_login") }}
                 <div class="private-field">
                     {{ header_login_form.email.label }}
-                    {{ header_login_form.email(placeholder="correo@ejemplo.com", autocomplete="email") }}
+                    {{ header_login_form.email(id="header_email", placeholder="correo@ejemplo.com", autocomplete="email") }}
                 </div>
                 <div class="private-field">
                     {{ header_login_form.password.label }}
-                    {{ header_login_form.password(placeholder="Tu contraseña", autocomplete="current-password") }}
+                    {{ header_login_form.password(id="header_password", placeholder="Tu contraseña", autocomplete="current-password") }}
                 </div>
                 <label class="private-remember">
-                    {{ header_login_form.remember_me() }}
+                    {{ header_login_form.remember_me(id="header_remember_me") }}
                     <span>{{ header_login_form.remember_me.label.text }}</span>
                 </label>
                 {{ header_login_form.submit(class_="btn-primary full", id="submit-header-login") }}

@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from flask_login import login_required, current_user, login_user, logout_user
 from datetime import datetime, timedelta
 import secrets
+import re
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
@@ -64,7 +65,7 @@ def _user_is_commission_coordinator(membership: CommissionMembership | None) -> 
 @members_bp.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for("members.dashboard"))
+        return redirect(url_for("public.home"))
     form = LoginForm()
     if form.validate_on_submit():
         lookup_email = make_lookup_hash(form.email.data)
@@ -76,15 +77,17 @@ def login():
             if not user.email_verified:
                 flash("Debes verificar tu correo antes de iniciar sesión.", "warning")
                 return render_template("members/login.html", form=form)
-            if not user.registration_approved:
-                flash("Tu alta está pendiente de aprobación.", "info")
-                return render_template("members/login.html", form=form)
 
             login_user(user, remember=form.remember_me.data)
             user.last_login = datetime.utcnow()
             db.session.commit()
+
+            if not user.registration_approved:
+                flash("Tu alta está pendiente de aprobación. Solo puedes acceder a tu perfil.", "info")
+                return redirect(url_for("public.home"))
+
             flash("Bienvenido de nuevo", "success")
-            return redirect(url_for("members.dashboard"))
+            return redirect(url_for("public.home"))
         flash("Credenciales inválidas", "danger")
     return render_template("members/login.html", form=form)
 
@@ -92,18 +95,116 @@ def login():
 @members_bp.route("/register", methods=["GET", "POST"])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for("members.dashboard"))
+        if request.is_json:
+            return jsonify({"ok": False, "message": "Ya has iniciado sesión."}), 400
+        return redirect(url_for("public.home"))
 
     if Permission.supports_public_flag():
         try:
             is_public = db.session.query(Permission.is_public).filter_by(key="public_registration").scalar()
             if is_public is False:
+                if request.is_json:
+                    return jsonify({"ok": False, "message": "El registro de socios está cerrado temporalmente."}), 403
                 flash("El registro de socios está cerrado temporalmente.", "info")
                 return redirect(url_for("public.home"))
         except Exception:
             pass
 
     form = RegisterForm()
+
+    # Manejo de solicitud AJAX (JSON o XMLHttpRequest)
+    if (request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest") and request.method == "POST":
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form
+
+        first_name = (data.get("first_name") or "").strip()
+        last_name = (data.get("last_name") or "").strip()
+        email = (data.get("email") or "").strip().lower()
+        phone_number = (data.get("phone_number") or "").strip()
+        privacy_accepted = data.get("privacy_accepted")
+
+        if not all([first_name, last_name, email, privacy_accepted]):
+            return jsonify({"ok": False, "message": "Faltan campos obligatorios o no se ha aceptado la política de privacidad."}), 400
+
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+            return jsonify({"ok": False, "message": "El formato del email no es válido."}), 400
+
+        from app.services.mail_service import (
+            send_member_verification_email,
+            send_new_member_registration_notification_to_ampa,
+        )
+
+        lookup_email = make_lookup_hash(email)
+        existing_user = User.query.filter_by(email_lookup=lookup_email).first()
+
+        if existing_user:
+            if existing_user.is_active and not existing_user.email_verified:
+                token = generate_email_verification_token(existing_user.id, existing_user.email_lookup)
+                verify_url = url_for("public.verify_email", token=token, _external=True)
+                send_member_verification_email(
+                    recipient_email=existing_user.email,
+                    verify_url=verify_url,
+                    app_config=current_app.config,
+                )
+            return jsonify({
+                "ok": True,
+                "message": "Si el correo es válido, recibirás un enlace de verificación. Revisa tu bandeja de entrada."
+            })
+
+        ensure_roles_and_permissions(DEFAULT_ROLE_NAMES)
+        role = Role.query.filter_by(name_lookup=normalize_lookup("socio")).first()
+        if not role:
+            role = Role(name="Socio")
+            db.session.add(role)
+            db.session.commit()
+
+        user = User(
+            username=email,
+            email=email,
+            role=role,
+            first_name=first_name,
+            last_name=last_name,
+            phone_number=phone_number or None,
+            email_verified=False,
+            registration_approved=False,
+            privacy_accepted_at=datetime.utcnow(),
+            privacy_version=str(data.get("privacy_version", current_app.config.get("PRIVACY_POLICY_VERSION", "1"))),
+        )
+        user.set_password(secrets.token_urlsafe(32))
+        db.session.add(user)
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            return jsonify({
+                "ok": True,
+                "message": "Si el correo es válido, recibirás un enlace de verificación. Revisa tu bandeja de entrada."
+            })
+
+        token = generate_email_verification_token(user.id, user.email_lookup)
+        verify_url = url_for("public.verify_email", token=token, _external=True)
+        verification_result = send_member_verification_email(
+            recipient_email=user.email,
+            verify_url=verify_url,
+            app_config=current_app.config,
+        )
+
+        full_name = f"{user.first_name} {user.last_name}".strip()
+        send_new_member_registration_notification_to_ampa(
+            member_name=full_name or "Socio",
+            member_email=user.email,
+            member_phone=user.phone_number,
+            app_config=current_app.config,
+        )
+
+        if verification_result.get("ok"):
+            return jsonify({"ok": True, "message": "Registro recibido. Hemos enviado un enlace de verificación a tu correo. Revisa tu bandeja de entrada."})
+        else:
+            return jsonify({"ok": True, "message": "Registro recibido, pero hubo un problema enviando el email de verificación. Contacta con el AMPA."})
+
+    # Fallback para GET o POST tradicional (aunque el JS ahora usa AJAX)
     if form.validate_on_submit():
         from app.services.mail_service import (
             send_member_verification_email,
@@ -118,21 +219,14 @@ def register():
             if existing_user.is_active and not existing_user.email_verified:
                 token = generate_email_verification_token(existing_user.id, existing_user.email_lookup)
                 verify_url = url_for("public.verify_email", token=token, _external=True)
-                result = send_member_verification_email(
+                send_member_verification_email(
                     recipient_email=existing_user.email,
                     verify_url=verify_url,
                     app_config=current_app.config,
                 )
-                if not result.get("ok"):
-                    current_app.logger.error(
-                        "Fallo reenviando verificación de email (registro) a %s: %s",
-                        existing_user.email,
-                        result.get("error"),
-                    )
             flash(
                 "Si el correo es valido, recibiras un enlace de verificacion. "
-                "Revisa tu bandeja de entrada y, si no aparece, el correo no deseado o spam. "
-                "Tu alta quedara pendiente de aprobacion.",
+                "Revisa tu bandeja de entrada y, si no aparece, el correo no deseado o spam.",
                 "info",
             )
             return redirect(url_for("members.login"))
@@ -163,9 +257,7 @@ def register():
         except IntegrityError:
             db.session.rollback()
             flash(
-                "Si el correo es valido, recibiras un enlace de verificacion. "
-                "Revisa tu bandeja de entrada y, si no aparece, el correo no deseado o spam. "
-                "Tu alta quedara pendiente de aprobacion.",
+                "Si el correo es valido, recibiras un enlace de verificacion.",
                 "info",
             )
             return redirect(url_for("members.login"))
@@ -177,37 +269,23 @@ def register():
             verify_url=verify_url,
             app_config=current_app.config,
         )
-        if not verification_result.get("ok"):
-            current_app.logger.error(
-                "Fallo enviando verificación de email a %s: %s",
-                user.email,
-                verification_result.get("error"),
-            )
 
         full_name = f"{(user.first_name or '').strip()} {(user.last_name or '').strip()}".strip()
-        notification_result = send_new_member_registration_notification_to_ampa(
+        send_new_member_registration_notification_to_ampa(
             member_name=full_name or "Socio",
             member_email=user.email,
             member_phone=user.phone_number,
             app_config=current_app.config,
         )
-        if not notification_result.get("ok"):
-            current_app.logger.error(
-                "Fallo enviando notificación interna de nuevo registro (AMPA): %s",
-                notification_result.get("error"),
-            )
 
         if verification_result.get("ok"):
             flash(
-                "Registro recibido. Hemos enviado un enlace de verificacion a tu correo. "
-                "Revisa tu bandeja de entrada y, si no aparece, el correo no deseado o spam. "
-                "Tu alta queda pendiente de aprobacion.",
+                "Registro recibido. Hemos enviado un enlace de verificacion a tu correo.",
                 "success",
             )
         else:
             flash(
-                "Registro recibido, pero no se pudo enviar el enlace de verificación por email. "
-                "Inténtalo de nuevo más tarde (reenviar verificación) o contacta con el AMPA.",
+                "Registro recibido, pero no se pudo enviar el enlace de verificación.",
                 "danger",
             )
         return redirect(url_for("members.login"))
@@ -242,16 +320,16 @@ def mi_cuenta():
         current_user.phone_number = (phone_form.phone_number.data or "").strip() or None
         db.session.commit()
         flash("Teléfono actualizado.", "success")
-        return redirect(url_for("members.mi_cuenta"))
+        return redirect(url_for("public.home"))
 
     if password_form.submit_password.data and password_form.validate_on_submit():
         if not current_user.check_password(password_form.current_password.data):
             flash("Contraseña actual incorrecta.", "danger")
-            return redirect(url_for("members.mi_cuenta"))
+            return redirect(url_for("public.home"))
         current_user.set_password(password_form.new_password.data)
         db.session.commit()
         flash("Contraseña actualizada.", "success")
-        return redirect(url_for("members.mi_cuenta"))
+        return redirect(url_for("public.home"))
 
     return render_template(
         "members/mi_cuenta.html",

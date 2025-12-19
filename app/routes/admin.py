@@ -29,6 +29,10 @@ from app.models import (
     _generate_unique_event_slug,
     _generate_unique_commission_slug,
 )
+from app.services.mail_service import (
+    send_member_deactivation_email,
+    send_member_reactivation_email
+)
 from app.forms import (
     PostForm,
     EventForm,
@@ -739,8 +743,7 @@ def _require_manage_members() -> None:
 @login_required
 def aprobar_usuario(user_id: int):
     _require_manage_members()
-    from app.services.mail_service import send_set_password_email
-    from app.utils import generate_set_password_token
+    from app.services.mail_service import send_member_approval_email
 
     user = User.query.get_or_404(user_id)
     if not user.registration_approved:
@@ -749,18 +752,15 @@ def aprobar_usuario(user_id: int):
         user.approved_by_id = current_user.id
         db.session.commit()
 
-    token = generate_set_password_token(user.id, user.password_hash)
-    set_password_url = url_for("public.set_password", token=token, _external=True)
-    result = send_set_password_email(
+    result = send_member_approval_email(
         recipient_email=user.email,
-        set_password_url=set_password_url,
         app_config=current_app.config,
     )
     if result.get("ok"):
-        flash("Alta aprobada. Se ha enviado el enlace para establecer contraseña.", "success")
+        flash("Alta aprobada. Se ha enviado el correo de bienvenida.", "success")
     else:
         flash(
-            "Alta aprobada, pero no se pudo enviar el correo. Puedes reenviarlo desde esta pantalla.",
+            "Alta aprobada, pero no se pudo enviar el correo de bienvenida. Puedes reenviarlo desde esta pantalla.",
             "warning",
         )
     return redirect(url_for("admin.usuarios"))
@@ -797,7 +797,24 @@ def cambiar_estado_usuario(user_id: int):
         return redirect(url_for("admin.usuarios"))
 
     user = User.query.get_or_404(user_id)
+    old_status = user.is_active
     user.is_active = bool(is_active)
+
+    if old_status and not user.is_active:
+        # Deactivating
+        user.deactivated_at = datetime.utcnow()
+        send_member_deactivation_email(
+            recipient_email=user.email,
+            app_config=current_app.config
+        )
+    elif not old_status and user.is_active:
+        # Reactivating
+        user.deactivated_at = None
+        send_member_reactivation_email(
+            recipient_email=user.email,
+            app_config=current_app.config
+        )
+
     db.session.commit()
     flash("Estado actualizado.", "success")
     return redirect(url_for("admin.usuarios"))

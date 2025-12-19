@@ -297,6 +297,11 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn-primary btn-mini btn-danger">Eliminar socio</button>
                   </form>
+                  {% if u.deletion_date %}
+                    <span class="btn-mini" style="display: inline-flex; align-items: center; background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 4px; font-weight: 500; cursor: default;">
+                      Eliminación automática: {{ u.deletion_date.strftime('%d/%m/%Y') }}
+                    </span>
+                  {% endif %}
                 {% endif %}
 
                 {% if u.registration_approved and u.is_active %}
