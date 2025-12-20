@@ -30,6 +30,7 @@ from app.forms import (
     UpdatePhoneForm,
     ChangePasswordForm,
     SuggestionForm,
+    CommissionDiscussionForm,
     CommentForm,
     VoteForm,
     CommissionMemberForm,
@@ -56,6 +57,35 @@ def _get_commission_and_membership(slug: str):
         commission_id=commission.id, user_id=current_user.id, is_active=True
     ).first()
     return commission, membership
+
+
+def _commission_discussion_commission_id(raw_category: str | None) -> int | None:
+    category = (raw_category or "").strip()
+    if not category.startswith("comision:"):
+        return None
+    raw_id = category.split(":", 1)[1].strip()
+    try:
+        return int(raw_id)
+    except ValueError:
+        return None
+
+
+def _ensure_can_access_commission_discussion(suggestion: Suggestion) -> None:
+    commission_id = _commission_discussion_commission_id(getattr(suggestion, "category", None))
+    if commission_id is None:
+        return
+
+    membership = CommissionMembership.query.filter_by(
+        commission_id=commission_id, user_id=current_user.id, is_active=True
+    ).first()
+    can_view_commission = (
+        bool(membership)
+        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    if not can_view_commission:
+        abort(403)
 
 
 def _user_is_commission_coordinator(membership: CommissionMembership | None) -> bool:
@@ -493,10 +523,42 @@ def sugerencias():
     page = request.args.get("page", 1, type=int)
     suggestions = (
         Suggestion.query.filter_by(status=status)
+        .filter(~Suggestion.category.like("comision:%"))
         .order_by(Suggestion.votes_count.desc())
         .paginate(page=page, per_page=5)
     )
     return render_template("members/sugerencias.html", suggestions=suggestions, status=status)
+
+
+@members_bp.route("/comisiones/<slug>/discusiones/nueva", methods=["GET", "POST"])
+@login_required
+def commission_discussion_new(slug: str):
+    commission, membership = _get_commission_and_membership(slug)
+    can_view_commission = (
+        bool(membership)
+        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    if not can_view_commission:
+        abort(403)
+    if not current_user.has_permission("create_suggestions"):
+        abort(403)
+
+    form = CommissionDiscussionForm()
+    if form.validate_on_submit():
+        suggestion = Suggestion(
+            title=form.title.data,
+            body_html=form.body.data,
+            category=f"comision:{commission.id}",
+            created_by=current_user.id,
+        )
+        db.session.add(suggestion)
+        db.session.commit()
+        flash("Discusión creada", "success")
+        return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion.id))
+
+    return render_template("members/comision_discusion_form.html", form=form, commission=commission)
 
 
 @members_bp.route("/sugerencias/nueva", methods=["GET", "POST"])
@@ -525,6 +587,7 @@ def detalle_sugerencia(suggestion_id: int):
     if not current_user.has_permission("view_suggestions"):
         abort(403)
     suggestion = Suggestion.query.get_or_404(suggestion_id)
+    _ensure_can_access_commission_discussion(suggestion)
     comment_form = CommentForm()
     vote_form = VoteForm()
     user_vote = suggestion.votes.filter_by(user_id=current_user.id).first()
@@ -553,6 +616,7 @@ def comentar_sugerencia(suggestion_id: int):
     if not current_user.has_permission("comment_suggestions"):
         abort(403)
     suggestion = Suggestion.query.get_or_404(suggestion_id)
+    _ensure_can_access_commission_discussion(suggestion)
     form = CommentForm()
     if form.validate_on_submit():
         parent_id = request.form.get("parent_id")
@@ -574,6 +638,7 @@ def votar_sugerencia(suggestion_id: int):
     if not current_user.has_permission("vote_suggestions"):
         abort(403)
     suggestion = Suggestion.query.get_or_404(suggestion_id)
+    _ensure_can_access_commission_discussion(suggestion)
     if suggestion.status == "cerrada":
         message = "El hilo está cerrado; no se pueden registrar votos nuevos."
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":

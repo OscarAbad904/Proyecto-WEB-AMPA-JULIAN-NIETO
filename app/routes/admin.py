@@ -339,16 +339,88 @@ def commissions_index():
         abort(403)
 
     commissions = Commission.query.order_by(Commission.created_at.desc()).all()
-    stats = {}
+    stats: dict[int, dict[str, object]] = {}
     now_dt = datetime.utcnow()
+    active_project_statuses = ("pendiente", "en_progreso")
+
     for commission in commissions:
+        members_count = (
+            commission.memberships.join(User)
+            .filter(
+                CommissionMembership.is_active.is_(True),
+                User.is_active.is_(True),
+                User.deleted_at.is_(None),
+            )
+            .count()
+        )
+        active_projects_count = commission.projects.filter(CommissionProject.status.in_(active_project_statuses)).count()
+        next_meeting = (
+            commission.meetings.filter(CommissionMeeting.start_at >= now_dt)
+            .order_by(CommissionMeeting.start_at.asc())
+            .first()
+        )
+
         stats[commission.id] = {
-            "miembros": commission.memberships.filter_by(is_active=True).count(),
-            "proyectos": commission.projects.count(),
-            "proximas_reuniones": commission.meetings.filter(CommissionMeeting.start_at >= now_dt).count(),
+            "miembros": members_count,
+            "proyectos_activos": active_projects_count,
+            "proxima_reunion": next_meeting,
         }
 
     return render_template("admin/comisiones.html", commissions=commissions, stats=stats)
+
+
+@admin_bp.route("/comisiones/<int:commission_id>")
+@login_required
+def commission_detail(commission_id: int):
+    can_view_commissions_admin = (
+        current_user.has_permission("manage_commissions")
+        or current_user.has_permission("view_commissions")
+        or user_is_privileged(current_user)
+    )
+    if not can_view_commissions_admin:
+        abort(403)
+
+    commission = Commission.query.get_or_404(commission_id)
+    now_dt = datetime.utcnow()
+    active_project_statuses = ("pendiente", "en_progreso")
+
+    members_count = (
+        commission.memberships.join(User)
+        .filter(
+            CommissionMembership.is_active.is_(True),
+            User.is_active.is_(True),
+            User.deleted_at.is_(None),
+        )
+        .count()
+    )
+    active_projects = (
+        commission.projects.filter(CommissionProject.status.in_(active_project_statuses))
+        .order_by(CommissionProject.created_at.desc())
+        .all()
+    )
+    next_meeting = (
+        commission.meetings.filter(CommissionMeeting.start_at >= now_dt)
+        .order_by(CommissionMeeting.start_at.asc())
+        .first()
+    )
+    discussions = (
+        Suggestion.query.filter(
+            Suggestion.category == f"comision:{commission.id}",
+            Suggestion.status.in_(("pendiente", "aprobada")),
+        )
+        .order_by(Suggestion.updated_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    return render_template(
+        "admin/comision_detalle.html",
+        commission=commission,
+        members_count=members_count,
+        active_projects=active_projects,
+        next_meeting=next_meeting,
+        discussions=discussions,
+    )
 
 
 @admin_bp.route("/comisiones/nueva", methods=["GET", "POST"])
@@ -746,15 +818,27 @@ def usuarios():
     roles = Role.query.order_by(Role.name_lookup.asc()).all()
     pending_users = (
         User.query.filter_by(registration_approved=False)
+        .filter(User.deleted_at.is_(None))
         .order_by(User.created_at.desc().nullslast(), User.id.desc())
         .all()
     )
-    all_users = User.query.order_by(User.created_at.desc().nullslast(), User.id.desc()).all()
+    all_users = (
+        User.query.filter(User.deleted_at.is_(None))
+        .order_by(User.created_at.desc().nullslast(), User.id.desc())
+        .all()
+    )
+
+    deleted_users = (
+        User.query.filter(User.deleted_at.isnot(None))
+        .order_by(User.deleted_at.desc().nullslast(), User.id.desc())
+        .all()
+    )
 
     return render_template(
         "admin/usuarios.html",
         pending_users=pending_users,
         users=all_users,
+        deleted_users=deleted_users,
         roles=roles,
         can_manage_members=can_manage,
     )
@@ -990,6 +1074,7 @@ def actualizar_datos_usuario(user_id: int):
     first_name = (request.form.get("first_name") or "").strip()
     last_name = (request.form.get("last_name") or "").strip()
     phone_number = (request.form.get("phone_number") or "").strip()
+    role_id = request.form.get("role_id", type=int)
 
     errors: list[str] = []
     if not (2 <= len(first_name) <= 64):
@@ -998,6 +1083,10 @@ def actualizar_datos_usuario(user_id: int):
         errors.append("Los apellidos deben tener entre 2 y 64 caracteres.")
     if phone_number and not (6 <= len(phone_number) <= 32):
         errors.append("El teléfono debe tener entre 6 y 32 caracteres.")
+    if role_id:
+        role = Role.query.get(role_id)
+        if not role:
+            errors.append("Rol no encontrado.")
 
     if errors:
         for message in errors:
@@ -1007,6 +1096,8 @@ def actualizar_datos_usuario(user_id: int):
     user.first_name = first_name
     user.last_name = last_name
     user.phone_number = phone_number or None
+    if role_id:
+        user.role_id = role_id
     db.session.commit()
     flash("Datos de usuario actualizados.", "success")
     return redirect(url_for("admin.usuarios"))

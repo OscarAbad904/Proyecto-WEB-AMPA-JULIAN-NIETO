@@ -62,7 +62,8 @@
     }
     .user-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
     .user-edit-grid label { text-align: left; display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; font-weight: 700; color: #334155; }
-    .user-edit-grid input { width: 100%; border-radius: 0.65rem; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; padding: 0.45rem 0.6rem; font-size: 0.92rem; }
+    .user-edit-grid input,
+    .user-edit-grid select { width: 100%; border-radius: 0.65rem; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; padding: 0.45rem 0.6rem; font-size: 0.92rem; }
     .user-edit-actions { margin-top: 0.75rem; display: flex; justify-content: flex-end; gap: 0.5rem; }
 
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
@@ -106,7 +107,8 @@
     .user-modal-grid { margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     .user-modal-card { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 1rem; padding: 0.9rem; }
     .user-modal-card h3 { margin: 0 0 0.65rem; font-size: 0.9rem; letter-spacing: 0.08em; text-transform: uppercase; color: #475569; }
-    .user-modal-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .user-modal-actions { display: flex; flex-wrap: nowrap; gap: 0.4rem; align-items: center; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+    .user-modal-actions > * { flex: 0 0 auto; }
     .user-modal-actions .btn-primary { width: auto; }
 
     .user-edit-form { margin-top: 0; }
@@ -261,6 +263,45 @@
       </div>
       <p class="muted" id="users-table-empty" style="display:none; margin: 0.75rem 0 0;">No hay coincidencias para la búsqueda.</p>
     </div>
+
+    <div class="admin-card" style="max-width: 1100px; margin: 1.25rem auto 0;">
+      <h2 style="margin: 0 0 0.5rem;">Socios eliminados</h2>
+      <p class="muted" style="margin: 0 0 1rem;">Socios marcados como eliminados (no aparecen en la lista principal).</p>
+
+      {% if deleted_users %}
+        <div class="table-responsive">
+          <table class="admin-table" id="deleted-users-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Teléfono</th>
+                <th>Rol</th>
+                <th>Eliminado el</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for u in deleted_users %}
+                <tr data-user-search="{{ (u.first_name or '') ~ ' ' ~ (u.last_name or '') ~ ' ' ~ (u.email or '') ~ ' ' ~ (u.phone_number or '') ~ ' ' ~ (u.role.name if u.role else '') }}">
+                  <td>{{ (u.first_name or '') ~ ' ' ~ (u.last_name or '') }}</td>
+                  <td>{{ u.email }}</td>
+                  <td>{{ u.phone_number or '' }}</td>
+                  <td>{{ u.role.name if u.role else '' }}</td>
+                  <td>
+                    {% if u.deleted_at %}
+                      {{ u.deleted_at.strftime('%d/%m/%Y %H:%M') }}
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="muted" id="deleted-users-empty" style="display:none; margin: 0.75rem 0 0;">No hay coincidencias para la búsqueda.</p>
+      {% else %}
+        <p class="muted" style="margin: 0;">No hay socios eliminados.</p>
+      {% endif %}
+    </div>
   </section>
 
   {% if can_manage_members %}
@@ -273,7 +314,7 @@
           <p class="user-modal-subtitle">{{ (u.first_name or '') ~ ' ' ~ (u.last_name or '') }} &middot; {{ u.email }}</p>
 
           <div class="user-modal-grid">
-            <div class="user-modal-card">
+            <div class="user-modal-card" style="grid-column: 1 / -1;">
               <h3>Opciones</h3>
               <div class="user-modal-actions">
                 {% if not u.email_verified %}
@@ -337,23 +378,6 @@
               </div>
             </div>
 
-            <div class="user-modal-card">
-              <h3>Rol</h3>
-              {% if roles %}
-                <form method="post" action="{{ url_for('admin.cambiar_rol_usuario', user_id=u.id) }}" class="user-actions" style="gap: 0.5rem;">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <select name="role_id" aria-label="Rol">
-                    {% for role in roles %}
-                      <option value="{{ role.id }}" {% if u.role_id == role.id %}selected{% endif %}>{{ role.name }}</option>
-                    {% endfor %}
-                  </select>
-                  <button type="submit" class="btn-primary btn-mini">Guardar rol</button>
-                </form>
-              {% else %}
-                <p class="muted" style="margin:0;">No hay roles disponibles.</p>
-              {% endif %}
-            </div>
-
             <div class="user-modal-card" style="grid-column: 1 / -1;">
               <h3>Correo</h3>
               <form method="post" action="{{ url_for('admin.actualizar_email_usuario', user_id=u.id) }}" class="user-edit-form">
@@ -384,9 +408,23 @@
                     Apellidos
                     <input name="last_name" value="{{ u.last_name or '' }}" maxlength="64" required>
                   </label>
-                  <label style="grid-column: 1 / -1;">
+                  <label>
                     Teléfono
                     <input name="phone_number" value="{{ u.phone_number or '' }}" maxlength="32" placeholder="(opcional)">
+                  </label>
+                  <label>
+                    Rol
+                    {% if roles %}
+                      <select name="role_id" aria-label="Rol">
+                        {% for role in roles %}
+                          <option value="{{ role.id }}" {% if u.role_id == role.id %}selected{% endif %}>{{ role.name }}</option>
+                        {% endfor %}
+                      </select>
+                    {% else %}
+                      <select name="role_id" aria-label="Rol" disabled>
+                        <option selected>No hay roles disponibles</option>
+                      </select>
+                    {% endif %}
                   </label>
                 </div>
                 <div class="user-edit-actions">
@@ -509,6 +547,8 @@
       const pendingEmpty = document.getElementById('pending-users-empty');
       const usersTable = document.getElementById('users-table');
       const usersEmpty = document.getElementById('users-table-empty');
+      const deletedTable = document.getElementById('deleted-users-table');
+      const deletedEmpty = document.getElementById('deleted-users-empty');
 
       function normalizeText(value) {
         return (value || '')
@@ -549,13 +589,19 @@
 
         const pendingRes = filterTable(pendingTable, pendingEmpty);
         const usersRes = filterTable(usersTable, usersEmpty);
+        const deletedRes = filterTable(deletedTable, deletedEmpty);
 
         if (countEl) {
           if (!rawQuery) {
             countEl.style.display = 'none';
           } else {
             countEl.style.display = '';
-            countEl.textContent = `Mostrando ${usersRes.visible} usuario(s)`;
+            const deletedVisible = deletedRes ? deletedRes.visible : 0;
+            if (deletedVisible) {
+              countEl.textContent = `Mostrando ${usersRes.visible} usuario(s) y ${deletedVisible} eliminado(s)`;
+            } else {
+              countEl.textContent = `Mostrando ${usersRes.visible} usuario(s)`;
+            }
           }
         }
       }

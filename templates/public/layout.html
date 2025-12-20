@@ -163,7 +163,7 @@
                         <a href="{{ url_for('admin.usuarios') }}" class="nav-link nav-link--with-badge{% if request.endpoint == 'admin.usuarios' %} active{% endif %}">Usuarios <span class="nav-badge" data-pending-users-badge style="display:none;"></span></a>
                         {% endif %}
                         {% if can_manage_commissions %}
-                        <a href="{{ url_for('admin.commissions_index') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('admin.commissions') %} active{% endif %}">Comisiones</a>
+                        <a href="{{ url_for('admin.commissions_index') }}" class="nav-link{% if request.endpoint and (request.endpoint.startswith('admin.commissions') or request.endpoint.startswith('admin.commission')) %} active{% endif %}">Comisiones</a>
                         {% endif %}
                          {% if can_manage_permissions %}
                          <a href="{{ url_for('admin.permissions') }}" class="nav-link{% if request.endpoint == 'admin.permissions' %} active{% endif %}">Permisos</a>
@@ -175,7 +175,14 @@
                          {% endif %}
                          <div class="nav-auth nav-auth-desktop">
                             {% if current_user.is_authenticated %}
-                            <span class="nav-user-name">Bienvenido, {{ current_user.username }}</span>
+                            {% set nav_display_name = (current_user.full_name or '') %}
+                            {% if not nav_display_name %}
+                              {% set nav_display_name = (current_user.username or '') %}
+                              {% if '@' in nav_display_name %}
+                                {% set nav_display_name = nav_display_name.split('@')[0] %}
+                              {% endif %}
+                            {% endif %}
+                            <span class="nav-user-name">Bienvenido, {{ nav_display_name }}</span>
                             <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout">Cerrar sesion</a>
                             {% else %}
                             <button type="button" class="nav-auth-btn" onclick="toggleLoginModal(true)">Login</button>
@@ -224,7 +231,7 @@
                     <a href="{{ url_for('admin.usuarios') }}" class="nav-link nav-link--with-badge{% if request.endpoint == 'admin.usuarios' %} active{% endif %}" onclick="toggleMobileMenu()">Usuarios <span class="nav-badge" data-pending-users-badge style="display:none;"></span></a>
                     {% endif %}
                     {% if can_manage_commissions %}
-                    <a href="{{ url_for('admin.commissions_index') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('admin.commissions') %} active{% endif %}" onclick="toggleMobileMenu()">Comisiones</a>
+                    <a href="{{ url_for('admin.commissions_index') }}" class="nav-link{% if request.endpoint and (request.endpoint.startswith('admin.commissions') or request.endpoint.startswith('admin.commission')) %} active{% endif %}" onclick="toggleMobileMenu()">Comisiones</a>
                     {% endif %}
                      {% if can_manage_permissions %}
                      <a href="{{ url_for('admin.permissions') }}" class="nav-link{% if request.endpoint == 'admin.permissions' %} active{% endif %}" onclick="toggleMobileMenu()">Permisos</a>
@@ -236,7 +243,14 @@
                      {% endif %}
                      <div class="mobile-auth">
                         {% if current_user.is_authenticated %}
-                        <span>Hola, {{ current_user.username }}</span>
+                        {% set nav_display_name = (current_user.full_name or '') %}
+                        {% if not nav_display_name %}
+                          {% set nav_display_name = (current_user.username or '') %}
+                          {% if '@' in nav_display_name %}
+                            {% set nav_display_name = nav_display_name.split('@')[0] %}
+                          {% endif %}
+                        {% endif %}
+                        <span>Hola, {{ nav_display_name }}</span>
                         <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout"
                             onclick="toggleMobileMenu()">Cerrar sesión</a>
                         {% else %}

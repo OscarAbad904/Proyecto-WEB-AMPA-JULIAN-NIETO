@@ -115,6 +115,12 @@ class SuggestionForm(FlaskForm):
     submit = SubmitField("Enviar sugerencia")
 
 
+class CommissionDiscussionForm(FlaskForm):
+    title = StringField("Título", validators=[DataRequired(), Length(max=255)])
+    body = TextAreaField("Detalle", validators=[DataRequired(), Length(min=10)])
+    submit = SubmitField("Abrir discusión")
+
+
 class CommentForm(FlaskForm):
     content = TextAreaField("Comentario", validators=[DataRequired(), Length(min=5)])
     submit = SubmitField("Comentar")

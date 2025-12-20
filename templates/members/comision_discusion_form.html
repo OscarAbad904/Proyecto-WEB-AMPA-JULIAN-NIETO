@@ -1,0 +1,62 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Nueva discusión · {{ commission.name }}{% endblock %}
+
+{% block head %}
+  <style>
+    .discussion-new { padding-top: 2.5rem; padding-bottom: 2.5rem; }
+    .discussion-shell { max-width: 900px; margin: 0 auto; }
+    .discussion-hero { display:flex; align-items:flex-start; justify-content:space-between; gap: 1rem; flex-wrap:wrap; margin-bottom: 1rem; }
+    .discussion-hero .eyebrow { letter-spacing: 0.08em; text-transform: uppercase; font-weight: 800; color: var(--color-accent-primary, #8b5cf6); }
+    .discussion-hero h1 { margin: 0.25rem 0 0; }
+    .discussion-hero p { margin: 0.45rem 0 0; color: var(--color-text-soft, #475569); max-width: 720px; }
+
+    .discussion-card { background: var(--color-panel, #ffffff); border: 1px solid var(--color-border, rgba(15, 23, 42, 0.08)); border-radius: 18px; box-shadow: var(--shadow-md, 0 14px 36px rgba(15, 23, 42, 0.12)); padding: 1.25rem; }
+    .discussion-form { display:grid; gap: 1rem; margin-top: 0.75rem; }
+    .field { display:flex; flex-direction:column; gap: 0.4rem; }
+    .field label { font-weight: 800; color: var(--color-text-base, #0f172a); }
+    .input-control { width:100%; border-radius: 14px; border:1px solid rgba(15, 23, 42, 0.14); padding: 0.85rem 0.95rem; font-size: 1rem; background: #ffffff; }
+    textarea.input-control { min-height: 160px; resize: vertical; }
+    .actions { display:flex; gap: 0.75rem; flex-wrap:wrap; align-items:center; margin-top: 0.25rem; }
+    .btn-ghost { display:inline-flex; align-items:center; justify-content:center; padding: 0.85rem 1.15rem; border-radius: 999px; border: 1px solid rgba(15, 23, 42, 0.14); background: rgba(255,255,255,0.7); color: var(--color-text-base, #0f172a); text-decoration:none; font-weight: 800; }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <section class="page-section discussion-new">
+    <div class="container discussion-shell">
+      <div class="discussion-hero">
+        <div>
+          <p class="eyebrow">Comisiones · {{ commission.name }}</p>
+          <h1 class="section-title">Nueva discusión</h1>
+          <p class="section-subtitle">Abre un hilo para debatir y votar dentro de la comisión.</p>
+        </div>
+        <div class="header-actions">
+          <a class="btn-ghost" href="{{ url_for('members.commission_detail', slug=commission.slug) }}">Volver a la comisión</a>
+        </div>
+      </div>
+
+      <div class="discussion-card">
+        <form method="post" class="discussion-form">
+          {{ form.hidden_tag() }}
+
+          <div class="field">
+            {{ form.title.label() }}
+            {{ form.title(class_="input-control", placeholder="Ej. Prioridad del próximo proyecto") }}
+          </div>
+
+          <div class="field">
+            {{ form.body.label() }}
+            {{ form.body(class_="input-control", rows="7", placeholder="Contexto, opciones y qué quieres que se vote...") }}
+          </div>
+
+          <div class="actions">
+            {{ form.submit(class_="btn-primary", style="width:auto;") }}
+            <a class="btn-ghost" href="{{ url_for('admin.commission_detail', commission_id=commission.id) }}">Volver al panel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
