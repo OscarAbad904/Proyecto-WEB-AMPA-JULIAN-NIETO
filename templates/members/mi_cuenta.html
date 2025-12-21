@@ -53,7 +53,7 @@
           </div>
           <div class="private-field">
             {{ password_form.new_password.label }}
-            {{ password_form.new_password(placeholder="Nueva contraseña", autocomplete="new-password") }}
+            {{ password_form.new_password(placeholder="Nueva contraseña", autocomplete="new-password", minlength="8") }}
             {% for error in password_form.new_password.errors %}
               <p class="form-error">{{ error }}</p>
             {% endfor %}
@@ -79,11 +79,18 @@
       const btnShow = document.getElementById('btn-show-password');
       const btnCancel = document.getElementById('btn-cancel-password');
       const form = document.getElementById('password-form');
+      const newPasswordInput = document.getElementById('new_password');
+      const newPasswordConfirmInput = document.getElementById('new_password_confirm');
 
       if (btnShow && form) {
         btnShow.addEventListener('click', function() {
           form.style.display = 'block';
           btnShow.style.display = 'none';
+
+          // Si el navegador autocompleta al mostrar, re-evaluar.
+          updateNewPasswordValidity();
+          updateNewPasswordConfirmValidity();
+          recheckSoon();
         });
       }
 
@@ -101,6 +108,56 @@
           btnShow.style.display = 'none';
         }
       {% endif %}
+
+      function updateNewPasswordValidity() {
+        if (!newPasswordInput) return;
+        const ok = newPasswordInput.value.length >= 8;
+        newPasswordInput.classList.toggle('input-valid', ok);
+      }
+
+      function updateNewPasswordConfirmValidity() {
+        if (!newPasswordInput || !newPasswordConfirmInput) return;
+        const passwordOk = newPasswordInput.value.length >= 8;
+        const matchOk = newPasswordConfirmInput.value.length > 0 && newPasswordConfirmInput.value === newPasswordInput.value;
+        newPasswordConfirmInput.classList.toggle('input-valid', passwordOk && matchOk);
+      }
+
+      function recheckSoon() {
+        setTimeout(function () {
+          updateNewPasswordValidity();
+          updateNewPasswordConfirmValidity();
+        }, 0);
+        setTimeout(function () {
+          updateNewPasswordValidity();
+          updateNewPasswordConfirmValidity();
+        }, 150);
+        setTimeout(function () {
+          updateNewPasswordValidity();
+          updateNewPasswordConfirmValidity();
+        }, 600);
+      }
+
+      if (newPasswordInput) {
+        const onPasswordChange = function () {
+          updateNewPasswordValidity();
+          updateNewPasswordConfirmValidity();
+        };
+        newPasswordInput.addEventListener('input', onPasswordChange);
+        newPasswordInput.addEventListener('keyup', onPasswordChange);
+        newPasswordInput.addEventListener('change', onPasswordChange);
+        newPasswordInput.addEventListener('blur', onPasswordChange);
+      }
+
+      if (newPasswordConfirmInput) {
+        newPasswordConfirmInput.addEventListener('input', updateNewPasswordConfirmValidity);
+        newPasswordConfirmInput.addEventListener('keyup', updateNewPasswordConfirmValidity);
+        newPasswordConfirmInput.addEventListener('change', updateNewPasswordConfirmValidity);
+        newPasswordConfirmInput.addEventListener('blur', updateNewPasswordConfirmValidity);
+      }
+
+      updateNewPasswordValidity();
+      updateNewPasswordConfirmValidity();
+      recheckSoon();
     });
   </script>
 {% endblock %}

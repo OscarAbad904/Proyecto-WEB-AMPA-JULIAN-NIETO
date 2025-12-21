@@ -3,6 +3,7 @@ from flask_login import login_required, current_user, login_user, logout_user
 from datetime import datetime, timedelta
 import secrets
 import re
+from urllib.parse import urlparse
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
@@ -70,6 +71,74 @@ def _commission_discussion_commission_id(raw_category: str | None) -> int | None
         return None
 
 
+def _project_discussion_project_id(raw_category: str | None) -> int | None:
+    category = (raw_category or "").strip()
+    if not category.startswith("proyecto:"):
+        return None
+    raw_id = category.split(":", 1)[1].strip()
+    try:
+        return int(raw_id)
+    except ValueError:
+        return None
+
+
+def _safe_return_to(raw_value: str | None) -> str | None:
+    if not raw_value:
+        return None
+    value = raw_value.strip()
+    if not value.startswith("/"):
+        return None
+    parsed = urlparse(value)
+    if parsed.scheme or parsed.netloc:
+        return None
+    return value
+
+
+def _discussion_back_target(suggestion: Suggestion, return_to: str | None = None):
+    """Devuelve (back_url, back_label, breadcrumb) para el detalle de una discusión."""
+    category = (getattr(suggestion, "category", None) or "").strip()
+
+    commission_id = _commission_discussion_commission_id(category)
+    if commission_id is not None:
+        commission = Commission.query.get(commission_id)
+        if commission and commission.slug:
+            if return_to:
+                return (
+                    return_to,
+                    "Volver a la comisión",
+                    f"Administración · Comisión · {commission.name} · Discusiones · {suggestion.title}",
+                )
+            return (
+                url_for("members.commission_detail", slug=commission.slug),
+                "Volver a la comisión",
+                f"Área privada · Comisión · {commission.name} · Discusiones · {suggestion.title}",
+            )
+
+    project_id = _project_discussion_project_id(category)
+    if project_id is not None:
+        project = CommissionProject.query.get(project_id)
+        if project:
+            commission = Commission.query.get(getattr(project, "commission_id", None))
+            if commission and commission.slug:
+                if return_to:
+                    return (
+                        return_to,
+                        "Volver al proyecto",
+                        f"Administración · Proyecto · {project.title} · Discusiones · {suggestion.title}",
+                    )
+                return (
+                    url_for("members.commission_project_detail", slug=commission.slug, project_id=project.id),
+                    "Volver al proyecto",
+                    f"Área privada · Proyecto · {project.title} · Discusiones · {suggestion.title}",
+                )
+
+    return (
+        url_for("members.sugerencias"),
+        "Volver a sugerencias",
+        f"Área privada · Foro de sugerencias · {suggestion.title}",
+    )
+
+
 def _ensure_can_access_commission_discussion(suggestion: Suggestion) -> None:
     commission_id = _commission_discussion_commission_id(getattr(suggestion, "category", None))
     if commission_id is None:
@@ -86,6 +155,33 @@ def _ensure_can_access_commission_discussion(suggestion: Suggestion) -> None:
     )
     if not can_view_commission:
         abort(403)
+
+
+def _ensure_can_access_project_discussion(suggestion: Suggestion) -> None:
+    project_id = _project_discussion_project_id(getattr(suggestion, "category", None))
+    if project_id is None:
+        return
+
+    project = CommissionProject.query.get(project_id)
+    if not project:
+        abort(404)
+
+    membership = CommissionMembership.query.filter_by(
+        commission_id=project.commission_id, user_id=current_user.id, is_active=True
+    ).first()
+    can_view_commission = (
+        bool(membership)
+        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    if not can_view_commission:
+        abort(403)
+
+
+def _ensure_can_access_scoped_discussion(suggestion: Suggestion) -> None:
+    _ensure_can_access_commission_discussion(suggestion)
+    _ensure_can_access_project_discussion(suggestion)
 
 
 def _user_is_commission_coordinator(membership: CommissionMembership | None) -> bool:
@@ -523,7 +619,10 @@ def sugerencias():
     page = request.args.get("page", 1, type=int)
     suggestions = (
         Suggestion.query.filter_by(status=status)
-        .filter(~Suggestion.category.like("comision:%"))
+        .filter(
+            ~Suggestion.category.like("comision:%"),
+            ~Suggestion.category.like("proyecto:%"),
+        )
         .order_by(Suggestion.votes_count.desc())
         .paginate(page=page, per_page=5)
     )
@@ -545,6 +644,8 @@ def commission_discussion_new(slug: str):
     if not current_user.has_permission("create_suggestions"):
         abort(403)
 
+    return_to = _safe_return_to(request.args.get("return_to"))
+
     form = CommissionDiscussionForm()
     if form.validate_on_submit():
         suggestion = Suggestion(
@@ -556,9 +657,22 @@ def commission_discussion_new(slug: str):
         db.session.add(suggestion)
         db.session.commit()
         flash("Discusión creada", "success")
-        return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion.id))
+        return redirect(
+            url_for(
+                "members.detalle_sugerencia",
+                suggestion_id=suggestion.id,
+                return_to=return_to,
+            )
+            if return_to
+            else url_for("members.detalle_sugerencia", suggestion_id=suggestion.id)
+        )
 
-    return render_template("members/comision_discusion_form.html", form=form, commission=commission)
+    return render_template(
+        "members/comision_discusion_form.html",
+        form=form,
+        commission=commission,
+        return_to=return_to,
+    )
 
 
 @members_bp.route("/sugerencias/nueva", methods=["GET", "POST"])
@@ -587,7 +701,9 @@ def detalle_sugerencia(suggestion_id: int):
     if not current_user.has_permission("view_suggestions"):
         abort(403)
     suggestion = Suggestion.query.get_or_404(suggestion_id)
-    _ensure_can_access_commission_discussion(suggestion)
+    _ensure_can_access_scoped_discussion(suggestion)
+    return_to = _safe_return_to(request.args.get("return_to"))
+    back_url, back_label, breadcrumb = _discussion_back_target(suggestion, return_to=return_to)
     comment_form = CommentForm()
     vote_form = VoteForm()
     user_vote = suggestion.votes.filter_by(user_id=current_user.id).first()
@@ -607,6 +723,9 @@ def detalle_sugerencia(suggestion_id: int):
         likes_count=likes_count,
         dislikes_count=dislikes_count,
         is_closed=is_closed,
+        back_url=back_url,
+        back_label=back_label,
+        breadcrumb=breadcrumb,
     )
 
 
@@ -616,7 +735,7 @@ def comentar_sugerencia(suggestion_id: int):
     if not current_user.has_permission("comment_suggestions"):
         abort(403)
     suggestion = Suggestion.query.get_or_404(suggestion_id)
-    _ensure_can_access_commission_discussion(suggestion)
+    _ensure_can_access_scoped_discussion(suggestion)
     form = CommentForm()
     if form.validate_on_submit():
         parent_id = request.form.get("parent_id")
@@ -638,7 +757,7 @@ def votar_sugerencia(suggestion_id: int):
     if not current_user.has_permission("vote_suggestions"):
         abort(403)
     suggestion = Suggestion.query.get_or_404(suggestion_id)
-    _ensure_can_access_commission_discussion(suggestion)
+    _ensure_can_access_scoped_discussion(suggestion)
     if suggestion.status == "cerrada":
         message = "El hilo está cerrado; no se pueden registrar votos nuevos."
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -750,6 +869,16 @@ def commission_detail(slug: str):
         .all()
     )
     projects = commission.projects.order_by(CommissionProject.created_at.desc()).all()
+
+    commission_discussions = (
+        Suggestion.query.filter(
+            Suggestion.category == f"comision:{commission.id}",
+            Suggestion.status.in_(("pendiente", "aprobada")),
+        )
+        .order_by(Suggestion.updated_at.desc())
+        .limit(20)
+        .all()
+    )
     now_dt = datetime.utcnow()
     upcoming_meetings = (
         commission.meetings.filter(CommissionMeeting.end_at >= now_dt)
@@ -767,6 +896,7 @@ def commission_detail(slug: str):
     can_manage_projects = _commission_can_manage(membership, "projects") or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
     can_manage_meetings = _commission_can_manage(membership, "meetings") or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
     can_edit_commission = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+    can_create_discussions = current_user.has_permission("create_suggestions")
 
     return render_template(
         "members/comision_detalle.html",
@@ -774,6 +904,7 @@ def commission_detail(slug: str):
         membership=membership,
         members=members,
         projects=projects,
+        commission_discussions=commission_discussions,
         upcoming_meetings=upcoming_meetings,
         past_meetings=past_meetings,
         is_coordinator=is_coordinator,
@@ -781,6 +912,126 @@ def commission_detail(slug: str):
         can_manage_projects=can_manage_projects,
         can_manage_meetings=can_manage_meetings,
         can_edit_commission=can_edit_commission,
+        can_create_discussions=can_create_discussions,
+    )
+
+
+@members_bp.route("/comisiones/<slug>/proyectos/<int:project_id>")
+@login_required
+def commission_project_detail(slug: str, project_id: int):
+    commission, membership = _get_commission_and_membership(slug)
+    return_to = _safe_return_to(request.args.get("return_to"))
+    can_view_commission = (
+        bool(membership)
+        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    if not can_view_commission:
+        abort(403)
+
+    project = CommissionProject.query.filter_by(id=project_id, commission_id=commission.id).first_or_404()
+
+    project_discussions = (
+        Suggestion.query.filter(
+            Suggestion.category == f"proyecto:{project.id}",
+            Suggestion.status.in_(("pendiente", "aprobada")),
+        )
+        .order_by(Suggestion.updated_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    can_create_discussions = current_user.has_permission("create_suggestions")
+    can_manage_projects = (
+        _commission_can_manage(membership, "projects")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+
+    if return_to:
+        back_url = return_to
+        back_label = "Volver al panel"
+    else:
+        back_url = url_for("members.commission_detail", slug=commission.slug)
+        back_label = "Volver a la comisión"
+
+    project_self_url = url_for(
+        "members.commission_project_detail",
+        slug=commission.slug,
+        project_id=project.id,
+        return_to=return_to,
+    )
+
+    return render_template(
+        "members/comision_proyecto_detalle.html",
+        commission=commission,
+        project=project,
+        membership=membership,
+        project_discussions=project_discussions,
+        can_create_discussions=can_create_discussions,
+        can_manage_projects=can_manage_projects,
+        return_to=return_to,
+        back_url=back_url,
+        back_label=back_label,
+        project_self_url=project_self_url,
+    )
+
+
+@members_bp.route(
+    "/comisiones/<slug>/proyectos/<int:project_id>/discusiones/nueva",
+    methods=["GET", "POST"],
+)
+@login_required
+def project_discussion_new(slug: str, project_id: int):
+    commission, membership = _get_commission_and_membership(slug)
+    return_to = _safe_return_to(request.args.get("return_to"))
+    can_view_commission = (
+        bool(membership)
+        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    if not can_view_commission:
+        abort(403)
+    if not current_user.has_permission("create_suggestions"):
+        abort(403)
+
+    project = CommissionProject.query.filter_by(id=project_id, commission_id=commission.id).first_or_404()
+
+    project_self_url = url_for(
+        "members.commission_project_detail",
+        slug=commission.slug,
+        project_id=project.id,
+        return_to=return_to,
+    )
+
+    form = CommissionDiscussionForm()
+    if form.validate_on_submit():
+        suggestion = Suggestion(
+            title=form.title.data,
+            body_html=form.body.data,
+            category=f"proyecto:{project.id}",
+            created_by=current_user.id,
+        )
+        db.session.add(suggestion)
+        db.session.commit()
+        flash("Discusión creada", "success")
+        return redirect(
+            url_for(
+                "members.detalle_sugerencia",
+                suggestion_id=suggestion.id,
+                return_to=project_self_url,
+            )
+        )
+
+    return render_template(
+        "members/proyecto_discusion_form.html",
+        form=form,
+        commission=commission,
+        project=project,
+        return_to=return_to,
+        back_url=project_self_url,
     )
 
 

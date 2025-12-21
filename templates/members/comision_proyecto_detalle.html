@@ -1,0 +1,207 @@
+{% extends "public/layout.html" %}
+
+{% block title %}{{ project.title }} | {{ commission.name }} | Proyectos{% endblock %}
+
+{% block head %}
+  {% if return_to %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  {% endif %}
+  <style>
+    {% if return_to %}
+    .project-detail { padding-bottom: 4rem; }
+    .detail-top { display:flex; align-items:flex-start; justify-content:space-between; gap: 1rem; flex-wrap:wrap; margin-bottom: 1.25rem; }
+    .detail-headline { display:flex; flex-direction:column; gap: 0.25rem; }
+    .detail-meta { display:flex; flex-wrap:wrap; gap: 0.6rem; align-items:center; color:#64748b; font-weight:700; }
+    .detail-actions { display:flex; flex-wrap:wrap; gap: 0.6rem; align-items:center; }
+    .detail-actions .btn-link { background:#f8fafc; border:1px solid #e2e8f0; border-radius: 999px; padding: 0.6rem 0.95rem; text-decoration:none; font-weight:800; color:#0f172a; }
+    .detail-actions .btn-link:hover { background:#eef2ff; }
+
+    .detail-grid { display:grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1rem; align-items:start; }
+    .detail-grid .admin-card { padding: 1.25rem; }
+
+    .metrics { display:flex; flex-wrap:wrap; gap: 0.75rem; margin-top: 0.9rem; }
+    .metric { flex: 1 1 180px; background:#f8fafc; border:1px solid #e2e8f0; border-radius: 0.85rem; padding: 0.75rem 0.9rem; }
+    .metric-label { margin:0; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color:#64748b; font-weight: 800; }
+    .metric-value { margin:0.25rem 0 0; font-size: 1.05rem; color:#0f172a; font-weight: 900; }
+
+    .stack { display:flex; flex-direction:column; gap: 0.75rem; }
+    .item { border: 1px solid #e2e8f0; border-radius: 1rem; padding: 0.9rem 1rem; background: #ffffff; }
+    .stack a.item { display:block; text-decoration:none; color:inherit; transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease; }
+    .stack a.item:hover { transform: translateY(-1px); border-color: rgba(139,92,246,0.35); box-shadow: 0 18px 38px rgba(15,23,42,0.16); }
+    .item-top { display:flex; align-items:center; justify-content:space-between; gap: 0.75rem; flex-wrap:wrap; }
+    .item h4 { margin: 0.35rem 0 0; color:#0f172a; }
+    .item .meta { display:flex; flex-wrap:wrap; gap: 0.5rem; align-items:center; color:#64748b; font-weight:700; }
+
+    @media (max-width: 960px) {
+      .detail-grid { grid-template-columns: 1fr; }
+    }
+    {% else %}
+    a.compact {
+      cursor: pointer;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+    }
+    a.compact:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-lg, 0 18px 38px rgba(15, 23, 42, 0.16));
+    }
+    a.compact:focus-visible {
+      outline: 2px solid var(--color-primary, #1f3ba2);
+      outline-offset: 2px;
+    }
+    {% endif %}
+  </style>
+{% endblock %}
+
+{% block content %}
+{% if return_to %}
+  <section class="admin-wrapper project-detail">
+    <div class="admin-header">
+      <p class="admin-kicker">Comisiones · Administración</p>
+      <div class="detail-top">
+        <div class="detail-headline">
+          <h1 class="admin-title" style="margin-top:0.25rem;">{{ project.title }}</h1>
+          <div class="detail-meta">
+            <span>Comisión: {{ commission.name }}</span>
+            <span class="chip">{{ project.status.replace('_', ' ') }}</span>
+          </div>
+        </div>
+        <div class="detail-actions">
+          <a class="btn-link" href="{{ back_url }}">← {{ back_label }}</a>
+          {% if can_manage_projects %}
+            <a class="btn-link" href="{{ url_for('members.commission_project_form', slug=commission.slug, project_id=project.id) }}">Editar</a>
+          {% endif %}
+          {% if can_create_discussions %}
+            <a class="btn-primary" style="width:auto; min-width: 190px;" href="{{ url_for('members.project_discussion_new', slug=commission.slug, project_id=project.id, return_to=return_to) }}">Nueva discusión</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="admin-card">
+        <h3 style="margin:0;">Descripción</h3>
+        <div class="rich-text" style="margin-top:0.75rem;">
+          {% if project.description_html %}
+            {{ project.description_html | safe }}
+          {% else %}
+            <p class="muted">Sin descripción.</p>
+          {% endif %}
+        </div>
+
+        <div class="metrics">
+          <div class="metric">
+            <p class="metric-label">Responsable</p>
+            {% if project.responsible %}
+              <p class="metric-value">{{ project.responsible.display_name }}</p>
+            {% else %}
+              <p class="metric-value muted">Sin asignar</p>
+            {% endif %}
+          </div>
+          <div class="metric">
+            <p class="metric-label">Inicio</p>
+            {% if project.start_date %}
+              <p class="metric-value">{{ project.start_date.strftime('%d/%m/%Y') }}</p>
+            {% else %}
+              <p class="metric-value muted">Sin fecha</p>
+            {% endif %}
+          </div>
+          <div class="metric">
+            <p class="metric-label">Fin</p>
+            {% if project.end_date %}
+              <p class="metric-value">{{ project.end_date.strftime('%d/%m/%Y') }}</p>
+            {% else %}
+              <p class="metric-value muted">Sin fecha</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <div class="item-top" style="margin-bottom:0.75rem;">
+          <h3 style="margin:0;">Discusiones del proyecto</h3>
+        </div>
+        <div class="stack">
+          {% for discussion in project_discussions %}
+            <a class="item" href="{{ url_for('members.detalle_sugerencia', suggestion_id=discussion.id, return_to=project_self_url) }}">
+              <div class="item-top">
+                <div class="meta">
+                  <span class="chip">{{ discussion.status }}</span>
+                  <span>{{ discussion.votes_count or 0 }} votos</span>
+                  {% if discussion.updated_at %}
+                    <span>Actualizada: {{ discussion.updated_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                  {% endif %}
+                </div>
+              </div>
+              <h4>{{ discussion.title }}</h4>
+            </a>
+          {% else %}
+            <p class="muted" style="margin:0;">No hay discusiones todavía.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+{% else %}
+  <section class="page-section">
+    <div class="container">
+      <header class="section-header">
+        <div>
+          <p class="eyebrow">Comisión · {{ commission.name }}</p>
+          <h1 class="section-title">{{ project.title }}</h1>
+          <p class="section-subtitle">Proyecto · {{ project.status }}</p>
+        </div>
+        <div class="header-actions">
+          <a class="btn-link" href="{{ back_url }}">← {{ back_label }}</a>
+          {% if can_manage_projects %}
+            <a class="btn-link" href="{{ url_for('members.commission_project_form', slug=commission.slug, project_id=project.id) }}">Editar</a>
+          {% endif %}
+        </div>
+      </header>
+
+      <div class="card">
+        <h3>Descripción</h3>
+        <div class="rich-text">
+          {% if project.description_html %}
+            {{ project.description_html | safe }}
+          {% else %}
+            <p>Sin descripción.</p>
+          {% endif %}
+        </div>
+        <p class="small" style="margin-top: 0.75rem;">
+          {% if project.start_date %}Inicio: {{ project.start_date.strftime('%d/%m/%Y') }}{% endif %}
+          {% if project.end_date %} · Fin: {{ project.end_date.strftime('%d/%m/%Y') }}{% endif %}
+        </p>
+        {% if project.responsible %}
+          <p class="small" style="margin-top: 0.35rem;">Responsable: <strong>{{ project.responsible.display_name }}</strong></p>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Discusiones del proyecto</h3>
+          {% if can_create_discussions %}
+            <a class="btn-link" href="{{ url_for('members.project_discussion_new', slug=commission.slug, project_id=project.id, return_to=return_to) }}">Nueva discusión</a>
+          {% endif %}
+        </div>
+
+        <div class="stack">
+          {% for discussion in project_discussions %}
+            <a class="compact" href="{{ url_for('members.detalle_sugerencia', suggestion_id=discussion.id, return_to=project_self_url) }}" style="display:block; text-decoration:none; color:inherit;">
+              <div class="meta">
+                <span class="badge">{{ discussion.status }}</span>
+                <span>{{ discussion.votes_count or 0 }} votos</span>
+                {% if discussion.updated_at %}
+                  <span>{{ discussion.updated_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                {% endif %}
+              </div>
+              <h4>{{ discussion.title }}</h4>
+            </a>
+          {% else %}
+            <p>No hay discusiones todavía.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+{% endif %}
+{% endblock %}

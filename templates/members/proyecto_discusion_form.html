@@ -1,6 +1,6 @@
 {% extends "public/layout.html" %}
 
-{% block title %}Nueva discusión · {{ commission.name }}{% endblock %}
+{% block title %}Nueva discusión · {{ project.title }}{% endblock %}
 
 {% block head %}
   <style>
@@ -27,22 +27,22 @@
     <div class="container discussion-shell">
       <div class="discussion-hero">
         <div>
-          <p class="eyebrow">Comisiones · {{ commission.name }}</p>
+          <p class="eyebrow">Comisión · {{ commission.name }} · Proyecto · {{ project.title }}</p>
           <h1 class="section-title">Nueva discusión</h1>
-          <p class="section-subtitle">Abre un hilo para debatir y votar dentro de la comisión.</p>
+          <p class="section-subtitle">Abre un hilo para debatir y votar dentro del proyecto.</p>
         </div>
         <div class="header-actions">
-          <a class="btn-ghost" href="{{ url_for('members.commission_detail', slug=commission.slug) }}">Volver a la comisión</a>
+          <a class="btn-ghost" href="{{ back_url }}">Volver al proyecto</a>
         </div>
       </div>
 
       <div class="discussion-card">
-        <form method="post" class="discussion-form" {% if return_to %}action="{{ url_for('members.commission_discussion_new', slug=commission.slug, return_to=return_to) }}"{% endif %}>
+        <form method="post" class="discussion-form" {% if return_to %}action="{{ url_for('members.project_discussion_new', slug=commission.slug, project_id=project.id, return_to=return_to) }}"{% endif %}>
           {{ form.hidden_tag() }}
 
           <div class="field">
             {{ form.title.label() }}
-            {{ form.title(class_="input-control", placeholder="Ej. Prioridad del próximo proyecto") }}
+            {{ form.title(class_="input-control", placeholder="Ej. Prioridad de tareas") }}
           </div>
 
           <div class="field">
@@ -52,11 +52,10 @@
 
           <div class="actions">
             {{ form.submit(class_="btn-primary", style="width:auto;") }}
-            <a class="btn-ghost" href="{{ url_for('admin.commission_detail', commission_id=commission.id) }}">Volver al panel</a>
+            <a class="btn-ghost" href="{{ url_for('members.commission_detail', slug=commission.slug) }}">Volver a la comisión</a>
           </div>
         </form>
       </div>
     </div>
   </section>
 {% endblock %}
-

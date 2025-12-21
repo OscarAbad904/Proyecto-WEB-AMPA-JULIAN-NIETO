@@ -22,7 +22,7 @@
           {{ reset_form.hidden_tag() }}
           {{ reset_form.email.label }}{{ reset_form.email(autocomplete="email") }}
           {{ reset_form.code.label }}{{ reset_form.code(autocomplete="one-time-code") }}
-          {{ reset_form.password.label }}{{ reset_form.password(autocomplete="new-password") }}
+          {{ reset_form.password.label }}{{ reset_form.password(autocomplete="new-password", minlength="8") }}
           {{ reset_form.password_confirm.label }}{{ reset_form.password_confirm(autocomplete="new-password") }}
           <input type="hidden" name="stage" value="code">
           {{ reset_form.submit(class="btn full") }}
@@ -30,4 +30,61 @@
       {% endif %}
     </div>
   </section>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const passwordInput = document.getElementById('password');
+      const confirmInput = document.getElementById('password_confirm');
+
+      function updatePasswordValidity() {
+        if (!passwordInput) return;
+        const ok = passwordInput.value.length >= 8;
+        passwordInput.classList.toggle('input-valid', ok);
+      }
+
+      function updateConfirmValidity() {
+        if (!passwordInput || !confirmInput) return;
+        const passwordOk = passwordInput.value.length >= 8;
+        const matchOk = confirmInput.value.length > 0 && confirmInput.value === passwordInput.value;
+        confirmInput.classList.toggle('input-valid', passwordOk && matchOk);
+      }
+
+      function recheckSoon() {
+        setTimeout(function () {
+          updatePasswordValidity();
+          updateConfirmValidity();
+        }, 0);
+        setTimeout(function () {
+          updatePasswordValidity();
+          updateConfirmValidity();
+        }, 150);
+        setTimeout(function () {
+          updatePasswordValidity();
+          updateConfirmValidity();
+        }, 600);
+      }
+
+      if (passwordInput) {
+        const onPasswordChange = function () {
+          updatePasswordValidity();
+          updateConfirmValidity();
+        };
+        passwordInput.addEventListener('input', onPasswordChange);
+        passwordInput.addEventListener('keyup', onPasswordChange);
+        passwordInput.addEventListener('change', onPasswordChange);
+        passwordInput.addEventListener('blur', onPasswordChange);
+      }
+
+      if (confirmInput) {
+        confirmInput.addEventListener('input', updateConfirmValidity);
+        confirmInput.addEventListener('keyup', updateConfirmValidity);
+        confirmInput.addEventListener('change', updateConfirmValidity);
+        confirmInput.addEventListener('blur', updateConfirmValidity);
+      }
+
+      updatePasswordValidity();
+      updateConfirmValidity();
+      recheckSoon();
+    });
+  </script>
 {% endblock %}

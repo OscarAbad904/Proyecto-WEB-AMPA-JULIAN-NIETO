@@ -2,6 +2,35 @@
 
 {% block title %}{{ commission.name }} | Comisiones{% endblock %}
 
+{% block head %}
+  <style>
+    a.compact {
+      cursor: pointer;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+    }
+    .compact.is-clickable {
+      cursor: pointer;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+    }
+    a.compact:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-lg, 0 18px 38px rgba(15, 23, 42, 0.16));
+    }
+    .compact.is-clickable:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-lg, 0 18px 38px rgba(15, 23, 42, 0.16));
+    }
+    a.compact:focus-visible {
+      outline: 2px solid var(--color-primary, #1f3ba2);
+      outline-offset: 2px;
+    }
+    .compact.is-clickable:focus-visible {
+      outline: 2px solid var(--color-primary, #1f3ba2);
+      outline-offset: 2px;
+    }
+  </style>
+{% endblock %}
+
 {% block content %}
 <section class="page-section">
   <div class="container">
@@ -68,7 +97,13 @@
         </div>
         <div class="stack">
           {% for project in projects %}
-          <article class="compact">
+          <article
+            class="compact is-clickable"
+            role="link"
+            tabindex="0"
+            onclick="window.location.href='{{ url_for('members.commission_project_detail', slug=commission.slug, project_id=project.id) }}'"
+            onkeydown="if(event.key==='Enter' || event.key===' '){event.preventDefault(); window.location.href='{{ url_for('members.commission_project_detail', slug=commission.slug, project_id=project.id) }}';}"
+          >
             <div class="meta">
               <span class="badge">{{ project.status }}</span>
               {% if project.responsible %}
@@ -84,13 +119,39 @@
               {% if project.end_date %} · Fin: {{ project.end_date.strftime("%d/%m/%Y") }}{% endif %}
             </p>
             {% if can_manage_projects %}
-            <a class="btn-link" href="{{ url_for('members.commission_project_form', slug=commission.slug, project_id=project.id) }}">Editar</a>
+            <a class="btn-link" onclick="event.stopPropagation();" href="{{ url_for('members.commission_project_form', slug=commission.slug, project_id=project.id) }}">Editar</a>
             {% endif %}
           </article>
           {% else %}
           <p>No hay proyectos registrados.</p>
           {% endfor %}
         </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Discusiones de la comisión</h3>
+        {% if can_create_discussions %}
+          <a class="btn-link" href="{{ url_for('members.commission_discussion_new', slug=commission.slug) }}">Nueva discusión</a>
+        {% endif %}
+      </div>
+
+      <div class="stack">
+        {% for discussion in commission_discussions %}
+          <a class="compact" href="{{ url_for('members.detalle_sugerencia', suggestion_id=discussion.id) }}" style="display:block; text-decoration:none; color:inherit;">
+            <div class="meta">
+              <span class="badge">{{ discussion.status }}</span>
+              <span>{{ discussion.votes_count or 0 }} votos</span>
+              {% if discussion.updated_at %}
+                <span>{{ discussion.updated_at.strftime("%d/%m/%Y %H:%M") }}</span>
+              {% endif %}
+            </div>
+            <h4>{{ discussion.title }}</h4>
+          </a>
+        {% else %}
+          <p>No hay discusiones todavía.</p>
+        {% endfor %}
       </div>
     </div>
 

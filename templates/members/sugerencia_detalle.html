@@ -8,8 +8,8 @@
       <header class="thread-hero card gradient-bg">
         <div class="thread-headline">
           <div class="thread-hero-top">
-            <a href="{{ url_for('members.sugerencias') }}" class="thread-back">← Volver a sugerencias</a>
-            <p class="thread-breadcrumb">Área privada · Foro de sugerencias · {{ suggestion.title }}</p>
+            <p class="thread-breadcrumb">{{ breadcrumb }}</p>
+            <a href="{{ back_url }}" class="thread-back">← {{ back_label }}</a>
           </div>
           <div class="thread-title-row">
             <h1 class="thread-title">{{ suggestion.title }}</h1>
