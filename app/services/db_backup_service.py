@@ -127,6 +127,12 @@ def _find_pg_dump_executable() -> str | None:
     if found:
         return found
 
+    # Candidatos específicos para Render o entornos locales
+    root_path = Path(current_app.config.get("ROOT_PATH") or ".")
+    render_local_pg = root_path / "pg_dump_render"
+    if render_local_pg.exists():
+        return str(render_local_pg)
+
     candidates: list[Path] = []
     if os.name == "nt":
         for env_key in ("ProgramFiles", "ProgramFiles(x86)"):
@@ -329,3 +335,38 @@ def run_db_backup_to_drive(*, force: bool = False) -> BackupResult:
         return BackupResult(ok=False, message=str(exc))
     finally:
         _advisory_unlock_postgres()
+
+
+def check_if_backup_exists_for_today() -> bool:
+    """
+    Comprueba si ya existe un backup para el día de hoy en Google Drive.
+    """
+    drive_service = _get_user_drive_service()
+    if drive_service is None:
+        return False
+
+    try:
+        folder_id, shared_drive_id = _resolve_drive_backup_folder_id()
+        now = datetime.now(tz=pytz.timezone("Europe/Madrid"))
+        filename = _resolve_backup_filename(now)
+
+        query = f"'{folder_id}' in parents and name = '{filename}' and trashed = false"
+
+        list_kwargs = {
+            "q": query,
+            "spaces": "drive",
+            "fields": "files(id,name)",
+            "pageSize": 1,
+            "supportsAllDrives": True,
+            "includeItemsFromAllDrives": True,
+        }
+        if shared_drive_id:
+            list_kwargs["driveId"] = shared_drive_id
+            list_kwargs["corpora"] = "drive"
+
+        results = drive_service.files().list(**list_kwargs).execute()
+        files = results.get("files", [])
+        return len(files) > 0
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.warning("Error al comprobar existencia de backup en Drive: %s", exc)
+        return False

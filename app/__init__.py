@@ -29,6 +29,7 @@ def create_app(config_name: str | None = None) -> Flask:
         static_folder=str(ROOT_PATH / "assets"),
     )
     app.config.from_object(config)
+    app.config["ENV"] = env
     config.init_app(app)
     app.config.from_mapping({"ROOT_PATH": str(ROOT_PATH)})
 

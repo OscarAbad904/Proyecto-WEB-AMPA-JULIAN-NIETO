@@ -27,6 +27,9 @@ def start_user_cleanup_scheduler(app: Flask) -> None:
             while True:
                 try:
                     with app.app_context():
+                        from app.extensions import db
+                        # Cerrar todas las conexiones del pool antes de operar
+                        db.engine.dispose()
                         app.logger.info("Iniciando limpieza de usuarios desactivados...")
                         count = cleanup_deactivated_users()
                         if count > 0:
