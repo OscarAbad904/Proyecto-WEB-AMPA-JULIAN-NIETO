@@ -320,8 +320,11 @@ class BaseConfig:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # Opciones del pool de conexiones para evitar errores SSL tras inactividad
     SQLALCHEMY_ENGINE_OPTIONS = {
-        "pool_pre_ping": True,  # Verificar conexión antes de usarla
-        "pool_recycle": 300,    # Reciclar conexiones cada 5 minutos
+        "pool_pre_ping": True,   # Verificar conexión antes de usarla
+        "pool_recycle": 180,     # Reciclar conexiones cada 3 minutos (antes 5)
+        "pool_size": 10,         # Tamaño base del pool
+        "max_overflow": 5,       # Conexiones extra permitidas
+        "pool_timeout": 30,      # Tiempo de espera para obtener conexión
     }
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     MAIL_PORT = get_int_env("MAIL_PORT", 587)

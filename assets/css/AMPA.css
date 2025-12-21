@@ -10,10 +10,12 @@
 
   /* Hero (logo): control de animación */
   --hero-logo-offset-desktop: 0rem;
-  --hero-logo-float-desktop: 1.5rem;
+  --hero-logo-float-desktop: 4.5rem;
+  --hero-logo-gap-desktop: 3.5rem;
   --hero-logo-offset-mobile: -2rem;
   --hero-logo-float-mobile: 1rem;
-  --hero-logo-float-duration: 6s;
+  --hero-logo-gap-mobile: 1rem;
+  --hero-logo-float-duration: 10s;
 
   /* Colores claros con buen contraste */
   --color-bg-deep: #f0f4f8;
@@ -669,11 +671,12 @@ body.menu-open {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  gap: 0;
 }
 
 .hero-logo-floating {
   margin-top: var(--hero-logo-offset-desktop, 0.5rem);
+  margin-bottom: var(--hero-logo-gap-desktop, 1rem);
   animation-name: hero-logo-float-desktop;
   animation-duration: var(--hero-logo-float-duration, 6s);
   animation-timing-function: ease-in-out;
@@ -736,7 +739,8 @@ body.menu-open {
   background: rgb(255 255 255 / 100%);
   font-size: 1.28rem;
   font-weight: bold;
-  margin-block: 0.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 1.5rem;
   color: #1e293b;
   position: relative;
   isolation: isolate;
@@ -757,7 +761,8 @@ body.menu-open {
   width: 100%;
   max-width: 900px;
   margin-inline: auto;
-  margin-block: 0;
+  margin-top: 0;
+  margin-bottom: 1rem;
   position: relative;
   isolation: isolate;
   box-shadow: 0 0 0 0.5rem rgba(255, 255, 255, 0.5),
@@ -900,6 +905,7 @@ body.menu-open {
 
   .hero-logo-floating {
     margin-top: var(--hero-logo-offset-mobile, 0.5rem);
+    margin-bottom: var(--hero-logo-gap-mobile, 1rem);
     animation-name: hero-logo-float-mobile;
   }
 

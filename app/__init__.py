@@ -59,6 +59,8 @@ def create_app(config_name: str | None = None) -> Flask:
     with app.app_context():
         try:
             ensure_roles_and_permissions()
+            # Liberar conexiones tras la inicialización para evitar problemas de SSL tras fork/arranque
+            db.engine.dispose()
         except Exception as exc:  # noqa: BLE001
             db.session.rollback()
             app.logger.exception("No se pudieron sincronizar los permisos base", exc_info=exc)
