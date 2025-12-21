@@ -67,6 +67,26 @@ def start_db_backup_scheduler(app: Flask) -> None:
             return
 
         def _loop() -> None:
+            # Comprobación al inicio: si no hay backup hoy, lo lanzamos.
+            # Omitimos esta comprobación en local (modo debug/development) para evitar errores de pg_dump
+            try:
+                if not app.debug and app.config.get("ENV") != "development":
+                    with app.app_context():
+                        from app.services.db_backup_service import check_if_backup_exists_for_today
+                        if not check_if_backup_exists_for_today():
+                            app.logger.info("No se encontró backup de hoy al iniciar. Ejecutando backup ahora...")
+                            result = run_db_backup_to_drive(force=True)
+                            if result.ok:
+                                app.logger.info("Backup de inicio completado: %s", result.message)
+                            else:
+                                app.logger.warning("Fallo en backup de inicio: %s", result.message)
+                        else:
+                            app.logger.info("Backup de hoy ya existe en Drive. Omitiendo backup de inicio.")
+                else:
+                    app.logger.info("Modo desarrollo detectado. Omitiendo comprobación de backup al inicio.")
+            except Exception as exc:  # noqa: BLE001
+                app.logger.exception("Error en comprobación de backup al iniciar: %s", exc)
+
             while True:
                 try:
                     now = datetime.now(tz=pytz.UTC)
@@ -75,6 +95,9 @@ def start_db_backup_scheduler(app: Flask) -> None:
                     app.logger.info("Siguiente backup BD programado: %s", next_run.isoformat())
                     time.sleep(sleep_seconds)
                     with app.app_context():
+                        from app.extensions import db
+                        # Cerrar todas las conexiones del pool antes de operar
+                        db.engine.dispose()
                         result = run_db_backup_to_drive(force=False)
                         level = app.logger.info if result.ok else app.logger.warning
                         level("Backup BD -> Drive: %s", result.message)

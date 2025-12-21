@@ -318,6 +318,11 @@ class BaseConfig:
     SECURITY_PASSWORD_SALT = decrypt_env_var("SECURITY_PASSWORD_SALT") or os.getenv("SECURITY_PASSWORD_SALT", "salt-me")
     SQLALCHEMY_DATABASE_URI = _SQLALCHEMY_URI
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # Opciones del pool de conexiones para evitar errores SSL tras inactividad
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,  # Verificar conexión antes de usarla
+        "pool_recycle": 300,    # Reciclar conexiones cada 5 minutos
+    }
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     MAIL_PORT = get_int_env("MAIL_PORT", 587)
     MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "true").lower() in ("true", "1", "yes")
