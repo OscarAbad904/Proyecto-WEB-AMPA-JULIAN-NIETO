@@ -153,6 +153,7 @@ class User(db.Model, UserMixin):
     comments = db.relationship("Comment", back_populates="author", lazy="dynamic", cascade="all, delete-orphan")
     votes = db.relationship("Vote", back_populates="user", lazy="dynamic", cascade="all, delete-orphan")
     media = db.relationship("Media", back_populates="uploader", lazy="dynamic", cascade="all, delete-orphan")
+    enrollments = db.relationship("Enrollment", back_populates="user", lazy="dynamic", cascade="all, delete-orphan")
     commission_memberships = db.relationship(
         "CommissionMembership", back_populates="user", lazy="dynamic", cascade="all, delete-orphan"
     )
@@ -382,7 +383,7 @@ class Enrollment(db.Model):
     created_at = db.Column(db.DateTime, server_default=func.now())
 
     event = db.relationship("Event", back_populates="enrollments")
-    user = db.relationship("User")
+    user = db.relationship("User", back_populates="enrollments")
 
     __table_args__ = (db.UniqueConstraint("event_id", "user_id", name="uq_enrollment_user_event"),)
 
@@ -436,6 +437,7 @@ class Comment(db.Model):
     body_html = db.Column(encrypted_text(), nullable=False)
     created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     created_at = db.Column(db.DateTime, server_default=func.now())
+    is_edited = db.Column(db.Boolean, default=False)
     parent_id = db.Column(db.Integer, db.ForeignKey("comments.id"), nullable=True)
 
     suggestion = db.relationship("Suggestion", back_populates="comments")

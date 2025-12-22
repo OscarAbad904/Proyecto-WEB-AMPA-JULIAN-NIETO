@@ -278,6 +278,7 @@
                 <th>Teléfono</th>
                 <th>Rol</th>
                 <th>Eliminado el</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -290,6 +291,23 @@
                   <td>
                     {% if u.deleted_at %}
                       {{ u.deleted_at.strftime('%d/%m/%Y %H:%M') }}
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if can_delete_permanently %}
+                      <form
+                        method="post"
+                        action="{{ url_for('admin.eliminar_permanente_usuario', user_id=u.id) }}"
+                        onsubmit="return confirm({{ ('¿ELIMINAR PERMANENTEMENTE a ' ~ u.display_name ~ '? Esta acción borrará todos sus datos de la base de datos y NO se puede deshacer.') | tojson }});"
+                        style="display: inline;"
+                      >
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-primary btn-mini btn-danger" title="Eliminar permanentemente de la base de datos">
+                          Eliminar Permanente
+                        </button>
+                      </form>
+                    {% else %}
+                      <span class="muted" title="No tienes permisos para eliminar permanentemente">Sin acciones</span>
                     {% endif %}
                   </td>
                 </tr>

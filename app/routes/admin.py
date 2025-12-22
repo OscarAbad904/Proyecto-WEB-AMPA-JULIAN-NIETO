@@ -834,6 +834,8 @@ def usuarios():
         .all()
     )
 
+    can_delete_permanently = current_user.has_permission("delete_members_permanently") or user_is_privileged(current_user)
+
     return render_template(
         "admin/usuarios.html",
         pending_users=pending_users,
@@ -841,6 +843,7 @@ def usuarios():
         deleted_users=deleted_users,
         roles=roles,
         can_manage_members=can_manage,
+        can_delete_permanently=can_delete_permanently,
     )
 
 
@@ -1032,6 +1035,48 @@ def eliminar_usuario(user_id: int):
         return redirect(url_for("admin.usuarios"))
 
     flash("Socio marcado como eliminado.", "success")
+    return redirect(url_for("admin.usuarios"))
+
+
+@admin_bp.route("/usuarios/<int:user_id>/eliminar-permanente", methods=["POST"])
+@login_required
+def eliminar_permanente_usuario(user_id: int):
+    if not (current_user.has_permission("delete_members_permanently") or user_is_privileged(current_user)):
+        abort(403)
+
+    if int(user_id) == int(current_user.id):
+        flash("No puedes eliminar tu propia cuenta.", "warning")
+        return redirect(url_for("admin.usuarios"))
+
+    user = User.query.get_or_404(user_id)
+
+    if not user.deleted_at:
+        flash(
+            "Solo se pueden eliminar permanentemente socios que ya han sido marcados como eliminados.",
+            "warning",
+        )
+        return redirect(url_for("admin.usuarios"))
+
+    if user_is_privileged(user):
+        flash("No se puede eliminar permanentemente una cuenta privilegiada.", "danger")
+        return redirect(url_for("admin.usuarios"))
+
+    try:
+        # Antes de borrar, desvinculamos de aprobaciones y proyectos para evitar errores de FK si no hay cascade
+        User.query.filter_by(approved_by_id=user.id).update({User.approved_by_id: None})
+        CommissionProject.query.filter_by(responsible_id=user.id).update({CommissionProject.responsible_id: None})
+
+        db.session.delete(user)
+        db.session.commit()
+        flash(
+            f"El usuario {user.display_name} ha sido eliminado permanentemente de la base de datos.",
+            "success",
+        )
+    except Exception as exc:  # noqa: BLE001
+        db.session.rollback()
+        current_app.logger.exception("Error eliminando permanentemente usuario", exc_info=exc)
+        flash("Error al intentar eliminar permanentemente al usuario.", "danger")
+
     return redirect(url_for("admin.usuarios"))
 
 

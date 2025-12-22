@@ -204,6 +204,13 @@ PERMISSION_DEFINITIONS = [
         "section": "Usuarios",
     },
     {
+        "key": "delete_members_permanently",
+        "name": "Eliminar permanentemente socios",
+        "description": "Borrar definitivamente de la base de datos a socios ya eliminados.",
+        "section": "Usuarios",
+        "grant_to_roles": ["Administrador"],
+    },
+    {
         "key": "view_permissions",
         "name": "Ver permisos",
         "description": "Acceso de solo lectura a la configuración de permisos.",

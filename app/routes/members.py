@@ -717,6 +717,7 @@ def detalle_sugerencia(suggestion_id: int):
         "members/sugerencia_detalle.html",
         suggestion=suggestion,
         comments=comments,
+        Comment=Comment,
         comment_form=comment_form,
         vote_form=vote_form,
         user_vote=user_vote,
@@ -749,6 +750,29 @@ def comentar_sugerencia(suggestion_id: int):
         db.session.commit()
         flash("Comentario añadido", "success")
     return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion_id))
+
+
+@members_bp.route("/comentarios/<int:comment_id>/editar", methods=["POST"])
+@login_required
+def editar_comentario(comment_id: int):
+    comment = Comment.query.get_or_404(comment_id)
+    if comment.created_by != current_user.id:
+        abort(403)
+
+    # Verificar si es el último mensaje del hilo (nadie ha escrito después en esa sugerencia)
+    last_comment = Comment.query.filter_by(suggestion_id=comment.suggestion_id).order_by(Comment.created_at.desc()).first()
+    if last_comment.id != comment.id:
+        flash("Solo puedes editar tu último mensaje si no hay respuestas posteriores.", "warning")
+        return redirect(url_for("members.detalle_sugerencia", suggestion_id=comment.suggestion_id))
+
+    form = CommentForm()
+    if form.validate_on_submit():
+        comment.body_html = form.content.data
+        comment.is_edited = True
+        comment.created_at = datetime.utcnow()
+        db.session.commit()
+        flash("Comentario actualizado", "success")
+    return redirect(url_for("members.detalle_sugerencia", suggestion_id=comment.suggestion_id))
 
 
 @members_bp.route("/sugerencias/<int:suggestion_id>/votar", methods=["POST"])

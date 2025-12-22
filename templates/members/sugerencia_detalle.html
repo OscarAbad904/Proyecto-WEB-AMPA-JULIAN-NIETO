@@ -2,6 +2,87 @@
 
 {% block title %}{{ suggestion.title }} · Foro{% endblock %}
 
+{% block head %}
+<style>
+  .comment-item {
+    position: relative;
+    transition: all 0.3s ease;
+  }
+  .comment-item.is-own {
+    box-shadow: 0 0 15px rgba(34, 197, 94, 0.25);
+    border-left: 4px solid #22c55e;
+  }
+  .comment-item.is-reply {
+    margin-left: 2.5rem;
+    border-left: 2px solid var(--color-border, rgba(15, 23, 42, 0.1));
+    padding-left: 1rem;
+  }
+  .comment-actions-hover {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    display: flex;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+  }
+  .comment-item:hover .comment-actions-hover {
+    opacity: 1;
+  }
+  .action-icon-btn {
+    background: white;
+    border: 1px solid var(--color-border, rgba(15, 23, 42, 0.1));
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--color-text-soft);
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  .action-icon-btn:hover {
+    color: var(--color-accent-primary);
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+  .edit-form-inline {
+    display: none;
+    margin-top: 1rem;
+  }
+  .reply-form-inline {
+    display: none;
+    margin-top: 1rem;
+    margin-left: 2.5rem;
+  }
+  .comment-body {
+    cursor: pointer;
+  }
+  .comment-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+  }
+  .nav-auth-btn--cancel {
+    background: #ffffff !important;
+    color: #1f3ba2 !important;
+    border: 1px solid #1f3ba2 !important;
+  }
+  .nav-auth-btn--cancel:hover {
+    background: #f0f4ff !important;
+    opacity: 1 !important;
+  }
+  .btn-mini {
+    padding: 0.25rem 0.75rem !important;
+    font-size: 0.85rem !important;
+    min-width: 80px !important;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
   <section class="page-section suggestion-thread">
     <div class="thread-container">
@@ -37,16 +118,77 @@
           </div>
         </div>
         <div class="comment-list">
-          {% for comment in comments %}
-            <article class="comment-item">
+          {% macro render_comment(comment, is_reply=False, is_last_overall=False) %}
+            <article class="comment-item {{ 'is-own' if comment.created_by == current_user.id else '' }} {{ 'is-reply' if is_reply else '' }}" id="comment-{{ comment.id }}" {% if is_last_overall %}onclick="focusMainInput(event)"{% endif %}>
               <div class="comment-meta">
                 <span class="author">{{ comment.author.display_name if comment.author else 'Socio' }}</span>
                 {% if comment.created_at %}
-                  <span class="date">{{ comment.created_at.strftime("%d/%m/%Y %H:%M") }}</span>
+                  <span class="date">
+                    {{ comment.created_at.strftime("%d/%m/%Y %H:%M") }}
+                    {% if comment.is_edited %}
+                      <small class="edited-label" style="opacity: 0.7; margin-left: 5px;">(Editado)</small>
+                    {% endif %}
+                  </span>
                 {% endif %}
               </div>
-              <p class="comment-body">{{ comment.body_html }}</p>
+              <div class="comment-content-wrapper" id="comment-body-{{ comment.id }}">
+                <p class="comment-body">{{ comment.body_html }}</p>
+              </div>
+
+              {# Formulario de edición (oculto por defecto) #}
+              {% if comment.created_by == current_user.id and is_last_overall %}
+                <div class="edit-form-inline" id="edit-form-{{ comment.id }}">
+                  <form method="post" action="{{ url_for('members.editar_comentario', comment_id=comment.id) }}">
+                    {{ comment_form.hidden_tag() }}
+                    <textarea name="content" class="comment-textarea">{{ comment.body_html }}</textarea>
+                    <div class="comment-actions">
+                      <button type="button" class="nav-auth-btn nav-auth-btn--cancel btn-mini" onclick="toggleEdit('{{ comment.id }}', event)">Cancelar</button>
+                      <button type="submit" class="nav-auth-btn nav-auth-btn--logout btn-mini">Guardar</button>
+                    </div>
+                  </form>
+                </div>
+              {% endif %}
+
+              <div class="comment-actions-hover">
+                {# Icono de responder #}
+                <button class="action-icon-btn" title="Responder a este mensaje" onclick="showReplyForm('{{ comment.id }}', event)">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 10h10a8 8 0 0 1 8 8v2M3 10l6 6m-6-6l6-6"></path>
+                  </svg>
+                </button>
+
+                {# Icono de editar (solo si es el último mensaje del usuario y del hilo) #}
+                {% if comment.created_by == current_user.id and is_last_overall %}
+                  <button class="action-icon-btn" title="Editar mensaje" onclick="toggleEdit('{{ comment.id }}', event)">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </button>
+                {% endif %}
+              </div>
             </article>
+
+            {# Formulario de respuesta (oculto por defecto) #}
+            <div class="reply-form-inline" id="reply-form-{{ comment.id }}">
+              <form method="post" action="{{ url_for('members.comentar_sugerencia', suggestion_id=suggestion.id) }}">
+                {{ comment_form.hidden_tag() }}
+                <input type="hidden" name="parent_id" value="{{ comment.id }}">
+                <textarea name="content" class="comment-textarea" placeholder="Escribe tu respuesta..."></textarea>
+                <div class="comment-actions">
+                  <button type="button" class="nav-auth-btn nav-auth-btn--cancel btn-mini" onclick="showReplyForm('{{ comment.id }}', event)">Cancelar</button>
+                  <button type="submit" class="nav-auth-btn nav-auth-btn--logout btn-mini">Responder</button>
+                </div>
+              </form>
+            </div>
+
+            {% for child in comment.children.order_by(Comment.created_at.asc()) %}
+              {{ render_comment(child, is_reply=True, is_last_overall=(child.id == comments[-1].id if comments else False)) }}
+            {% endfor %}
+          {% endmacro %}
+
+          {% for comment in comments if not comment.parent_id %}
+            {{ render_comment(comment, is_last_overall=(comment.id == comments[-1].id if comments else False)) }}
           {% else %}
             <p class="comment-empty">Todavía no hay comentarios, sé el primero en participar.</p>
           {% endfor %}
@@ -127,6 +269,51 @@
 
 {% block scripts %}
   <script>
+    function toggleEdit(commentId, event) {
+      if (event) event.stopPropagation();
+      const body = document.getElementById(`comment-body-${commentId}`);
+      const form = document.getElementById(`edit-form-${commentId}`);
+      const article = document.getElementById(`comment-${commentId}`);
+      const actions = article ? article.querySelector('.comment-actions-hover') : null;
+      
+      if (body && form) {
+        const isEditing = form.style.display === 'block';
+        form.style.display = isEditing ? 'none' : 'block';
+        body.style.display = isEditing ? 'block' : 'none';
+        if (actions) {
+          actions.style.setProperty('display', isEditing ? 'flex' : 'none', 'important');
+        }
+      }
+    }
+
+    function showReplyForm(commentId, event) {
+      if (event) event.stopPropagation();
+      const form = document.getElementById(`reply-form-${commentId}`);
+      const article = document.getElementById(`comment-${commentId}`);
+      const actions = article ? article.querySelector('.comment-actions-hover') : null;
+
+      if (form) {
+        const isVisible = form.style.display === 'block';
+        form.style.display = isVisible ? 'none' : 'block';
+        if (actions) {
+          actions.style.setProperty('display', isVisible ? 'flex' : 'none', 'important');
+        }
+        if (!isVisible) {
+          form.querySelector('textarea').focus();
+        }
+      }
+    }
+
+    function focusMainInput(event) {
+      // Solo si se hace click en el contenedor y no en un botón o link
+      if (event.target.closest('button') || event.target.closest('a') || event.target.closest('form')) return;
+      const mainTextarea = document.getElementById('comment-content');
+      if (mainTextarea) {
+        mainTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        mainTextarea.focus();
+      }
+    }
+
     (function () {
       const form = document.getElementById('voteForm');
       if (!form) return;
