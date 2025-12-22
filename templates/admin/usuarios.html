@@ -219,8 +219,8 @@
           </thead>
           <tbody>
             {% for u in users %}
-              <tr data-user-search="{{ (u.first_name or '') ~ ' ' ~ (u.last_name or '') ~ ' ' ~ (u.email or '') ~ ' ' ~ (u.phone_number or '') ~ ' ' ~ (u.role.name if u.role else '') }}">
-                <td>{{ (u.first_name or '') ~ ' ' ~ (u.last_name or '') }}</td>
+              <tr data-user-search="{{ u.display_name ~ ' ' ~ (u.email or '') ~ ' ' ~ (u.phone_number or '') ~ ' ' ~ (u.role.name if u.role else '') }}">
+                <td>{{ u.display_name }}</td>
                 <td>{{ u.email }}</td>
                 <td>{{ u.phone_number or '' }}</td>
                 <td>{{ u.role.name if u.role else '' }}</td>
@@ -282,8 +282,8 @@
             </thead>
             <tbody>
               {% for u in deleted_users %}
-                <tr data-user-search="{{ (u.first_name or '') ~ ' ' ~ (u.last_name or '') ~ ' ' ~ (u.email or '') ~ ' ' ~ (u.phone_number or '') ~ ' ' ~ (u.role.name if u.role else '') }}">
-                  <td>{{ (u.first_name or '') ~ ' ' ~ (u.last_name or '') }}</td>
+                <tr data-user-search="{{ u.display_name ~ ' ' ~ (u.email or '') ~ ' ' ~ (u.phone_number or '') ~ ' ' ~ (u.role.name if u.role else '') }}">
+                  <td>{{ u.display_name }}</td>
                   <td>{{ u.email }}</td>
                   <td>{{ u.phone_number or '' }}</td>
                   <td>{{ u.role.name if u.role else '' }}</td>
@@ -311,7 +311,7 @@
           <button class="login-modal-close" type="button" aria-label="Cerrar" data-close-user-modal>&times;</button>
           <p class="eyebrow">Usuarios</p>
           <h2 class="user-modal-title" id="user-modal-title-{{ u.id }}">Modificar</h2>
-          <p class="user-modal-subtitle">{{ (u.first_name or '') ~ ' ' ~ (u.last_name or '') }} &middot; {{ u.email }}</p>
+          <p class="user-modal-subtitle">{{ u.display_name }} &middot; {{ u.email }}</p>
 
           <div class="user-modal-grid">
             <div class="user-modal-card" style="grid-column: 1 / -1;">
@@ -357,7 +357,7 @@
                   <form
                     method="post"
                     action="{{ url_for('admin.eliminar_usuario', user_id=u.id) }}"
-                    onsubmit="return confirm({{ ('¿Eliminar definitivamente a ' ~ ((u.first_name or '') ~ ' ' ~ (u.last_name or '')).strip() ~ ' (' ~ (u.email or '') ~ ')? Esta acción no se puede deshacer.') | tojson }});"
+                    onsubmit="return confirm({{ ('¿Eliminar definitivamente a ' ~ u.display_name ~ ' (' ~ (u.email or '') ~ ')? Esta acción no se puede deshacer.') | tojson }});"
                   >
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn-primary btn-mini btn-danger">Eliminar socio</button>

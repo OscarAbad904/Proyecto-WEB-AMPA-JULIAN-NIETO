@@ -175,14 +175,7 @@
                          {% endif %}
                          <div class="nav-auth nav-auth-desktop">
                             {% if current_user.is_authenticated %}
-                            {% set nav_display_name = (current_user.full_name or '') %}
-                            {% if not nav_display_name %}
-                              {% set nav_display_name = (current_user.username or '') %}
-                              {% if '@' in nav_display_name %}
-                                {% set nav_display_name = nav_display_name.split('@')[0] %}
-                              {% endif %}
-                            {% endif %}
-                            <span class="nav-user-name">Bienvenido, {{ nav_display_name }}</span>
+                            <span class="nav-user-name">Bienvenido, {{ current_user.display_name }}</span>
                             <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout">Cerrar sesion</a>
                             {% else %}
                             <button type="button" class="nav-auth-btn" onclick="toggleLoginModal(true)">Login</button>
@@ -243,14 +236,7 @@
                      {% endif %}
                      <div class="mobile-auth">
                         {% if current_user.is_authenticated %}
-                        {% set nav_display_name = (current_user.full_name or '') %}
-                        {% if not nav_display_name %}
-                          {% set nav_display_name = (current_user.username or '') %}
-                          {% if '@' in nav_display_name %}
-                            {% set nav_display_name = nav_display_name.split('@')[0] %}
-                          {% endif %}
-                        {% endif %}
-                        <span>Hola, {{ nav_display_name }}</span>
+                        <span>Hola, {{ current_user.display_name }}</span>
                         <a href="{{ url_for('members.logout') }}" class="nav-auth-btn nav-auth-btn--logout"
                             onclick="toggleMobileMenu()">Cerrar sesión</a>
                         {% else %}

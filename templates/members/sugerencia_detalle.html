@@ -20,7 +20,7 @@
               <span class="mini-pill down" id="dislikes-count-hero">👎 {{ dislikes_count }}</span>
             </div>
             <span class="status-pill status-{{ suggestion.status }}">{{ suggestion.status|capitalize }}</span>
-            <span class="thread-meta inline">Estado {{ suggestion.status }} · {{ suggestion.votes_count or 0 }} votos totales</span>
+            <span class="thread-meta inline">Por {{ suggestion.creator.display_name if suggestion.creator else 'Socio' }} · Estado {{ suggestion.status }} · {{ suggestion.votes_count or 0 }} votos totales</span>
           </div>
         </div>
       </header>
@@ -40,7 +40,7 @@
           {% for comment in comments %}
             <article class="comment-item">
               <div class="comment-meta">
-                <span class="author">{{ comment.author.username if comment.author else 'Socio' }}</span>
+                <span class="author">{{ comment.author.display_name if comment.author else 'Socio' }}</span>
                 {% if comment.created_at %}
                   <span class="date">{{ comment.created_at.strftime("%d/%m/%Y %H:%M") }}</span>
                 {% endif %}
