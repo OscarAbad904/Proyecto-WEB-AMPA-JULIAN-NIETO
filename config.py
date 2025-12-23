@@ -244,13 +244,21 @@ def _get_env_with_optional_decrypt(var_name: str) -> str | None:
 
 
 def _normalize_db_uri(uri: str | None) -> str | None:
-    """Ensure postgres URLs use the SQLAlchemy psycopg2 prefix."""
+    """Ensure postgres URLs use the SQLAlchemy psycopg2 prefix and require SSL."""
     if not uri:
         return None
+    
+    # Normalizar prefijo
     if uri.startswith("postgres://"):
-        return "postgresql+psycopg2://" + uri[len("postgres://"):]
-    if uri.startswith("postgresql://"):
-        return "postgresql+psycopg2://" + uri[len("postgresql://") :]
+        uri = "postgresql+psycopg2://" + uri[len("postgres://"):]
+    elif uri.startswith("postgresql://"):
+        uri = "postgresql+psycopg2://" + uri[len("postgresql://") :]
+    
+    # Asegurar sslmode=require para PostgreSQL en entornos como Render
+    if "postgresql" in uri and "sslmode=" not in uri:
+        separator = "&" if "?" in uri else "?"
+        uri += f"{separator}sslmode=require"
+        
     return uri
 
 DATA_PATH = Path(os.getenv("AMPA_DATA_DIR", ROOT_PATH / "Data"))
@@ -325,6 +333,9 @@ class BaseConfig:
         "pool_size": 10,         # Tamaño base del pool
         "max_overflow": 5,       # Conexiones extra permitidas
         "pool_timeout": 30,      # Tiempo de espera para obtener conexión
+        "connect_args": {
+            "sslmode": "require",
+        }
     }
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     MAIL_PORT = get_int_env("MAIL_PORT", 587)

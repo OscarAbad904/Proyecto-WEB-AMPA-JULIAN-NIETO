@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import pytz
+from sqlalchemy.exc import OperationalError
 from app.extensions import db
 from app.models import User
 
@@ -11,10 +12,20 @@ def cleanup_deactivated_users():
     limit_date = datetime.now(pytz.UTC) - timedelta(days=30)
     
     try:
-        users_to_delete = User.query.filter(
-            User.is_active == False,
-            User.deactivated_at <= limit_date
-        ).all()
+        # Intentar la consulta con un reintento en caso de error de conexión (SSL, etc.)
+        try:
+            users_to_delete = User.query.filter(
+                User.is_active == False,
+                User.deactivated_at <= limit_date
+            ).all()
+        except OperationalError:
+            # Si falla por error de conexión, limpiar el pool y reintentar una vez
+            db.session.rollback()
+            db.engine.dispose()
+            users_to_delete = User.query.filter(
+                User.is_active == False,
+                User.deactivated_at <= limit_date
+            ).all()
         
         count = len(users_to_delete)
         for user in users_to_delete:

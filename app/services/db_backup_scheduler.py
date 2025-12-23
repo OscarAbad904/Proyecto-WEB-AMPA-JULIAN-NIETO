@@ -67,8 +67,11 @@ def start_db_backup_scheduler(app: Flask) -> None:
             return
 
         def _loop() -> None:
+            # Esperar un poco al inicio para dar tiempo a Gunicorn a forkear workers
+            # y evitar que el master mantenga conexiones abiertas heredadas.
+            time.sleep(30)
+            
             # Comprobación al inicio: si no hay backup hoy, lo lanzamos.
-            # En Render o si no estamos en modo debug/desarrollo, comprobamos backup al inicio.
             # Usamos os.getenv("RENDER") para detectar el entorno de producción de Render.
             try:
                 is_render = os.getenv("RENDER") == "true"
@@ -76,6 +79,10 @@ def start_db_backup_scheduler(app: Flask) -> None:
 
                 if is_render or not is_dev:
                     with app.app_context():
+                        from app.extensions import db
+                        # Limpiar conexiones heredadas antes de la primera consulta
+                        db.engine.dispose()
+                        
                         from app.services.db_backup_service import check_if_backup_exists_for_today
                         if not check_if_backup_exists_for_today():
                             app.logger.info("No se encontró backup de hoy al iniciar. Ejecutando backup ahora...")
