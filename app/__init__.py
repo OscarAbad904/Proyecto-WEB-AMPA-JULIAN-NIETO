@@ -62,8 +62,13 @@ def create_app(config_name: str | None = None) -> Flask:
         try:
             ensure_roles_and_permissions()
             # Sincronizar assets del estilo activo a rutas fijas en /assets
-            from app.services.style_service import sync_active_style_to_static
-            sync_active_style_to_static()
+            # Solo sincronizar si no estamos en modo CLI (migraciones, etc.)
+            if os.getenv("FLASK_RUN_FROM_CLI") != "true":
+                from app.services.style_service import sync_active_style_to_static
+                app.logger.info("Sincronizando estilo activo al iniciar...")
+                sync_active_style_to_static()
+                app.logger.info("Sincronización de estilo completada.")
+            
             # Liberar conexiones tras la inicialización para evitar problemas de SSL tras fork/arranque
             db.engine.dispose()
         except Exception as exc:  # noqa: BLE001
