@@ -7,33 +7,184 @@
   <style>
     .commission-admin { padding-bottom: 4rem; }
 
-    .commission-top { display:flex; gap: 1rem; align-items:center; justify-content:flex-end; flex-wrap:wrap; margin-bottom: 1.25rem; }
-    .commission-top .btn-primary { width:auto; min-width: 190px; }
+    .commission-top { 
+      display: flex; 
+      gap: 1rem; 
+      align-items: center; 
+      justify-content: flex-end; 
+      flex-wrap: wrap; 
+      margin-bottom: 1.2rem;
+      padding: 0.9rem 1.2rem;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(249, 115, 22, 0.08));
+      border-radius: 1.1rem;
+      border: 1px solid rgba(139, 92, 246, 0.15);
+    }
+    .commission-top .btn-primary { width: auto; min-width: 190px; }
 
-    .commission-grid { margin-top: 1rem; display:grid; grid-template-columns: 1fr; gap: 1rem; }
+    .commission-grid { 
+      margin-top: 1rem; 
+      display: grid; 
+      grid-template-columns: 1fr; 
+      gap: 0.85rem;
+    }
 
-    .commission-card { display:flex; flex-direction:column; gap: 0.75rem; text-decoration:none; color: inherit; transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease; }
-    .commission-card:hover { transform: translateY(-1px); border-color: rgba(139,92,246,0.35); box-shadow: 0 18px 38px rgba(15,23,42,0.16); }
+    .commission-card { 
+      display: flex; 
+      flex-direction: column; 
+      gap: 0.6rem; 
+      text-decoration: none; 
+      color: inherit; 
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background: linear-gradient(135deg, #ffffff 0%, rgba(248, 250, 252, 0.7) 100%);
+      border: 1px solid rgba(139, 92, 246, 0.15);
+      border-radius: 1.1rem;
+      padding: 1rem;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+      position: relative;
+      overflow: hidden;
+    }
 
-    .commission-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap: 0.75rem; }
-    .commission-title { margin: 0; letter-spacing: -0.02em; font-size: 1.15rem; color: #0f172a; }
-    .commission-head-right { display:flex; align-items:center; gap: 0.6rem; }
-    .commission-date { white-space:nowrap; }
+    .commission-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #8b5cf6, #f97316, #fbbf24);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
 
-    .commission-desc { margin:0; color:#475569; line-height: 1.5; min-height: 3rem; }
+    .commission-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(139, 92, 246, 0.35);
+      box-shadow: 0 16px 40px rgba(139, 92, 246, 0.12), 0 0 35px rgba(139, 92, 246, 0.06);
+    }
 
-    .commission-meta-row { display:flex; flex-wrap:wrap; gap:0.75rem; margin-top: 0.15rem; }
-    .commission-meta-item { flex: 1 1 160px; background:#f8fafc; border:1px solid #e2e8f0; border-radius: 0.85rem; padding: 0.7rem 0.9rem; color:#0f172a; display:flex; flex-direction:row; align-items:baseline; justify-content:space-between; gap: 0.75rem; min-width: 180px; }
-    .commission-meta-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color:#64748b; font-weight: 800; flex: 0 0 auto; }
-    .commission-meta-value { font-size: 1.02rem; color:#0f172a; font-weight: 800; text-align:right; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
-    .commission-meta-value.muted { font-weight: 700; }
+    .commission-card:hover::before {
+      opacity: 1;
+    }
 
-    .commission-empty { grid-column: 1 / -1; text-align:center; color:#475569; }
-    .commission-empty .btn-primary { width:auto; margin-top: 0.85rem; }
+    .commission-card-head { 
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      gap: 0.5rem;
+    }
+
+    .commission-title { 
+      margin: 0; 
+      letter-spacing: -0.02em; 
+      font-size: 1.1rem; 
+      font-weight: 700;
+      color: #0f172a;
+      flex: 1;
+    }
+
+    .commission-head-right { 
+      display: flex; 
+      align-items: center; 
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .commission-date { 
+      white-space: nowrap;
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+
+    .commission-desc { 
+      margin: 0; 
+      color: #475569; 
+      line-height: 1.4; 
+      max-height: 2rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      font-size: 0.9rem;
+    }
+
+    .commission-meta-row { 
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 0.6rem; 
+      margin-top: 0.5rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid rgba(139, 92, 246, 0.1);
+    }
+
+    .commission-meta-item { 
+      background: linear-gradient(135deg, rgba(248, 250, 252, 0.8), rgba(139, 92, 246, 0.05));
+      border: 1px solid rgba(139, 92, 246, 0.15);
+      border-radius: 0.85rem; 
+      padding: 0.55rem 0.75rem; 
+      color: #0f172a; 
+      display: flex; 
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: flex-start; 
+      gap: 0.25rem;
+      transition: all 0.2s ease;
+    }
+
+    .commission-meta-item:hover {
+      background: linear-gradient(135deg, rgba(248, 250, 252, 1), rgba(139, 92, 246, 0.1));
+      border-color: rgba(139, 92, 246, 0.25);
+    }
+
+    .commission-meta-label { 
+      font-size: 0.7rem; 
+      text-transform: uppercase; 
+      letter-spacing: 0.08em; 
+      color: #8b5cf6; 
+      font-weight: 700;
+    }
+
+    .commission-meta-value { 
+      font-size: 0.95rem; 
+      color: #0f172a; 
+      font-weight: 700;
+    }
+
+    .commission-meta-value.muted { 
+      font-weight: 600;
+      color: #94a3b8;
+      font-size: 0.85rem;
+    }
+
+    .commission-empty { 
+      grid-column: 1 / -1; 
+      text-align: center; 
+      color: #475569;
+      padding: 2rem 1.5rem;
+    }
+
+    .commission-empty .btn-primary { 
+      width: auto; 
+      margin-top: 1.25rem; 
+    }
+
     @media (max-width: 640px) {
-      .commission-top { flex-direction:column; align-items:stretch; }
-      .commission-top .btn-primary { width:100%; }
-      .commission-grid { grid-template-columns: 1fr; }
+      .commission-top { 
+        flex-direction: column; 
+        align-items: stretch;
+        padding: 1rem;
+      }
+      .commission-top .btn-primary { width: 100%; }
+      .commission-grid { 
+        grid-template-columns: 1fr; 
+        gap: 1rem;
+      }
+      .commission-card {
+        padding: 1.25rem;
+      }
+      .commission-meta-row {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 {% endblock %}
@@ -49,7 +200,8 @@
   {# flashes rendered globally in layout #}
 
   <div class="commission-top">
-    <a class="btn-primary" href="{{ url_for('admin.commission_edit') }}">Nueva comisión</a>
+    <div style="flex: 1;"></div>
+    <a class="btn-primary" href="{{ url_for('admin.commission_edit') }}">✨ Nueva comisión</a>
   </div>
 
   <div class="commission-grid">
@@ -62,7 +214,7 @@
           <div class="commission-head-right">
             <span class="muted commission-date">{{ commission.created_at.strftime('%d/%m/%Y') if commission.created_at else "Sin fecha" }}</span>
             <span class="chip {% if commission.is_active %}chip-live{% else %}chip-off{% endif %}">
-              {{ "Activa" if commission.is_active else "Inactiva" }}
+              {{ "✓ Activa" if commission.is_active else "✕ Inactiva" }}
             </span>
           </div>
         </div>
@@ -74,26 +226,26 @@
 
         <div class="commission-meta-row">
           <div class="commission-meta-item">
-            <span class="commission-meta-label">Miembros</span>
+            <span class="commission-meta-label">👥 Miembros</span>
             <span class="commission-meta-value">{{ commission_stats.get("miembros", 0) }}</span>
           </div>
           <div class="commission-meta-item">
-            <span class="commission-meta-label">Proyectos activos</span>
+            <span class="commission-meta-label">📋 Proyectos</span>
             <span class="commission-meta-value">{{ commission_stats.get("proyectos_activos", 0) }}</span>
           </div>
           <div class="commission-meta-item">
-            <span class="commission-meta-label">Próxima reunión</span>
+            <span class="commission-meta-label">📅 Próxima reunión</span>
             {% if next_meeting %}
               <span class="commission-meta-value">{{ next_meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</span>
             {% else %}
-              <span class="commission-meta-value muted">No hay reuniones programadas</span>
+              <span class="commission-meta-value muted">Sin agendar</span>
             {% endif %}
           </div>
         </div>
       </a>
     {% else %}
       <div class="commission-empty admin-card">
-        <p style="margin:0;">Todavía no hay comisiones registradas.</p>
+        <p style="margin:0; font-size: 1.1rem;">Todavía no hay comisiones registradas.</p>
         <a class="btn-primary" href="{{ url_for('admin.commission_edit') }}">Crear la primera comisión</a>
       </div>
     {% endfor %}

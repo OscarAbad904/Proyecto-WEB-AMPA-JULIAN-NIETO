@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
     <style>
         .schedule-shell {
-            width: 40vw;
+            width: 90vw;
             height: 90vh;
             margin: 1rem auto;
             display: flex;
@@ -97,13 +97,17 @@
             padding: 1rem;
         }
 
-        .month-section {
-            padding-top: 1rem;
+        .year-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 1rem;
         }
 
-        .month-section + .month-section {
-            border-top: 6px solid var(--color-border);
-            margin-top: 1.25rem;
+        .month-section {
+            padding: 0.85rem;
+            border-radius: 14px;
+            border: 4px solid var(--color-border);
+            background: var(--color-bg-base);
         }
 
         .month-header {
@@ -146,8 +150,8 @@
             border-radius: 12px;
             border: 1px solid var(--color-border);
             background: var(--day-bg, var(--color-bg-base));
-            min-height: 84px;
-            padding: 0.55rem;
+            min-height: 62px;
+            padding: 0.45rem;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -177,12 +181,12 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            min-height: 32px;
+            min-height: 28px;
         }
 
         .day-style__thumb {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             border-radius: 10px;
             border: 1px solid rgba(0, 0, 0, 0.06);
             background: rgba(255, 255, 255, 0.55);
@@ -200,7 +204,7 @@
         }
 
         .day-style__name {
-            font-size: 0.8rem;
+            font-size: 0.72rem;
             font-weight: 800;
             color: var(--color-text-base);
             overflow: hidden;
@@ -471,16 +475,18 @@ function renderCalendarMonths() {
     scroll.innerHTML = '';
 
     const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth() - 3, 1);
-    const monthsCount = 24;
+    const year = today.getFullYear();
 
-    const minDate = new Date(start.getFullYear(), start.getMonth(), 1);
-    const maxDate = new Date(start.getFullYear(), start.getMonth() + monthsCount, 0);
+    const minDate = new Date(year, 0, 1);
+    const maxDate = new Date(year, 11, 31);
     calendarFromIso = isoFromDate(minDate);
     calendarToIso = isoFromDate(maxDate);
 
-    for (let i = 0; i < monthsCount; i++) {
-        const monthDate = new Date(start.getFullYear(), start.getMonth() + i, 1);
+    const gridYear = document.createElement('div');
+    gridYear.className = 'year-grid';
+
+    for (let month = 0; month < 12; month++) {
+        const monthDate = new Date(year, month, 1);
         const monthSection = document.createElement('section');
         monthSection.className = 'month-section';
 
@@ -520,8 +526,10 @@ function renderCalendarMonths() {
             grid.appendChild(cell);
         }
 
-        scroll.appendChild(monthSection);
+        gridYear.appendChild(monthSection);
     }
+
+    scroll.appendChild(gridYear);
 }
 
 function onDayClick(ev, iso) {

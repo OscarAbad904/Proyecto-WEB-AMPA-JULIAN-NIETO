@@ -619,11 +619,14 @@ def commission_meeting_edit(commission_id: int, meeting_id: int | None = None):
         end_at = _parse_datetime_local(form.end_at.data)
         if not start_at or not end_at or end_at <= start_at:
             flash("Revisa las fechas de inicio y fin", "warning")
+            now = datetime.now()
+            now_str = now.strftime("%Y-%m-%dT%H:%M")
             return render_template(
                 "admin/comision_reunion_form.html",
                 form=form,
                 commission=commission,
                 meeting=meeting,
+                now_str=now_str,
             )
         minutes_document_id = form.minutes_document_id.data or None
         if minutes_document_id == 0:
@@ -655,11 +658,15 @@ def commission_meeting_edit(commission_id: int, meeting_id: int | None = None):
         form.start_at.data = meeting.start_at.strftime("%Y-%m-%dT%H:%M")
         form.end_at.data = meeting.end_at.strftime("%Y-%m-%dT%H:%M")
 
+    now = datetime.now()
+    now_str = now.strftime("%Y-%m-%dT%H:%M")
+
     return render_template(
         "admin/comision_reunion_form.html",
         form=form,
         commission=commission,
         meeting=meeting,
+        now_str=now_str,
     )
 
 
