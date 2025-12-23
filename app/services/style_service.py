@@ -85,7 +85,10 @@ def _bump_active_style_version() -> None:
 def sync_active_style_to_static() -> Dict[str, Any]:
     """Sincroniza el estilo activo (Drive o fallback local) a rutas fijas en /assets."""
     active = get_active_style_with_fallback()
-    return sync_style_to_static(active)
+    current_app.logger.info(f"Sincronizando estilo activo: {active}")
+    result = sync_style_to_static(active)
+    current_app.logger.info(f"Resultado sincronización: copied={result.get('copied', [])}, errors={result.get('errors', [])}")
+    return result
 
 
 def sync_style_to_static(style_name: str) -> Dict[str, Any]:
@@ -110,9 +113,12 @@ def sync_style_to_static(style_name: str) -> Dict[str, Any]:
     # 1) Intentar listar/descargar desde Drive (si falla, se usará fallback local)
     try:
         files = get_style_files(sanitized)
+        current_app.logger.info(f"Archivos encontrados para estilo '{sanitized}': {[f.get('name') for f in (files or [])]}")
     except Exception as exc:
         files = []
         errors.append(f"No se pudieron listar archivos en Drive: {exc}")
+        current_app.logger.warning(f"Error listando archivos de Drive para '{sanitized}': {exc}")
+
 
     css_bytes: Optional[bytes] = None
 
@@ -183,10 +189,31 @@ def sync_style_to_static(style_name: str) -> Dict[str, Any]:
     # 4) Swap atómico del directorio current
     try:
         if images_dir.exists():
-            shutil.rmtree(images_dir, ignore_errors=True)
-        tmp_dir.rename(images_dir)
+            # Intentar eliminar el directorio existente
+            # En algunos entornos (como Render), los archivos del repo pueden ser read-only
+            try:
+                shutil.rmtree(images_dir, ignore_errors=False)
+            except PermissionError:
+                # Fallback: copiar archivos uno a uno sobre los existentes
+                current_app.logger.warning("No se pudo eliminar images/current, copiando archivos individualmente")
+                for src_file in tmp_dir.iterdir():
+                    dst_file = images_dir / src_file.name
+                    try:
+                        if dst_file.exists():
+                            dst_file.unlink()
+                        shutil.copy2(src_file, dst_file)
+                        copied.append(src_file.name)
+                    except Exception as copy_exc:
+                        errors.append(f"No se pudo copiar {src_file.name}: {copy_exc}")
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+            else:
+                tmp_dir.rename(images_dir)
+        else:
+            tmp_dir.rename(images_dir)
     except Exception as exc:
         errors.append(f"No se pudo activar el directorio current: {exc}")
+        current_app.logger.error(f"Error activando directorio current: {exc}")
+
 
     # 5) Bump versión para bustear caché
     _bump_active_style_version()

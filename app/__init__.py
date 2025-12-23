@@ -66,8 +66,10 @@ def create_app(config_name: str | None = None) -> Flask:
             if os.getenv("FLASK_RUN_FROM_CLI") != "true":
                 from app.services.style_service import sync_active_style_to_static
                 app.logger.info("Sincronizando estilo activo al iniciar...")
-                sync_active_style_to_static()
-                app.logger.info("Sincronización de estilo completada.")
+                result = sync_active_style_to_static()
+                app.logger.info("Sincronización de estilo completada: %s", result)
+                if result.get("errors"):
+                    app.logger.warning("Errores durante sincronización de estilo: %s", result["errors"])
             
             # Liberar conexiones tras la inicialización para evitar problemas de SSL tras fork/arranque
             db.engine.dispose()
