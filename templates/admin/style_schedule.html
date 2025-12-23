@@ -5,187 +5,728 @@
 {% block head %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
     <style>
-        .schedule-container {
-            max-width: 1000px;
-            margin: 2rem auto;
-            padding: 0 1rem;
+        .schedule-shell {
+            width: 40vw;
+            height: 90vh;
+            margin: 1rem auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
         }
-        .card {
-            background: var(--color-panel);
-            border: 1px solid var(--color-border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--shadow-sm);
+
+        .schedule-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
         }
-        .form-group {
-            margin-bottom: 1rem;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-        }
-        .form-control {
-            width: 100%;
-            padding: 0.75rem;
-            border-radius: 8px;
-            border: 1px solid var(--color-border);
-            background: var(--color-bg-base);
+
+        .schedule-title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin: 0;
             color: var(--color-text-base);
         }
+
         .btn {
-            padding: 0.75rem 1.25rem;
-            border-radius: 8px;
-            font-weight: 600;
+            padding: 0.7rem 1rem;
+            border-radius: 10px;
+            font-weight: 700;
             cursor: pointer;
-            border: none;
+            border: 1px solid var(--color-border);
             transition: all 0.2s;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
+            background: var(--color-panel);
+            color: var(--color-text-base);
+            text-decoration: none;
+            user-select: none;
         }
+
+        .btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
         .btn-primary {
+            border-color: transparent;
             background: var(--color-accent-warm);
             color: white;
         }
+
         .btn-danger {
+            border-color: transparent;
             background: #ef4444;
             color: white;
         }
-        .schedule-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
+
+        .schedule-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
         }
-        .schedule-table th, .schedule-table td {
+
+        .schedule-actions__left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .schedule-selected {
+            color: var(--color-text-soft);
+            font-weight: 700;
+        }
+
+        .calendar-shell {
+            flex: 1;
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            min-height: 0;
+        }
+
+        .calendar-scroll {
+            height: 100%;
+            overflow: auto;
             padding: 1rem;
-            text-align: left;
+        }
+
+        .month-section {
+            padding-top: 1rem;
+        }
+
+        .month-section + .month-section {
+            border-top: 6px solid var(--color-border);
+            margin-top: 1.25rem;
+        }
+
+        .month-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .month-title {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--color-text-base);
+        }
+
+        .weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .weekday {
+            font-size: 0.75rem;
+            color: var(--color-text-soft);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .days-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.5rem;
+        }
+
+        .day-cell {
+            border-radius: 12px;
+            border: 1px solid var(--color-border);
+            background: var(--day-bg, var(--color-bg-base));
+            min-height: 84px;
+            padding: 0.55rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .day-cell.is-empty {
+            background: transparent;
+            border-color: transparent;
+            cursor: default;
+        }
+
+        .day-cell:hover {
+            filter: brightness(0.99);
+        }
+
+        .day-num {
+            font-weight: 900;
+            font-size: 0.9rem;
+            color: var(--color-text-base);
+            line-height: 1;
+        }
+
+        .day-style {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-height: 32px;
+        }
+
+        .day-style__thumb {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            background: rgba(255, 255, 255, 0.55);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            overflow: hidden;
+        }
+
+        .day-style__thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .day-style__name {
+            font-size: 0.8rem;
+            font-weight: 800;
+            color: var(--color-text-base);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .day-cell.selected {
+            outline: 3px solid var(--color-accent-warm);
+            outline-offset: 2px;
+        }
+
+        /* Modal (reutiliza patrón admin) */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--color-panel);
+            border-radius: 16px;
+            width: min(900px, calc(100% - 2rem));
+            max-height: min(80vh, 720px);
+            overflow: hidden;
+            border: 1px solid var(--color-border);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
             border-bottom: 1px solid var(--color-border);
         }
-        .schedule-table th {
-            font-weight: 600;
-            color: var(--color-text-soft);
+
+        .modal-title {
+            margin: 0;
+            font-weight: 900;
+            font-size: 1.1rem;
         }
-        .badge {
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
+
+        .modal-close {
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-base);
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1.35rem;
+            color: var(--color-text-base);
         }
-        .badge-active {
-            background: #dcfce7;
-            color: #166534;
+
+        .modal-body {
+            padding: 1rem 1.25rem;
+            overflow: auto;
         }
-        .badge-scheduled {
-            background: #f1f5f9;
-            color: #475569;
+
+        .style-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 0.75rem;
         }
+
+        .style-item {
+            border: 1px solid var(--color-border);
+            border-radius: 14px;
+            padding: 0.75rem;
+            background: var(--color-bg-base);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .style-item:hover {
+            background: var(--color-bg-soft);
+        }
+
+        .style-item__thumb {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            background: var(--thumb-bg, rgba(255, 255, 255, 0.6));
+            overflow: hidden;
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .style-item__thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .style-item__name {
+            font-weight: 900;
+            color: var(--color-text-base);
+        }
+
         .alert {
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
+            padding: 0.9rem 1rem;
+            border-radius: 12px;
+            border: 1px solid var(--color-border);
+            background: var(--color-panel);
+            color: var(--color-text-base);
         }
+
         .alert-success {
-            background: #dcfce7;
+            border-color: rgba(34, 197, 94, 0.45);
+            background: rgba(16, 185, 129, 0.12);
             color: #166534;
         }
+
         .alert-danger {
-            background: #fee2e2;
+            border-color: rgba(239, 68, 68, 0.4);
+            background: rgba(239, 68, 68, 0.12);
             color: #991b1b;
         }
     </style>
 {% endblock %}
 
 {% block content %}
-<div class="schedule-container">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-        <h1>Programación de Estilos</h1>
-        <a href="{{ url_for('admin.personalizacion') }}" class="btn" style="background: var(--color-panel); border: 1px solid var(--color-border);">
-            Volver a Personalización
-        </a>
+<div class="schedule-shell">
+    <div class="schedule-topbar">
+        <h1 class="schedule-title">Programación de Estilos</h1>
+        <a href="{{ url_for('admin.personalizacion') }}" class="btn">Volver a Personalización</a>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">
-                    {{ message }}
-                </div>
+                <div class="alert alert-{{ category }}">{{ message }}</div>
             {% endfor %}
         {% endif %}
     {% endwith %}
 
-    <div class="card">
-        <h2>Añadir Nueva Programación</h2>
-        <form method="POST">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
-                <div class="form-group">
-                    <label for="style_name">Estilo</label>
-                    <select name="style_name" id="style_name" class="form-control" required>
-                        {% for style in styles %}
-                            <option value="{{ style.name }}">{{ style.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="start_date">Fecha Inicio</label>
-                    <input type="date" name="start_date" id="start_date" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label for="end_date">Fecha Fin</label>
-                    <input type="date" name="end_date" id="end_date" class="form-control" required>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-primary">Programar Estilo</button>
-        </form>
+    <div class="schedule-actions">
+        <div class="schedule-actions__left">
+            <button id="assignBtn" class="btn btn-primary" type="button" disabled>Asignar estilo</button>
+            <button id="clearBtn" class="btn btn-danger" type="button" disabled>Eliminar asignación</button>
+            <span id="selectedInfo" class="schedule-selected">0 días seleccionados</span>
+        </div>
+        <div class="schedule-actions__right">
+            <span class="schedule-selected">Click: 1 día · Ctrl: añadir/quitar · Shift: rango</span>
+        </div>
     </div>
 
-    <div class="card">
-        <h2>Programaciones Existentes</h2>
-        {% if schedules %}
-            <table class="schedule-table">
-                <thead>
-                    <tr>
-                        <th>Estilo</th>
-                        <th>Desde</th>
-                        <th>Hasta</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for s in schedules %}
-                        <tr>
-                            <td><strong>{{ s.style_name }}</strong></td>
-                            <td>{{ s.start_date }}</td>
-                            <td>{{ s.end_date }}</td>
-                            <td>
-                                {% set s_start = s.start_date | string %}
-                                {% set s_end = s.end_date | string %}
-                                {% set today_str = today | string %}
-                                
-                                {% if today_str >= s_start and today_str <= s_end %}
-                                    <span class="badge badge-active">Activo ahora</span>
-                                {% else %}
-                                    <span class="badge badge-scheduled">Programado</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <form action="{{ url_for('admin.style_schedule_delete', schedule_id=s.id) }}" method="POST" onsubmit="return confirm('¿Eliminar esta programación?');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
-                                </form>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p style="color: var(--color-text-soft); margin-top: 1rem;">No hay programaciones configuradas.</p>
-        {% endif %}
+    <div class="calendar-shell">
+        <div id="calendarScroll" class="calendar-scroll" aria-label="Calendario de programación"></div>
     </div>
 </div>
+
+<div class="modal-overlay" id="assignModal" role="dialog" aria-modal="true" aria-labelledby="assignTitle">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title" id="assignTitle">Asignar estilo</h2>
+            <button class="modal-close" type="button" onclick="closeAssignModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="styleList" class="style-list"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const csrfToken = "{{ csrf_token() }}";
+
+const MONTHS_ES = [
+    'enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'
+];
+const WEEKDAYS_ES = ['L','M','X','J','V','S','D'];
+
+let styleCatalog = [];
+let styleColors = {};
+
+let selectedDates = new Set();
+let anchorDateIso = null;
+
+let calendarFromIso = null;
+let calendarToIso = null;
+
+function isoFromDate(d) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+function dateFromIso(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m - 1, d);
+}
+
+function clampToCalendarDays(iso) {
+    if (!calendarFromIso || !calendarToIso) return true;
+    return iso >= calendarFromIso && iso <= calendarToIso;
+}
+
+function openAssignModal() {
+    document.getElementById('assignModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeAssignModal() {
+    document.getElementById('assignModal').classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function renderStyleModal() {
+    const list = document.getElementById('styleList');
+    list.innerHTML = '';
+
+    for (const s of styleCatalog) {
+        const item = document.createElement('div');
+        item.className = 'style-item';
+        item.style.setProperty('--thumb-bg', s.color || 'rgba(255, 255, 255, 0.6)');
+        item.innerHTML = `
+            <div class="style-item__thumb"><img src="${s.logo_url}" alt="${s.name}" loading="lazy"></div>
+            <div class="style-item__name">${s.name}</div>
+        `;
+        item.addEventListener('click', () => {
+            closeAssignModal();
+            applySelectedStyle(s.name);
+        });
+        list.appendChild(item);
+    }
+}
+
+async function loadCatalog() {
+    const res = await fetch('/admin/personalizacion/api/styles-catalog', {
+        headers: { 'Accept': 'application/json' }
+    });
+    const data = await res.json();
+    if (!data || !data.ok) throw new Error('No se pudo cargar el catálogo de estilos');
+    styleCatalog = data.styles || [];
+    styleColors = data.colors || {};
+
+    // Asegurar que General esté disponible como base
+    if (!styleCatalog.some(s => s.name && s.name.toLowerCase() === 'general')) {
+        styleCatalog.unshift({
+            name: 'General',
+            logo_url: '/style/General/Logo_AMPA_64x64.png',
+            color: styleColors['General']
+        });
+    }
+}
+
+function renderCalendarMonths() {
+    const scroll = document.getElementById('calendarScroll');
+    scroll.innerHTML = '';
+
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+    const monthsCount = 24;
+
+    const minDate = new Date(start.getFullYear(), start.getMonth(), 1);
+    const maxDate = new Date(start.getFullYear(), start.getMonth() + monthsCount, 0);
+    calendarFromIso = isoFromDate(minDate);
+    calendarToIso = isoFromDate(maxDate);
+
+    for (let i = 0; i < monthsCount; i++) {
+        const monthDate = new Date(start.getFullYear(), start.getMonth() + i, 1);
+        const monthSection = document.createElement('section');
+        monthSection.className = 'month-section';
+
+        const monthTitle = `${MONTHS_ES[monthDate.getMonth()]} ${monthDate.getFullYear()}`;
+        monthSection.innerHTML = `
+            <div class="month-header">
+                <h2 class="month-title">${monthTitle}</h2>
+            </div>
+            <div class="weekdays">${WEEKDAYS_ES.map(w => `<div class="weekday">${w}</div>`).join('')}</div>
+            <div class="days-grid"></div>
+        `;
+
+        const grid = monthSection.querySelector('.days-grid');
+        const firstDow = (monthDate.getDay() + 6) % 7; // lunes=0
+        const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+
+        for (let e = 0; e < firstDow; e++) {
+            const empty = document.createElement('div');
+            empty.className = 'day-cell is-empty';
+            grid.appendChild(empty);
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const d = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
+            const iso = isoFromDate(d);
+            const cell = document.createElement('div');
+            cell.className = 'day-cell';
+            cell.dataset.date = iso;
+            cell.innerHTML = `
+                <div class="day-num">${day}</div>
+                <div class="day-style">
+                    <div class="day-style__thumb"><img alt="" loading="lazy"></div>
+                    <div class="day-style__name"></div>
+                </div>
+            `;
+            cell.addEventListener('click', (ev) => onDayClick(ev, iso));
+            grid.appendChild(cell);
+        }
+
+        scroll.appendChild(monthSection);
+    }
+}
+
+function onDayClick(ev, iso) {
+    if (!clampToCalendarDays(iso)) return;
+
+    const isCtrl = ev.ctrlKey || ev.metaKey;
+    const isShift = ev.shiftKey;
+
+    if (isShift && anchorDateIso) {
+        const range = getIsoRange(anchorDateIso, iso);
+        if (!isCtrl) selectedDates.clear();
+        for (const d of range) selectedDates.add(d);
+    } else if (isCtrl) {
+        if (selectedDates.has(iso)) selectedDates.delete(iso);
+        else selectedDates.add(iso);
+        anchorDateIso = iso;
+    } else {
+        selectedDates.clear();
+        selectedDates.add(iso);
+        anchorDateIso = iso;
+    }
+
+    syncSelectionUI();
+}
+
+function getIsoRange(aIso, bIso) {
+    const a = dateFromIso(aIso);
+    const b = dateFromIso(bIso);
+    const start = a <= b ? a : b;
+    const end = a <= b ? b : a;
+    const out = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        out.push(isoFromDate(d));
+    }
+    return out.filter(clampToCalendarDays);
+}
+
+function syncSelectionUI() {
+    document.querySelectorAll('.day-cell.selected').forEach(el => el.classList.remove('selected'));
+    for (const iso of selectedDates) {
+        const el = document.querySelector(`.day-cell[data-date="${iso}"]`);
+        if (el) el.classList.add('selected');
+    }
+
+    const count = selectedDates.size;
+    document.getElementById('selectedInfo').textContent = `${count} días seleccionados`;
+    document.getElementById('assignBtn').disabled = count === 0;
+    document.getElementById('clearBtn').disabled = count === 0;
+}
+
+function buildDateToStyleMap(schedules) {
+    const map = new Map();
+    for (const s of schedules) {
+        if (!s || !s.start_date || !s.end_date || !s.style_name) continue;
+        const start = dateFromIso(s.start_date);
+        const end = dateFromIso(s.end_date);
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const iso = isoFromDate(d);
+            if (!clampToCalendarDays(iso)) continue;
+            map.set(iso, s.style_name);
+        }
+    }
+    return map;
+}
+
+function getLogoUrl(styleName) {
+    const s = styleCatalog.find(x => String(x.name).toLowerCase() === String(styleName).toLowerCase());
+    return s ? s.logo_url : `/style/${encodeURIComponent(styleName)}/Logo_AMPA_64x64.png`;
+}
+
+function getColor(styleName) {
+    const s = styleCatalog.find(x => String(x.name).toLowerCase() === String(styleName).toLowerCase());
+    return (s && s.color) ? s.color : styleColors[styleName];
+}
+
+function paintCalendar(schedules) {
+    const dateToStyle = buildDateToStyleMap(schedules);
+    document.querySelectorAll('.day-cell[data-date]').forEach(cell => {
+        const iso = cell.dataset.date;
+        const styleName = dateToStyle.get(iso) || 'General';
+
+        const nameEl = cell.querySelector('.day-style__name');
+        const imgEl = cell.querySelector('.day-style__thumb img');
+        if (nameEl) nameEl.textContent = styleName;
+        if (imgEl) {
+            imgEl.src = getLogoUrl(styleName);
+            imgEl.alt = styleName;
+        }
+
+        const color = getColor(styleName);
+        if (color) cell.style.setProperty('--day-bg', color);
+        else cell.style.removeProperty('--day-bg');
+    });
+}
+
+async function loadSchedulesAndPaint() {
+    const url = `/admin/personalizacion/api/style-schedules?from=${encodeURIComponent(calendarFromIso)}&to=${encodeURIComponent(calendarToIso)}`;
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    const data = await res.json();
+    if (!data || !data.ok) throw new Error(data && data.error ? data.error : 'Error cargando programaciones');
+    styleColors = data.colors || styleColors;
+    paintCalendar(data.schedules || []);
+}
+
+function selectedDatesSorted() {
+    return Array.from(selectedDates).sort();
+}
+
+async function applySelectedStyle(styleName) {
+    const dates = selectedDatesSorted();
+    if (!dates.length) return;
+
+    // 1) Intento sin modo: si hay conflicto, el backend devuelve 409
+    const basePayload = { style_name: styleName, dates };
+    let res = await fetch('/admin/personalizacion/api/style-schedules/apply', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify(basePayload)
+    });
+
+    if (res.status === 409) {
+        const overwrite = confirm(
+            'Hay conflicto: algunos días ya tienen un estilo programado.\n\n' +
+            'Aceptar = sobrescribir esos días con el nuevo estilo.\n' +
+            'Cancelar = mantener lo ya establecido en el solape.'
+        );
+        const mode = overwrite ? 'overwrite' : 'keep';
+        res = await fetch('/admin/personalizacion/api/style-schedules/apply', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ ...basePayload, mode })
+        });
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+        alert(data && data.error ? data.error : 'No se pudo asignar el estilo');
+        return;
+    }
+
+    selectedDates.clear();
+    anchorDateIso = null;
+    syncSelectionUI();
+    await loadSchedulesAndPaint();
+}
+
+async function clearSelected() {
+    const dates = selectedDatesSorted();
+    if (!dates.length) return;
+
+    if (!confirm('¿Eliminar la asignación de estilo en los días seleccionados?\n\nEsto hará que esos días vuelvan a General por defecto.')) {
+        return;
+    }
+
+    const res = await fetch('/admin/personalizacion/api/style-schedules/clear', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ dates })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+        alert(data && data.error ? data.error : 'No se pudo eliminar la asignación');
+        return;
+    }
+
+    selectedDates.clear();
+    anchorDateIso = null;
+    syncSelectionUI();
+    await loadSchedulesAndPaint();
+}
+
+document.getElementById('assignBtn').addEventListener('click', () => {
+    if (!selectedDates.size) return;
+    openAssignModal();
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+    if (!selectedDates.size) return;
+    clearSelected();
+});
+
+document.getElementById('assignModal').addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'assignModal') closeAssignModal();
+});
+
+(async function init() {
+    try {
+        await loadCatalog();
+        renderStyleModal();
+        renderCalendarMonths();
+        syncSelectionUI();
+        await loadSchedulesAndPaint();
+    } catch (e) {
+        console.error(e);
+        alert('No se pudo inicializar el calendario.');
+    }
+})();
+</script>
 {% endblock %}

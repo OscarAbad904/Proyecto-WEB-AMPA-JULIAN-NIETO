@@ -1329,6 +1329,112 @@ def style_schedule_delete(schedule_id: int):
     return redirect(url_for("admin.style_schedule"))
 
 
+@admin_bp.route("/personalizacion/api/styles-catalog", methods=["GET"])
+@login_required
+def api_styles_catalog():
+    """Devuelve estilos disponibles (Drive + General) con logo 64x64 y color de calendario."""
+    _require_manage_styles()
+
+    from app.services.style_service import list_styles, get_style_calendar_colors
+    from urllib.parse import quote
+
+    styles = list_styles()
+    colors = get_style_calendar_colors()
+    catalog = []
+    for s in styles:
+        name = s.get("name") if isinstance(s, dict) else getattr(s, "name", None)
+        if not name:
+            continue
+        catalog.append(
+            {
+                "name": name,
+                "logo_url": f"/style/{quote(str(name))}/Logo_AMPA_64x64.png",
+                "color": colors.get(name),
+            }
+        )
+    return jsonify({"ok": True, "styles": catalog, "colors": colors})
+
+
+@admin_bp.route("/personalizacion/api/style/<style_name>/calendar-color", methods=["GET", "POST"])
+@login_required
+def api_style_calendar_color(style_name: str):
+    """Lee/guarda el color de calendario para un estilo."""
+    _require_manage_styles()
+
+    from app.services.style_service import get_style_calendar_color, set_style_calendar_color
+
+    if request.method == "GET":
+        return jsonify({"ok": True, "style_name": style_name, "color": get_style_calendar_color(style_name)})
+
+    data = request.get_json(silent=True) or {}
+    color = data.get("color")
+    if not set_style_calendar_color(style_name, color):
+        return jsonify({"ok": False, "error": "Color inválido"}), 400
+    return jsonify({"ok": True})
+
+
+@admin_bp.route("/personalizacion/api/style-schedules", methods=["GET"])
+@login_required
+def api_style_schedules_range():
+    """Lista programaciones que intersectan un rango (para pintar el calendario)."""
+    _require_manage_styles()
+
+    from datetime import datetime
+    from app.services.style_service import list_style_schedules_between, get_style_calendar_colors
+
+    start_str = request.args.get("from")
+    end_str = request.args.get("to")
+    if not start_str or not end_str:
+        return jsonify({"ok": False, "error": "Parámetros 'from' y 'to' requeridos"}), 400
+
+    try:
+        start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except Exception:
+        return jsonify({"ok": False, "error": "Formato de fecha inválido"}), 400
+
+    schedules = list_style_schedules_between(start_date, end_date)
+    return jsonify({"ok": True, "schedules": schedules, "colors": get_style_calendar_colors()})
+
+
+@admin_bp.route("/personalizacion/api/style-schedules/apply", methods=["POST"])
+@login_required
+def api_style_schedules_apply():
+    """Aplica un estilo a una selección de días con manejo de solapes."""
+    _require_manage_styles()
+
+    data = request.get_json(silent=True) or {}
+    style_name = data.get("style_name")
+    dates = data.get("dates") or []
+    mode = data.get("mode")  # None | overwrite | keep
+
+    from app.services.style_service import apply_style_schedule_days
+
+    result = apply_style_schedule_days(style_name, dates, mode=mode)
+    if result.get("conflict"):
+        return jsonify(result), 409
+    if not result.get("ok"):
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@admin_bp.route("/personalizacion/api/style-schedules/clear", methods=["POST"])
+@login_required
+def api_style_schedules_clear():
+    """Elimina asignaciones en una selección de días (vuelven a General por defecto)."""
+    _require_manage_styles()
+
+    data = request.get_json(silent=True) or {}
+    dates = data.get("dates") or []
+
+    from app.services.style_service import clear_style_schedule_days
+
+    result = clear_style_schedule_days(dates)
+    if not result.get("ok"):
+        return jsonify(result), 400
+    return jsonify(result)
+
+
 @admin_bp.route("/personalizacion/crear", methods=["POST"])
 @login_required
 def style_create():
@@ -1542,8 +1648,8 @@ def api_style_delete(style_name: str):
     
     from app.services.style_service import delete_style
     
-    if style_name.lower() in ["navidad", "general"]:
-        return jsonify({"ok": False, "error": "No se pueden eliminar los estilos por defecto"}), 400
+    if style_name.lower() in ["general"]:
+        return jsonify({"ok": False, "error": "No se puede eliminar el estilo General"}), 400
     
     if delete_style(style_name):
         return jsonify({"ok": True})

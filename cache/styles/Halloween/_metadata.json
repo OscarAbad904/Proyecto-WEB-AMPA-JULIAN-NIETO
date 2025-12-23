@@ -1,40 +1,34 @@
 {
   "files": {
-    "Globo_shape_Verde.png": {
-      "cached_at": 1766446984.3913834,
-      "size": 47953,
-      "drive_file_id": "1UZkBr6hSIg32O5CKx85kaicJnhKpwJsy",
-      "etag": "6ef6df44ea9647bdd0bbd0f2dd3b7b42"
-    },
     "Globo_shape_Naranja.png": {
-      "cached_at": 1766446984.4873126,
+      "cached_at": 1766503751.1564503,
       "size": 48706,
       "drive_file_id": "1Ua3RyrVxmt5tb9ShhkSysyja9_DKfAFT",
       "etag": "3bfa47f391188351d3476ea1b6948f29"
     },
-    "Logo_AMPA_400x400.png": {
-      "cached_at": 1766495253.9389288,
-      "size": 170012,
-      "drive_file_id": "1OLSn39rzd7TJoNEFtn6qg7GRyya6Hc-f",
-      "etag": "4390e4cc2f9d2899f71de7f75444dfa4"
-    },
     "Logo_AMPA_64x64.png": {
-      "cached_at": 1766446984.4954276,
+      "cached_at": 1766503751.665369,
       "size": 8752,
       "drive_file_id": "1Enhl8dbB_A6QTrEFIF0ZpT0QssbIeVsp",
       "etag": "c1c0ae69fd60720f91b75bbfc3bc67c1"
     },
+    "Globo_shape_Verde.png": {
+      "cached_at": 1766503751.712826,
+      "size": 47953,
+      "drive_file_id": "1UZkBr6hSIg32O5CKx85kaicJnhKpwJsy",
+      "etag": "6ef6df44ea9647bdd0bbd0f2dd3b7b42"
+    },
     "Logo_AMPA.png": {
-      "cached_at": 1766446984.6954753,
+      "cached_at": 1766503751.8514397,
       "size": 1503969,
       "drive_file_id": "16q69Ok-K7RslfVtnHJlkoUvu0S5MA1IB",
       "etag": "8da15b1e740f7a77813532ed0f91b2f8"
     },
-    "Fondo Pagina Principal.png": {
-      "cached_at": 1766446984.8181932,
-      "size": 1275941,
-      "drive_file_id": "1_IN7AIa_7jZuOV2MoHBV9GAk5kn_YUN4",
-      "etag": "256b4cd3c4a77b704b7c305a46e4e285"
+    "Logo_AMPA_400x400.png": {
+      "cached_at": 1766503752.2682106,
+      "size": 170012,
+      "drive_file_id": "1OLSn39rzd7TJoNEFtn6qg7GRyya6Hc-f",
+      "etag": "4390e4cc2f9d2899f71de7f75444dfa4"
     }
   },
   "last_sync": 0

@@ -960,9 +960,30 @@ def delete_style(style_name: str) -> bool:
         return False
     
     # No permitir eliminar estilos por defecto
-    if sanitized.lower() in ["navidad", "general"]:
-        current_app.logger.warning(f"No se puede eliminar el estilo por defecto: {sanitized}")
+    if sanitized.lower() in ["general"]:
+        current_app.logger.warning(f"No se puede eliminar el estilo protegido: {sanitized}")
         return False
+
+    # Si el estilo está activo (o programado hoy), mover a General antes de borrar.
+    try:
+        if get_active_style_name().lower() == sanitized.lower():
+            set_active_style("General")
+    except Exception:
+        pass
+
+    # Si hay programaciones apuntando a este estilo, eliminarlas.
+    try:
+        from app.models import StyleSchedule
+        from app.extensions import db
+
+        schedules = StyleSchedule.query.filter(StyleSchedule.style_name.ilike(sanitized)).all()
+        for schedule in schedules:
+            db.session.delete(schedule)
+        if schedules:
+            db.session.commit()
+    except Exception:
+        # Tabla no creada aún o BD no disponible
+        pass
     
     drive_service = _get_user_drive_service()
     if drive_service is None:
@@ -1186,6 +1207,94 @@ def list_style_schedules() -> List[Dict[str, Any]]:
         return []
 
 
+def list_style_schedules_between(start_date, end_date) -> List[Dict[str, Any]]:
+    """Lista programaciones habilitadas que intersectan con un rango."""
+    from app.models import StyleSchedule
+    from sqlalchemy import and_
+
+    try:
+        schedules = (
+            StyleSchedule.query.filter(
+                StyleSchedule.is_enabled == True,
+                and_(StyleSchedule.start_date <= end_date, StyleSchedule.end_date >= start_date),
+            )
+            .order_by(StyleSchedule.start_date)
+            .all()
+        )
+        return [
+            {
+                "id": s.id,
+                "style_name": s.style_name,
+                "start_date": s.start_date.isoformat() if s.start_date else None,
+                "end_date": s.end_date.isoformat() if s.end_date else None,
+                "is_enabled": s.is_enabled,
+            }
+            for s in schedules
+        ]
+    except Exception:
+        return []
+
+
+def get_style_calendar_colors() -> Dict[str, str]:
+    """Devuelve un mapa {StyleName: '#RRGGBB'} para colorear el calendario (admin)."""
+    from app.models import SiteSetting
+
+    try:
+        raw = SiteSetting.get("style_calendar_colors")
+        if not raw:
+            return {}
+        if isinstance(raw, dict):
+            return {str(k): str(v) for k, v in raw.items() if k and v}
+        import json
+
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return {str(k): str(v) for k, v in data.items() if k and v}
+    except Exception:
+        pass
+    return {}
+
+
+def set_style_calendar_color(style_name: str, color_hex: str) -> bool:
+    """Guarda el color del estilo para su visualización en el calendario de programación."""
+    sanitized = _sanitize_style_name(style_name)
+    if not sanitized:
+        return False
+
+    if not isinstance(color_hex, str):
+        return False
+
+    color_hex = color_hex.strip()
+    if color_hex == "":
+        return False
+
+    import re
+
+    if not re.fullmatch(r"#[0-9a-fA-F]{6}", color_hex):
+        return False
+
+    from app.models import SiteSetting
+    from app.extensions import db
+    import json
+
+    try:
+        colors = get_style_calendar_colors()
+        colors[sanitized] = color_hex
+        SiteSetting.set("style_calendar_colors", json.dumps(colors, ensure_ascii=False))
+        db.session.commit()
+        return True
+    except Exception:
+        db.session.rollback()
+        return False
+
+
+def get_style_calendar_color(style_name: str) -> Optional[str]:
+    sanitized = _sanitize_style_name(style_name)
+    if not sanitized:
+        return None
+    return get_style_calendar_colors().get(sanitized)
+
+
 def add_style_schedule(style_name: str, start_date, end_date, is_enabled: bool = True) -> Tuple[bool, str]:
     """Añade una nueva programación de estilo."""
     from app.models import StyleSchedule
@@ -1209,6 +1318,236 @@ def add_style_schedule(style_name: str, start_date, end_date, is_enabled: bool =
     except Exception as e:
         db.session.rollback()
         return False, f"Error al añadir programación: {e}"
+
+
+def _compress_dates_to_ranges(date_list):
+    """Convierte una lista de date (ordenada/única) en rangos inclusivos [(start,end), ...]."""
+    from datetime import timedelta
+
+    if not date_list:
+        return []
+    date_list = sorted(set(date_list))
+    ranges = []
+    start = date_list[0]
+    end = date_list[0]
+    one = timedelta(days=1)
+    for d in date_list[1:]:
+        if d == end + one:
+            end = d
+        else:
+            ranges.append((start, end))
+            start = end = d
+    ranges.append((start, end))
+    return ranges
+
+
+def _subtract_range(original_start, original_end, cut_start, cut_end):
+    """Resta un rango inclusivo de otro. Devuelve 0..2 rangos inclusivos."""
+    from datetime import timedelta
+
+    one = timedelta(days=1)
+    if cut_end < original_start or cut_start > original_end:
+        return [(original_start, original_end)]
+    parts = []
+    if cut_start > original_start:
+        left_end = cut_start - one
+        if original_start <= left_end:
+            parts.append((original_start, left_end))
+    if cut_end < original_end:
+        right_start = cut_end + one
+        if right_start <= original_end:
+            parts.append((right_start, original_end))
+    return parts
+
+
+def _iter_days(start_date, end_date):
+    from datetime import timedelta
+
+    d = start_date
+    one = timedelta(days=1)
+    while d <= end_date:
+        yield d
+        d += one
+
+
+def _find_overlapping_schedules(start_date, end_date):
+    from app.models import StyleSchedule
+    from sqlalchemy import and_
+
+    return (
+        StyleSchedule.query.filter(
+            StyleSchedule.is_enabled == True,
+            and_(StyleSchedule.start_date <= end_date, StyleSchedule.end_date >= start_date),
+        )
+        .order_by(StyleSchedule.start_date)
+        .all()
+    )
+
+
+def apply_style_schedule_days(style_name: str, dates_iso: List[str], mode: Optional[str] = None) -> Dict[str, Any]:
+    """Aplica un estilo a una selección de días.
+
+    mode:
+      - None: solo detecta conflicto (no modifica) y devuelve ok/conflict
+      - 'overwrite': sobrescribe recortando/dividiendo rangos existentes
+      - 'keep': respeta lo existente y solo asigna huecos libres
+    """
+    from datetime import datetime
+    from app.models import StyleSchedule
+    from app.extensions import db
+
+    sanitized = _sanitize_style_name(style_name)
+    if not sanitized:
+        return {"ok": False, "error": "Nombre de estilo inválido"}
+
+    if not dates_iso:
+        return {"ok": False, "error": "No hay días seleccionados"}
+
+    try:
+        days = [datetime.strptime(d, "%Y-%m-%d").date() for d in dates_iso]
+    except Exception:
+        return {"ok": False, "error": "Formato de fecha inválido"}
+
+    ranges = _compress_dates_to_ranges(days)
+
+    overlaps_by_id = {}
+    for start_date, end_date in ranges:
+        for s in _find_overlapping_schedules(start_date, end_date):
+            overlaps_by_id[s.id] = s
+    overlaps = sorted(overlaps_by_id.values(), key=lambda s: (s.start_date, s.end_date, s.id))
+    if overlaps and mode is None:
+        return {
+            "ok": False,
+            "conflict": True,
+            "overlaps": [
+                {
+                    "id": s.id,
+                    "style_name": s.style_name,
+                    "start_date": s.start_date.isoformat(),
+                    "end_date": s.end_date.isoformat(),
+                }
+                for s in overlaps
+            ],
+        }
+
+    if mode not in ("overwrite", "keep"):
+        return {"ok": False, "error": "Modo inválido"}
+
+    created = 0
+    updated = 0
+    deleted = 0
+
+    try:
+        if mode == "overwrite":
+            for start_date, end_date in ranges:
+                for s in _find_overlapping_schedules(start_date, end_date):
+                    remaining = _subtract_range(s.start_date, s.end_date, start_date, end_date)
+                    if not remaining:
+                        db.session.delete(s)
+                        deleted += 1
+                        continue
+
+                    # Actualiza el primero y, si hay segundo, crea uno nuevo (split)
+                    s.start_date, s.end_date = remaining[0]
+                    updated += 1
+                    if len(remaining) == 2:
+                        db.session.add(
+                            StyleSchedule(
+                                style_name=s.style_name,
+                                start_date=remaining[1][0],
+                                end_date=remaining[1][1],
+                                is_enabled=s.is_enabled,
+                            )
+                        )
+                        created += 1
+
+                db.session.add(
+                    StyleSchedule(
+                        style_name=sanitized,
+                        start_date=start_date,
+                        end_date=end_date,
+                        is_enabled=True,
+                    )
+                )
+                created += 1
+
+        else:  # keep
+            # Construir conjunto ocupado para todo el rango global
+            occupied = set()
+            for s in overlaps:
+                for d in _iter_days(s.start_date, s.end_date):
+                    occupied.add(d)
+
+            free_days = []
+            for start_date, end_date in ranges:
+                for d in _iter_days(start_date, end_date):
+                    if d not in occupied:
+                        free_days.append(d)
+
+            for start_date, end_date in _compress_dates_to_ranges(free_days):
+                db.session.add(
+                    StyleSchedule(
+                        style_name=sanitized,
+                        start_date=start_date,
+                        end_date=end_date,
+                        is_enabled=True,
+                    )
+                )
+                created += 1
+
+        db.session.commit()
+        return {"ok": True, "created": created, "updated": updated, "deleted": deleted}
+    except Exception as e:
+        db.session.rollback()
+        return {"ok": False, "error": str(e)}
+
+
+def clear_style_schedule_days(dates_iso: List[str]) -> Dict[str, Any]:
+    """Elimina asignaciones (programaciones) en los días seleccionados."""
+    from datetime import datetime
+    from app.models import StyleSchedule
+    from app.extensions import db
+
+    if not dates_iso:
+        return {"ok": False, "error": "No hay días seleccionados"}
+
+    try:
+        days = [datetime.strptime(d, "%Y-%m-%d").date() for d in dates_iso]
+    except Exception:
+        return {"ok": False, "error": "Formato de fecha inválido"}
+
+    ranges = _compress_dates_to_ranges(days)
+    deleted = 0
+    updated = 0
+    created = 0
+
+    try:
+        for start_date, end_date in ranges:
+            for s in _find_overlapping_schedules(start_date, end_date):
+                remaining = _subtract_range(s.start_date, s.end_date, start_date, end_date)
+                if not remaining:
+                    db.session.delete(s)
+                    deleted += 1
+                    continue
+
+                s.start_date, s.end_date = remaining[0]
+                updated += 1
+                if len(remaining) == 2:
+                    db.session.add(
+                        StyleSchedule(
+                            style_name=s.style_name,
+                            start_date=remaining[1][0],
+                            end_date=remaining[1][1],
+                            is_enabled=s.is_enabled,
+                        )
+                    )
+                    created += 1
+
+        db.session.commit()
+        return {"ok": True, "created": created, "updated": updated, "deleted": deleted}
+    except Exception as e:
+        db.session.rollback()
+        return {"ok": False, "error": str(e)}
 
 
 def delete_style_schedule(schedule_id: int) -> bool:
