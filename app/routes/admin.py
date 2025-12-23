@@ -1239,3 +1239,328 @@ def actualizar_email_usuario(user_id: int):
             "warning",
         )
     return redirect(url_for("admin.usuarios"))
+
+
+# ============== Personalización de la Web ==============
+
+def _require_view_styles():
+    """Verifica que el usuario tenga permisos para ver la sección de estilos."""
+    if not (current_user.has_permission("view_styles") or current_user.has_permission("manage_styles") or user_is_privileged(current_user)):
+        abort(403)
+
+
+def _require_manage_styles():
+    """Verifica que el usuario tenga permisos para gestionar estilos."""
+    if not (current_user.has_permission("manage_styles") or user_is_privileged(current_user)):
+        abort(403)
+
+
+@admin_bp.route("/personalizacion")
+@login_required
+def personalizacion():
+    """Vista principal de personalización de estilos."""
+    _require_view_styles()
+    
+    from app.services.style_service import list_styles
+    
+    styles = list_styles()
+    return render_template("admin/personalizacion.html", styles=styles)
+
+
+@admin_bp.route("/personalizacion/programacion", methods=["GET", "POST"])
+@login_required
+def style_schedule():
+    """Gestiona la programación de estilos."""
+    _require_manage_styles()
+    
+    from app.services.style_service import (
+        list_styles, 
+        list_style_schedules, 
+        add_style_schedule
+    )
+    from datetime import datetime
+    
+    if request.method == "POST":
+        current_app.logger.info(f"POST /personalizacion/programacion - Form: {request.form}")
+        style_name = request.form.get("style_name")
+        start_date_str = request.form.get("start_date")
+        end_date_str = request.form.get("end_date")
+        
+        try:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            
+            if start_date > end_date:
+                flash("La fecha de inicio no puede ser posterior a la de fin.", "danger")
+            else:
+                ok, msg = add_style_schedule(style_name, start_date, end_date)
+                if ok:
+                    flash(msg, "success")
+                else:
+                    flash(msg, "danger")
+        except ValueError:
+            flash("Formato de fecha inválido.", "danger")
+            
+        return redirect(url_for("admin.style_schedule"))
+    
+    styles = list_styles()
+    schedules = list_style_schedules()
+    return render_template(
+        "admin/style_schedule.html", 
+        styles=styles, 
+        schedules=schedules,
+        today=datetime.now().date()
+    )
+
+
+@admin_bp.route("/personalizacion/programacion/eliminar/<int:schedule_id>", methods=["POST"])
+@login_required
+def style_schedule_delete(schedule_id: int):
+    """Elimina una programación de estilo."""
+    _require_manage_styles()
+    
+    from app.services.style_service import delete_style_schedule
+    
+    if delete_style_schedule(schedule_id):
+        flash("Programación eliminada.", "success")
+    else:
+        flash("Error al eliminar la programación.", "danger")
+        
+    return redirect(url_for("admin.style_schedule"))
+
+
+@admin_bp.route("/personalizacion/crear", methods=["POST"])
+@login_required
+def style_create():
+    """Crea un nuevo estilo."""
+    _require_manage_styles()
+    
+    from app.services.style_service import create_style, duplicate_style, _sanitize_style_name
+    
+    name = request.form.get("name", "").strip()
+    copy_from = request.form.get("copy_from", "").strip()
+    
+    sanitized = _sanitize_style_name(name)
+    if not sanitized:
+        flash("Nombre de estilo inválido.", "danger")
+        return redirect(url_for("admin.personalizacion"))
+    
+    if copy_from:
+        if duplicate_style(copy_from, sanitized):
+            flash(f"Estilo '{sanitized}' creado desde '{copy_from}'.", "success")
+        else:
+            flash("Error al duplicar el estilo.", "danger")
+    else:
+        if create_style(sanitized):
+            flash(f"Estilo '{sanitized}' creado.", "success")
+        else:
+            flash("Error al crear el estilo (puede que ya exista).", "danger")
+    
+    return redirect(url_for("admin.personalizacion"))
+
+
+@admin_bp.route("/personalizacion/api/style/<style_name>/activate", methods=["POST"])
+@login_required
+def api_style_activate(style_name: str):
+    """Activa un estilo."""
+    _require_manage_styles()
+    
+    from app.services.style_service import set_active_style, style_exists
+    
+    if not style_exists(style_name):
+        return jsonify({"ok": False, "error": "Estilo no encontrado"}), 404
+    
+    if set_active_style(style_name):
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "Error activando estilo"}), 500
+
+
+@admin_bp.route("/personalizacion/api/style/<style_name>/files")
+@login_required
+def api_style_files(style_name: str):
+    """Lista los archivos de un estilo."""
+    _require_view_styles()
+    
+    from app.services.style_service import get_style_files
+    
+    files = get_style_files(style_name)
+    return jsonify({"ok": True, "files": files})
+
+
+@admin_bp.route("/personalizacion/api/style/<style_name>/css", methods=["GET"])
+@login_required
+def api_style_css_get(style_name: str):
+    """Obtiene el CSS de un estilo."""
+    _require_view_styles()
+    
+    from app.services.style_service import get_style_css_content
+    
+    css = get_style_css_content(style_name, with_fallback=False)
+    if css is None:
+        return jsonify({
+            "ok": False, 
+            "error": "No se pudo cargar el CSS desde Drive. Reintenta en unos segundos.",
+            "css": ""
+        }), 503
+    return jsonify({"ok": True, "css": css})
+
+
+@admin_bp.route("/personalizacion/api/style/<style_name>/css", methods=["POST"])
+@login_required
+def api_style_css_save(style_name: str):
+    """Guarda el CSS de un estilo."""
+    _require_manage_styles()
+    
+    from app.services.style_service import save_style_css_content
+    
+    data = request.get_json()
+    css = data.get("css", "")
+    
+    if save_style_css_content(style_name, css):
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "Error guardando CSS"}), 500
+
+
+@admin_bp.route("/personalizacion/api/style/<style_name>/upload", methods=["POST"])
+@login_required
+def api_style_upload(style_name: str):
+    """Sube un archivo a un estilo."""
+    _require_manage_styles()
+    
+    from app.services.style_service import upload_style_file
+    
+    if "file" not in request.files:
+        return jsonify({"ok": False, "error": "No se recibió archivo"}), 400
+    
+    file = request.files["file"]
+    if not file.filename:
+        return jsonify({"ok": False, "error": "Nombre de archivo vacío"}), 400
+    
+    # Validar extensión
+    allowed = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".css"}
+    ext = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in allowed:
+        return jsonify({"ok": False, "error": f"Extensión no permitida: {ext}"}), 400
+    
+    content = file.read()
+    if len(content) > 5 * 1024 * 1024:  # 5MB max
+        return jsonify({"ok": False, "error": "Archivo demasiado grande (max 5MB)"}), 400
+    
+    if upload_style_file(style_name, file.filename, content):
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "Error subiendo archivo"}), 500
+
+
+@admin_bp.route("/personalizacion/api/style/<style_name>/slot/<path:slot_name>", methods=["POST"])
+@login_required
+def api_style_slot_upload(style_name: str, slot_name: str):
+    """Reemplaza una imagen de un slot fijo (con reescalado/recorte)."""
+    _require_manage_styles()
+
+    from app.services.style_service import (
+        STYLE_DROPPABLE_SLOTS,
+        prepare_style_slot_upload,
+        upload_style_file,
+        invalidate_style_cache,
+    )
+
+    if slot_name not in STYLE_DROPPABLE_SLOTS:
+        return jsonify({"ok": False, "error": "Slot no permitido"}), 400
+
+    if "file" not in request.files:
+        return jsonify({"ok": False, "error": "No se recibió archivo"}), 400
+
+    file = request.files["file"]
+    if not file.filename:
+        return jsonify({"ok": False, "error": "Nombre de archivo vacío"}), 400
+
+    allowed = {".png", ".jpg", ".jpeg", ".webp"}
+    ext = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in allowed:
+        return jsonify({"ok": False, "error": f"Extensión no permitida: {ext}"}), 400
+
+    content = file.read()
+    if len(content) > 10 * 1024 * 1024:  # 10MB max
+        return jsonify({"ok": False, "error": "Archivo demasiado grande (max 10MB)"}), 400
+
+    try:
+        outputs = prepare_style_slot_upload(slot_name, content)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+    for target_name, out_bytes, mime in outputs:
+        ok = upload_style_file(style_name, target_name, out_bytes, mime)
+        if not ok:
+            return jsonify({"ok": False, "error": f"Error subiendo {target_name}"}), 500
+
+    # Invalida caché del estilo para que se refresque al instante
+    try:
+        invalidate_style_cache(style_name)
+    except Exception:
+        pass
+
+    return jsonify({"ok": True, "files": [name for name, *_ in outputs]})
+
+
+@admin_bp.route("/personalizacion/api/style/<style_name>/file/<filename>", methods=["DELETE"])
+@login_required
+def api_style_file_delete(style_name: str, filename: str):
+    """Elimina un archivo de un estilo."""
+    _require_manage_styles()
+    
+    from app.services.style_service import delete_style_file
+    
+    if delete_style_file(style_name, filename):
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "Error eliminando archivo"}), 500
+
+
+@admin_bp.route("/personalizacion/api/style/<style_name>/duplicate", methods=["POST"])
+@login_required
+def api_style_duplicate(style_name: str):
+    """Duplica un estilo."""
+    _require_manage_styles()
+    
+    from app.services.style_service import duplicate_style, _sanitize_style_name
+    
+    data = request.get_json()
+    new_name = _sanitize_style_name(data.get("new_name", ""))
+    
+    if not new_name:
+        return jsonify({"ok": False, "error": "Nombre inválido"}), 400
+    
+    if duplicate_style(style_name, new_name):
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "Error duplicando estilo"}), 500
+
+
+@admin_bp.route("/personalizacion/api/style/<style_name>", methods=["DELETE"])
+@login_required
+def api_style_delete(style_name: str):
+    """Elimina un estilo."""
+    _require_manage_styles()
+    
+    from app.services.style_service import delete_style
+    
+    if style_name.lower() in ["navidad", "general"]:
+        return jsonify({"ok": False, "error": "No se pueden eliminar los estilos por defecto"}), 400
+    
+    if delete_style(style_name):
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "Error eliminando estilo"}), 500
+
+
+@admin_bp.route("/personalizacion/api/initialize", methods=["POST"])
+@login_required
+def api_styles_initialize():
+    """Inicializa los estilos por defecto en Drive."""
+    _require_manage_styles()
+    
+    from app.services.style_service import initialize_default_styles
+    
+    try:
+        results = initialize_default_styles()
+        return jsonify({"ok": True, "results": results})
+    except Exception as e:
+        current_app.logger.error(f"Error inicializando estilos: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500

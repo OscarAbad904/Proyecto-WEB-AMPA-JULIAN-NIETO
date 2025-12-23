@@ -222,6 +222,20 @@ PERMISSION_DEFINITIONS = [
         "description": "Administrar permisos por rol.",
         "section": "Sistema",
     },
+    {
+        "key": "view_styles",
+        "name": "Ver personalización",
+        "description": "Acceso de solo lectura a la sección de estilos y personalización.",
+        "section": "Diseño",
+        "grant_to_roles": ["Administrador"],
+    },
+    {
+        "key": "manage_styles",
+        "name": "Gestionar estilos visuales",
+        "description": "Crear, editar y activar perfiles de estilo visual de la web.",
+        "section": "Diseño",
+        "grant_to_roles": ["Administrador"],
+    },
 ]
 
 SECTION_ORDER = [
@@ -233,6 +247,7 @@ SECTION_ORDER = [
     "Comisiones",
     "Calendario",
     "Documentos",
+    "Diseño",
     "Sistema",
     "Otros",
 ]
@@ -253,6 +268,8 @@ def _infer_section_from_key(key: str) -> str:
         return "Usuarios"
     if key.startswith("document"):
         return "Documentos"
+    if "style" in key:
+        return "Diseño"
     return "Otros"
 
 

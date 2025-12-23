@@ -194,3 +194,84 @@ def register_commands(app: Flask):
             print("   1. Ejecuta 'flask regenerate-google-token' para regenerar el token")
             print("   2. Verifica que GOOGLE_CALENDAR_ID esté configurado correctamente")
             print("   3. Comprueba que el calendario tenga eventos públicos o compartidos")
+
+    @app.cli.command("init-styles")
+    @click.option("--force", is_flag=True, help="Sobreescribe estilos existentes en Drive.")
+    def init_styles(force: bool):
+        """Initialize default style profiles (Navidad, General) in Google Drive.
+        
+        This command creates the default style folders in Google Drive and uploads
+        the CSS and image assets from the local assets/ directory.
+        
+        Structure created:
+          Estilos/
+            Navidad/
+              style.css
+              logo_header.png
+              logo_hero.png
+              placeholder.png
+            General/
+              style.css
+              logo_header.png
+              logo_hero.png
+              placeholder.png
+        """
+        from app.services.style_service import initialize_default_styles
+        
+        print("\n🎨 Inicializando estilos por defecto en Google Drive...\n")
+        
+        if force:
+            print("⚠️  Modo --force: se sobrescribirán archivos existentes.\n")
+        
+        result = initialize_default_styles(overwrite=force)
+        
+        if result.get("ok"):
+            print(f"✅ {result.get('message', 'Estilos inicializados correctamente.')}")
+            
+            if result.get("styles_created"):
+                print("\n📁 Estilos creados:")
+                for style_name in result["styles_created"]:
+                    print(f"   • {style_name}")
+            
+            if result.get("styles_skipped"):
+                print("\n⏭️  Estilos omitidos (ya existían):")
+                for style_name in result["styles_skipped"]:
+                    print(f"   • {style_name}")
+            
+            if result.get("errors"):
+                print("\n⚠️  Advertencias:")
+                for err in result["errors"]:
+                    print(f"   • {err}")
+            
+            print("\n💡 Próximos pasos:")
+            print("   1. Ve a Admin > Personalización para activar un estilo")
+            print("   2. Los estilos se cargarán automáticamente desde Drive")
+        else:
+            print(f"❌ Error: {result.get('message', 'Error desconocido')}")
+            if result.get("errors"):
+                for err in result["errors"]:
+                    print(f"   • {err}")
+
+    @app.cli.command("list-styles")
+    def list_styles():
+        """List all available style profiles from Google Drive."""
+        from app.services.style_service import list_styles, get_active_style_name
+        
+        print("\n🎨 Estilos disponibles en Google Drive:\n")
+        
+        styles = list_styles()
+        active_style = get_active_style_name()
+        
+        if not styles:
+            print("   (No se encontraron estilos)")
+            print("\n💡 Ejecuta 'flask init-styles' para crear los estilos por defecto.")
+            return
+        
+        for style in styles:
+            is_active = " ← ACTIVO" if style["name"] == active_style else ""
+            print(f"   • {style['name']}{is_active}")
+            if style.get("files"):
+                for f in style["files"]:
+                    print(f"     - {f}")
+        
+        print(f"\n   Total: {len(styles)} estilo(s)")

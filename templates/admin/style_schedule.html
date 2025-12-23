@@ -1,0 +1,191 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Programación de Estilos · Admin{% endblock %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+    <style>
+        .schedule-container {
+            max-width: 1000px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        .card {
+            background: var(--color-panel);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-sm);
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-base);
+            color: var(--color-text-base);
+        }
+        .btn {
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn-primary {
+            background: var(--color-accent-warm);
+            color: white;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        .schedule-table th, .schedule-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--color-border);
+        }
+        .schedule-table th {
+            font-weight: 600;
+            color: var(--color-text-soft);
+        }
+        .badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .badge-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .badge-scheduled {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .alert-success {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .alert-danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="schedule-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h1>Programación de Estilos</h1>
+        <a href="{{ url_for('admin.personalizacion') }}" class="btn" style="background: var(--color-panel); border: 1px solid var(--color-border);">
+            Volver a Personalización
+        </a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card">
+        <h2>Añadir Nueva Programación</h2>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="style_name">Estilo</label>
+                    <select name="style_name" id="style_name" class="form-control" required>
+                        {% for style in styles %}
+                            <option value="{{ style.name }}">{{ style.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="start_date">Fecha Inicio</label>
+                    <input type="date" name="start_date" id="start_date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="end_date">Fecha Fin</label>
+                    <input type="date" name="end_date" id="end_date" class="form-control" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Programar Estilo</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Programaciones Existentes</h2>
+        {% if schedules %}
+            <table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th>Estilo</th>
+                        <th>Desde</th>
+                        <th>Hasta</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in schedules %}
+                        <tr>
+                            <td><strong>{{ s.style_name }}</strong></td>
+                            <td>{{ s.start_date }}</td>
+                            <td>{{ s.end_date }}</td>
+                            <td>
+                                {% set s_start = s.start_date | string %}
+                                {% set s_end = s.end_date | string %}
+                                {% set today_str = today | string %}
+                                
+                                {% if today_str >= s_start and today_str <= s_end %}
+                                    <span class="badge badge-active">Activo ahora</span>
+                                {% else %}
+                                    <span class="badge badge-scheduled">Programado</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form action="{{ url_for('admin.style_schedule_delete', schedule_id=s.id) }}" method="POST" onsubmit="return confirm('¿Eliminar esta programación?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color: var(--color-text-soft); margin-top: 1rem;">No hay programaciones configuradas.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

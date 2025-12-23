@@ -71,7 +71,7 @@ body.home-page {
   --page-top-overlap: 0rem;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.1)),
-    url('../images/navidad/Fondo Pagina Principal.png');
+    url('../images/current/Fondo Pagina Principal.png');
   background-size: auto, cover;
   background-repeat: no-repeat, no-repeat;
   background-position: center center, 50% 45%;
@@ -855,11 +855,11 @@ body.menu-open {
 }
 
 .hero-shape--orange {
-  background-image: url('../images/navidad/Globo_shape_Naranja.png');
+  background-image: url('../images/current/Globo_shape_Naranja.png');
 }
 
 .hero-shape--green {
-  background-image: url('../images/navidad/Globo_shape_Verde.png');
+  background-image: url('../images/current/Globo_shape_Verde.png');
 }
 
 @keyframes rise {
@@ -1379,7 +1379,7 @@ body.menu-open {
 }
 
 .event-cover-1 {
-  background-image: linear-gradient(135deg, rgba(126, 212, 255, 0.4), rgba(7, 17, 31, 0.9)), url('../images/navidad/Globo_shape_Verde.png');
+  background-image: linear-gradient(135deg, rgba(126, 212, 255, 0.4), rgba(7, 17, 31, 0.9)), url('../images/current/Globo_shape_Verde.png');
 }
 
 .event-cover-2 {

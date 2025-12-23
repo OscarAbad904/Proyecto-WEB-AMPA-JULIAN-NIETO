@@ -9,6 +9,7 @@ from app.routes.public import public_bp
 from app.routes.members import members_bp
 from app.routes.admin import admin_bp
 from app.routes.api import api_bp
+from app.routes.style import style_bp
 from app.models import User, user_is_privileged
 from app.models import Permission
 from app.forms import LoginForm
@@ -42,8 +43,9 @@ def create_app(config_name: str | None = None) -> Flask:
     @app.errorhandler(400)
     def handle_bad_request(e):
         from flask import request, jsonify
+        app.logger.error(f"400 Bad Request: {e.description if hasattr(e, 'description') else e}")
         if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"ok": False, "message": "Solicitud incorrecta o error de seguridad (CSRF)."}), 400
+            return jsonify({"ok": False, "message": f"Solicitud incorrecta: {e.description if hasattr(e, 'description') else 'Error de seguridad (CSRF).'}"}), 400
         return e
 
     @app.errorhandler(500)
@@ -59,6 +61,9 @@ def create_app(config_name: str | None = None) -> Flask:
     with app.app_context():
         try:
             ensure_roles_and_permissions()
+            # Sincronizar assets del estilo activo a rutas fijas en /assets
+            from app.services.style_service import sync_active_style_to_static
+            sync_active_style_to_static()
             # Liberar conexiones tras la inicialización para evitar problemas de SSL tras fork/arranque
             db.engine.dispose()
         except Exception as exc:  # noqa: BLE001
@@ -90,12 +95,33 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(members_bp, url_prefix="/socios")
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(api_bp, url_prefix="/api")
+    app.register_blueprint(style_bp)
 
 
 def register_context(app: Flask) -> None:
     @app.context_processor
     def inject_globals():
         from flask_login import current_user
+        from flask import url_for
+        from app.services.style_service import (
+            get_active_style_name, 
+            get_active_style_version,
+            ensure_active_style_synced
+        )
+
+        # Asegurar que el estilo activo (posiblemente por programación) esté sincronizado
+        ensure_active_style_synced()
+
+        # URLs de estilo (rutas fijas en /assets; el servidor sincroniza desde Drive al arrancar y al activar)
+        active_style_name = get_active_style_name()
+        style_version = get_active_style_version()
+        style_urls = {
+            "style_css": url_for("static", filename="css/style.css", v=style_version),
+            "logo_header": url_for("static", filename="images/current/Logo_AMPA_64x64.png", v=style_version),
+            "logo_hero": url_for("static", filename="images/current/Logo_AMPA_400x400.png", v=style_version),
+            "placeholder": url_for("static", filename="images/current/Logo_AMPA.png", v=style_version),
+            "active_style": active_style_name,
+        }
 
         public_view_posts = Permission.is_key_public("manage_posts") or Permission.is_key_public("view_posts")
         public_view_events = Permission.is_key_public("manage_events") or Permission.is_key_public("view_events")
@@ -147,6 +173,14 @@ def register_context(app: Flask) -> None:
                 or user_is_privileged(current_user)
             )
         )
+        can_manage_styles = (
+            current_user.is_authenticated
+            and (
+                current_user.has_permission("manage_styles")
+                or current_user.has_permission("view_styles")
+                or user_is_privileged(current_user)
+            )
+        )
         return {
             "current_year": datetime.utcnow().year,
             "header_login_form": LoginForm(),
@@ -160,7 +194,9 @@ def register_context(app: Flask) -> None:
             "can_view_commissions": can_view_commissions,
             "can_manage_commissions": can_manage_commissions,
             "can_manage_permissions": can_manage_permissions,
+            "can_manage_styles": can_manage_styles,
             "can_view_register": public_view_register,
+            "style_urls": style_urls,
         }
 
 

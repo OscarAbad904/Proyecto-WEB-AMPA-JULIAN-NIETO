@@ -23,6 +23,8 @@ from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
 from PIL import Image
 
+import threading
+
 # Tamaños solicitados para las noticias, por orientación
 IMAGE_SIZES_NEWS: Dict[str, Dict[str, Tuple[int, int]]] = {
     "vertical": {
@@ -40,7 +42,9 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.file",
     "https://www.googleapis.com/auth/calendar.events.readonly",
 ]
-_drive_service = None
+
+# Almacenamiento local al hilo para evitar problemas de SSL/concurrencia
+_thread_local = threading.local()
 
 
 def _get_user_drive_service():
@@ -48,11 +52,11 @@ def _get_user_drive_service():
     Inicializa (o reutiliza) el cliente de Google Drive autenticado como usuario.
     Guarda/lee el token en token_drive.json.
     
-    Si hay un problema con las credenciales, devuelve None.
+    Usa threading.local() para evitar errores de SSL record layer failure
+    al compartir el cliente entre hilos.
     """
-    global _drive_service
-    if _drive_service is not None:
-        return _drive_service
+    if hasattr(_thread_local, "drive_service") and _thread_local.drive_service is not None:
+        return _thread_local.drive_service
 
     try:
         base_path = Path(current_app.config.get("ROOT_PATH") or current_app.root_path)
@@ -112,14 +116,15 @@ def _get_user_drive_service():
             with open(token_path, "w", encoding="utf-8") as token:
                 token.write(creds.to_json())
 
-        _drive_service = build("drive", "v3", credentials=creds)
-        return _drive_service
+        _thread_local.drive_service = build("drive", "v3", credentials=creds)
+        return _thread_local.drive_service
     except Exception as exc:  # noqa: BLE001
         current_app.logger.warning(
             "Error inicializando Google Drive service: %s. Las imágenes se guardarán localmente.",
             exc,
         )
         return None
+
 
 
 def _slugify_name(value: str | None, default: str = "noticia") -> str:

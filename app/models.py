@@ -562,3 +562,76 @@ class CommissionMeeting(db.Model):
 
     commission = db.relationship("Commission", back_populates="meetings")
     minutes_document = db.relationship("Document", back_populates="meeting_minutes")
+
+
+class SiteSetting(db.Model):
+    """
+    Configuración clave-valor del sitio.
+    Usada para almacenar el estilo activo y otras preferencias globales.
+    """
+    __tablename__ = "site_settings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(128), unique=True, nullable=False, index=True)
+    value = db.Column(db.Text, nullable=True)
+    description = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, server_default=func.now())
+    updated_at = db.Column(db.DateTime, server_default=func.now(), onupdate=func.now())
+
+    def __repr__(self) -> str:
+        return f"<SiteSetting {self.key}={self.value}>"
+
+    @classmethod
+    def get(cls, key: str, default: str = None) -> str | None:
+        """Obtiene el valor de una configuración."""
+        setting = cls.query.filter_by(key=key).first()
+        if setting:
+            return setting.value
+        return default
+
+    @classmethod
+    def set(cls, key: str, value: str, description: str = None) -> "SiteSetting":
+        """Establece el valor de una configuración."""
+        setting = cls.query.filter_by(key=key).first()
+        if setting:
+            setting.value = value
+            if description:
+                setting.description = description
+        else:
+            setting = cls(key=key, value=value, description=description)
+            db.session.add(setting)
+        return setting
+
+    @classmethod
+    def delete(cls, key: str) -> bool:
+        """Elimina una configuración."""
+        setting = cls.query.filter_by(key=key).first()
+        if setting:
+            db.session.delete(setting)
+            return True
+        return False
+
+    @classmethod
+    def get_all(cls) -> dict:
+        """Obtiene todas las configuraciones como diccionario."""
+        settings = cls.query.all()
+        return {s.key: s.value for s in settings}
+
+
+class StyleSchedule(db.Model):
+    """
+    Programación de estilos por fechas.
+    Permite activar un estilo automáticamente en un rango de fechas.
+    """
+    __tablename__ = "style_schedules"
+
+    id = db.Column(db.Integer, primary_key=True)
+    style_name = db.Column(db.String(128), nullable=False, index=True)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    is_enabled = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=func.now())
+    updated_at = db.Column(db.DateTime, server_default=func.now(), onupdate=func.now())
+
+    def __repr__(self) -> str:
+        return f"<StyleSchedule {self.style_name}: {self.start_date} to {self.end_date}>"

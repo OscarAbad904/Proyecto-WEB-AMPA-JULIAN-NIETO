@@ -277,7 +277,7 @@
     <div class="event-grid">
       {% if events %}
         {% for event in events %}
-          {% set cover_url = event.cover_image or url_for('static', filename='images/navidad/Logo_AMPA.png') %}
+          {% set cover_url = event.cover_image or style_urls.placeholder %}
           <article class="event-card">
             <div
               class="event-card-cover"

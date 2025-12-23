@@ -1,0 +1,1314 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Personalización · Admin{% endblock %}
+
+{% block body_class %}personalizacion-page{% endblock %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+<style>
+        .styles-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+    
+    .styles-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .styles-header h1 {
+        margin: 0;
+        color: var(--color-text-base);
+    }
+    
+    .styles-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+    
+    .personalizacion-page .btn {
+        padding: 0.75rem 1.25rem;
+        border-radius: 8px;
+        font-weight: 600;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .personalizacion-page .btn-primary {
+        background: linear-gradient(135deg, var(--color-accent-warm), var(--color-accent-bright));
+        color: white;
+    }
+    
+    .personalizacion-page .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+    }
+    
+    .personalizacion-page .btn-secondary {
+        background: var(--color-panel);
+        color: var(--color-text-base);
+        border: 1px solid var(--color-border);
+    }
+    
+    .personalizacion-page .btn-secondary:hover {
+        background: var(--color-bg-soft);
+    }
+    
+    .personalizacion-page .btn-danger {
+        background: var(--color-accent-warm);
+        color: white;
+    }
+    
+    .personalizacion-page .btn-danger:hover {
+        filter: brightness(0.9);
+    }
+    
+    .personalizacion-page .btn-success {
+        background: var(--color-accent-cool);
+        color: white;
+    }
+    
+    .personalizacion-page .btn-success:hover {
+        filter: brightness(0.9);
+    }
+    
+    .personalizacion-page .btn-sm {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .styles-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .style-card {
+        background: var(--color-panel);
+        border: 1px solid var(--color-border);
+        border-radius: 16px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    
+    .style-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+    }
+    
+    .style-card.active {
+        border-color: var(--color-accent-warm);
+        box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
+    }
+    
+    .style-preview {
+        height: 160px;
+        background: linear-gradient(135deg, var(--color-bg-soft), var(--color-bg-mid));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .style-preview img {
+        max-height: 100%;
+        max-width: 100%;
+        object-fit: contain;
+    }
+    
+    .style-preview-placeholder {
+        color: var(--color-text-soft);
+        font-size: 3rem;
+    }
+    
+    .active-badge {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        background: var(--color-accent-warm);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .style-info {
+        padding: 1.25rem;
+    }
+    
+    .style-name {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--color-text-base);
+        margin-bottom: 0.5rem;
+    }
+    
+    .style-meta {
+        font-size: 0.875rem;
+        color: var(--color-text-soft);
+        margin-bottom: 1rem;
+    }
+    
+    .style-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .style-actions .activate-btn {
+        flex-basis: 100%;
+    }
+    
+    /* Modal */
+    /* Modal */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        backdrop-filter: blur(4px);
+    }
+    
+    .modal-overlay.active {
+        display: flex !important;
+    }
+    
+    .modal {
+        position: relative;
+        background: var(--color-panel);
+        border-radius: 16px;
+        max-width: 90vw; /* Expandido al 90% del ancho de la pantalla */
+        width: 90vw;
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--color-border);
+    }
+    
+    .modal-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--color-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--color-text-base);
+    }
+    
+    .modal-close {
+        width: 36px;
+        height: 36px;
+        border: none;
+        background: var(--color-bg-soft);
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1.25rem;
+        color: var(--color-text-soft);
+        transition: all 0.2s;
+    }
+    
+    .modal-close:hover {
+        background: var(--color-border);
+        color: var(--color-text-base);
+    }
+    
+    .modal-body {
+        padding: 1.5rem;
+        overflow-y: auto;
+        flex: 1;
+    }
+    
+    .modal-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--color-border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+    
+    /* Form elements */
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    
+    .form-label {
+        display: block;
+        font-weight: 600;
+        color: var(--color-text-base);
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        font-size: 1rem;
+        background: var(--color-bg-mid);
+        color: var(--color-text-base);
+        transition: border-color 0.2s;
+    }
+    
+    .form-input:focus {
+        outline: none;
+        border-color: var(--color-accent-warm);
+    }
+    
+    .form-textarea {
+        min-height: 300px;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        resize: vertical;
+    }
+    
+    .form-textarea:disabled {
+        background: var(--color-bg-alt);
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+    
+    .css-load-error {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        background: color-mix(in srgb, var(--color-error) 10%, transparent);
+        border: 1px solid color-mix(in srgb, var(--color-error) 35%, transparent);
+        border-radius: 6px;
+        color: var(--color-error);
+        margin-bottom: 0.75rem;
+        font-size: 0.9rem;
+    }
+        /* Slots de imágenes (nombres fijos) */
+        .image-slots {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .image-slot {
+            border: 2px dashed var(--color-border);
+            border-radius: var(--radius-md);
+            background: var(--color-panel);
+            padding: 1rem;
+            transition: border-color 0.15s ease, background 0.15s ease;
+            position: relative;
+        }
+
+        .image-slot.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .image-slot.droppable {
+            cursor: copy;
+        }
+
+        .image-slot.droppable.dragover,
+        body.dragging .image-slot.droppable {
+            border-color: var(--color-border-focus);
+            background: var(--color-surface-hover);
+        }
+
+        .image-slot.is-uploading {
+            border-color: var(--color-border-focus);
+            background: var(--color-surface-hover);
+            pointer-events: none;
+            opacity: 0.9;
+        }
+
+        .image-slot.updated {
+            border-color: var(--color-success);
+            background: color-mix(in srgb, var(--color-success) 10%, transparent);
+        }
+
+        .image-slot.error {
+            border-color: var(--color-error);
+            background: color-mix(in srgb, var(--color-error) 8%, transparent);
+        }
+
+        .slot-overlay {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            background: color-mix(in srgb, var(--color-bg-mid) 60%, transparent);
+            backdrop-filter: blur(2px);
+            border-radius: var(--radius-md);
+            z-index: 2;
+            font-weight: 700;
+            color: var(--color-text-base);
+        }
+
+        .image-slot.is-uploading .slot-overlay {
+            display: flex;
+        }
+
+        .slot-status {
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--color-text-soft);
+            min-height: 1.25rem;
+        }
+
+        .slot-status.success {
+            color: var(--color-success);
+            font-weight: 600;
+        }
+
+        .slot-status.error {
+            color: var(--color-error);
+            font-weight: 600;
+        }
+
+        .image-slot.not-droppable {
+            opacity: 0.85;
+            cursor: not-allowed;
+        }
+
+        .image-slot-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .image-slot-title {
+            font-weight: 700;
+            color: var(--color-text-base);
+        }
+
+        .image-slot-size {
+            font-size: 0.85rem;
+            color: var(--color-text-soft);
+            white-space: nowrap;
+        }
+
+        .image-slot-preview {
+            width: 100%;
+            background: var(--color-bg-soft);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 160px;
+            padding: 1rem;
+            border: 1px solid var(--color-border);
+        }
+
+        .image-slot-preview img {
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            /* Eliminamos max-height fijo para que se vean en su proporción real */
+            object-fit: contain;
+            display: block;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            background: #fff; /* Fondo blanco para logos transparentes */
+            transition: opacity 0.3s;
+            opacity: 0; /* Se mostrará al cargar con JS */
+        }
+
+        .image-slot-hint {
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+            color: var(--color-text-soft);
+            line-height: 1.35;
+        }
+
+        .image-slot-hint strong {
+            color: var(--color-text-base);
+        }
+    
+    .css-load-error .btn {
+        white-space: nowrap;
+    }
+    
+    .form-hint {
+        font-size: 0.8rem;
+        color: var(--color-text-soft);
+        margin-top: 0.35rem;
+    }
+    
+    /* Tabs */
+    .tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid var(--color-border);
+        margin-bottom: 1.5rem;
+    }
+    
+    .tab {
+        padding: 0.75rem 1.25rem;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--color-text-soft);
+        transition: all 0.2s;
+    }
+    
+    .tab:hover {
+        color: var(--color-text-base);
+    }
+    
+    .tab.active {
+        color: var(--color-accent-warm);
+        border-bottom-color: var(--color-accent-warm);
+    }
+    
+    .tab-content {
+        display: none;
+    }
+    
+    .tab-content.active {
+        display: block;
+    }
+    
+    /* Image grid */
+    .images-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    
+    .image-item {
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--color-bg-soft);
+    }
+    
+    .image-preview {
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-bg-mid);
+        padding: 1rem;
+    }
+    
+    .image-preview img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    }
+    
+    .image-info {
+        padding: 0.75rem;
+        border-top: 1px solid var(--color-border);
+    }
+    
+    .image-name {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--color-text-base);
+        word-break: break-all;
+    }
+    
+    .image-actions {
+        margin-top: 0.5rem;
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    /* Upload area eliminado: ahora se usa drag&drop por slot */
+    
+    /* Flash messages */
+    .flash {
+        padding: 1rem 1.25rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-weight: 500;
+    }
+    
+    .flash-success {
+        background: rgba(22, 163, 74, 0.1);
+        border: 1px solid rgba(22, 163, 74, 0.3);
+        color: var(--color-success);
+    }
+    
+    .flash-error, .flash-danger {
+        background: color-mix(in srgb, var(--color-error) 10%, transparent);
+        border: 1px solid color-mix(in srgb, var(--color-error) 30%, transparent);
+        color: var(--color-error);
+    }
+    
+    .flash-warning {
+        background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+        border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
+        color: var(--color-warning);
+    }
+    
+    .flash-info {
+        background: color-mix(in srgb, var(--color-info) 10%, transparent);
+        border: 1px solid color-mix(in srgb, var(--color-info) 30%, transparent);
+        color: var(--color-info);
+    }
+    
+    /* Loading state */
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+    
+    .spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+
+    .spinner-inline {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        vertical-align: middle;
+        margin-right: 4px;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 768px) {
+        .styles-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .styles-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .modal {
+            width: 100%;
+            height: 100%;
+            max-height: 100%;
+            border-radius: 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="personalizacion-page">
+<section class="admin-wrapper">
+    <div class="admin-header">
+        <p class="admin-kicker">Administración</p>
+        <h1 class="admin-title">Personalización de la Web</h1>
+        <p class="admin-subtitle">Gestiona estilos (CSS + imágenes) que se cargan desde Google Drive.</p>
+    </div>
+
+    <div class="admin-actions" style="justify-content:flex-end;">
+        {% if current_user.has_permission('manage_styles') %}
+        <a href="{{ url_for('admin.style_schedule') }}" class="btn btn-secondary">📅 Programar estilos</a>
+        <button class="btn btn-secondary" type="button" onclick="initializeStyles(this)">🔄 Inicializar estilos por defecto</button>
+        <button class="btn btn-primary" type="button" onclick="openCreateModal()">➕ Nuevo estilo</button>
+        {% endif %}
+    </div>
+
+    <div class="styles-grid" id="stylesGrid">
+        {% for style in styles %}
+        <div class="style-card{% if style.is_active %} active{% endif %}" data-style="{{ style.name }}">
+            <div class="style-preview">
+                {% if style.is_active %}
+                <span class="active-badge">Activo</span>
+                {% endif %}
+                <img src="/style/{{ style.name | urlencode }}/Logo_AMPA_400x400.png" 
+                     alt="{{ style.name }}" 
+                     onerror="this.style.display='none'; this.parentNode.querySelector('.style-preview-placeholder').style.display='block';">
+                <span class="style-preview-placeholder" style="display: none;">🎨</span>
+            </div>
+            <div class="style-info">
+                <div class="style-name">{{ style.name }}</div>
+                <div class="style-meta">
+                    {% if style.modified_at %}
+                    Modificado: {{ style.modified_at[:10] if style.modified_at else 'N/A' }}
+                    {% endif %}
+                    {% if style.is_local %}
+                    <span style="color: var(--color-accent-warm);">(Local)</span>
+                    {% endif %}
+                </div>
+                <div class="style-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="openEditModal('{{ style.name }}')">
+                        {% if current_user.has_permission('manage_styles') %}✏️ Editar{% else %}👁️ Ver{% endif %}
+                    </button>
+                    {% if current_user.has_permission('manage_styles') %}
+                    <button class="btn btn-secondary btn-sm" onclick="duplicateStyle('{{ style.name }}', this)">
+                        📋 Duplicar
+                    </button>
+                    {% if not style.is_active %}
+                    <button class="btn btn-primary btn-sm activate-btn" onclick="activateStyle('{{ style.name }}', this)">
+                        ✓ Activar
+                    </button>
+                    {% endif %}
+                    {% if style.name not in ['Navidad', 'General'] and not style.is_active %}
+                    <button class="btn btn-danger btn-sm" onclick="deleteStyle('{{ style.name }}', this)">
+                        🗑️ Eliminar
+                    </button>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--color-text-soft);">
+            <p style="font-size: 3rem;">🎨</p>
+            <p>No hay estilos configurados.</p>
+            <p>Haz clic en "Inicializar estilos por defecto" para crear los estilos Navidad y General.</p>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+
+<!-- Modal Crear Estilo -->
+<div class="modal-overlay" id="createModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">Crear nuevo estilo</h2>
+            <button class="modal-close" onclick="closeStyleModal('createModal')">&times;</button>
+        </div>
+        <form action="{{ url_for('admin.style_create') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Nombre del estilo</label>
+                    <input type="text" name="name" class="form-input" required 
+                           placeholder="Ej: Pascua, Halloween, Verano..."
+                           pattern="[a-zA-ZáéíóúñÁÉÍÓÚÑ0-9\s\-_]+"
+                           title="Solo letras, números, espacios, guiones y guiones bajos">
+                    <p class="form-hint">El nombre debe ser único y descriptivo.</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Duplicar desde (opcional)</label>
+                    <select name="copy_from" class="form-input">
+                        <option value="">-- Crear vacío --</option>
+                        {% for style in styles %}
+                        <option value="{{ style.name }}">{{ style.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="form-hint">Copia las imágenes y CSS de un estilo existente.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeStyleModal('createModal')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Crear estilo</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Editar Estilo -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">Editar estilo: <span id="editStyleName"></span></h2>
+            <button class="modal-close" onclick="closeStyleModal('editModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="tabs">
+                <button class="tab active" data-tab="images">📷 Imágenes</button>
+                <button class="tab" data-tab="css">🎨 CSS</button>
+            </div>
+            
+            <!-- Tab Imágenes -->
+            <div class="tab-content active" id="tab-images">
+                <h3 style="margin-bottom: 1rem;">Imágenes del estilo (nombres fijos)</h3>
+                {% if current_user.has_permission('manage_styles') %}
+                <p class="form-hint" style="margin-bottom: 1rem;">
+                    Arrastra y suelta una nueva imagen sobre cada tarjeta para reemplazarla. El servidor la ajusta automáticamente
+                    al tamaño exacto (escala "cover" y recorta centrado) para evitar bandas.
+                </p>
+                {% else %}
+                <p class="form-hint" style="margin-bottom: 1rem;">
+                    Vista de solo lectura de las imágenes configuradas para este estilo.
+                </p>
+                {% endif %}
+                <div class="image-slots" id="imagesGrid">
+                    <!-- Se carga dinámicamente -->
+                </div>
+            </div>
+            
+            <!-- Tab CSS -->
+            <div class="tab-content" id="tab-css">
+                <form id="cssForm">
+                    <div class="form-group">
+                        <label class="form-label">CSS personalizado (style.css)</label>
+                        <div id="cssLoadError" class="css-load-error" style="display: none;">
+                            <!-- Se llena dinámicamente si hay error -->
+                        </div>
+                        <textarea class="form-input form-textarea" id="cssEditor" name="css"{% if not current_user.has_permission('manage_styles') %} readonly{% endif %}></textarea>
+                        <p class="form-hint">
+                            Este CSS sobreescribe los estilos base de la web. 
+                            Usa <code>url('./nombre-archivo.png')</code> para referenciar imágenes del estilo.
+                        </p>
+                    </div>
+                    {% if current_user.has_permission('manage_styles') %}
+                    <button type="submit" class="btn btn-primary">💾 Guardar CSS</button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const csrfToken = "{{ csrf_token() }}";
+const canManageStyles = {{ 'true' if current_user.has_permission('manage_styles') else 'false' }};
+let currentEditStyle = null;
+
+// Tabs
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+});
+
+// Modal functions
+function openStyleModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeStyleModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+function openCreateModal() {
+    if (!canManageStyles) return;
+    openStyleModal('createModal');
+}
+
+async function openEditModal(styleName) {
+    currentEditStyle = styleName;
+    document.getElementById('editStyleName').textContent = styleName;
+    
+    // Abrir modal inmediatamente para dar feedback
+    openStyleModal('editModal');
+    
+    // Cargar imágenes
+    loadStyleImages(styleName);
+    
+    // Cargar CSS
+    await loadStyleCss(styleName);
+}
+
+async function loadStyleCss(styleName, retryCount = 0) {
+    const cssEditor = document.getElementById('cssEditor');
+    const cssError = document.getElementById('cssLoadError');
+    
+    try {
+        cssEditor.value = 'Cargando CSS desde Drive...';
+        cssEditor.disabled = true;
+        if (cssError) cssError.style.display = 'none';
+        
+        const res = await fetch(`/admin/personalizacion/api/style/${encodeURIComponent(styleName)}/css`);
+        const data = await res.json();
+        
+        if (data.ok) {
+            cssEditor.value = data.css || '';
+            cssEditor.disabled = false;
+        } else {
+            // Error de conexión con Drive
+            cssEditor.value = '';
+            cssEditor.disabled = true;
+            if (cssError) {
+                cssError.innerHTML = `
+                    <span>⚠️ ${data.error || 'Error cargando CSS'}</span>
+                    <button type="button" class="btn btn-sm" onclick="loadStyleCss('${styleName}')">🔄 Reintentar</button>
+                `;
+                cssError.style.display = 'flex';
+            }
+        }
+    } catch (e) {
+        cssEditor.value = '';
+        cssEditor.disabled = true;
+        if (cssError) {
+            cssError.innerHTML = `
+                <span>⚠️ Error de conexión</span>
+                <button type="button" class="btn btn-sm" onclick="loadStyleCss('${styleName}')">🔄 Reintentar</button>
+            `;
+            cssError.style.display = 'flex';
+        }
+    }
+}
+
+async function loadStyleImages(styleName) {
+    const grid = document.getElementById('imagesGrid');
+    const t = Date.now();
+
+    const slots = [
+        {
+            filename: 'Logo_AMPA.png',
+            title: 'Logo AMPA (origen)',
+            size: '1024×1024',
+            droppable: true,
+            hint: 'Suelta aquí el logo. Automáticamente genera también <strong>Logo_AMPA_400x400.png</strong> y <strong>Logo_AMPA_64x64.png</strong>.'
+        },
+        {
+            filename: 'Logo_AMPA_400x400.png',
+            title: 'Logo AMPA (400×400)',
+            size: '400×400',
+            droppable: false,
+            hint: 'Se genera automáticamente a partir de Logo_AMPA.png.'
+        },
+        {
+            filename: 'Logo_AMPA_64x64.png',
+            title: 'Logo AMPA (64×64)',
+            size: '64×64',
+            droppable: false,
+            hint: 'Se genera automáticamente a partir de Logo_AMPA.png.'
+        },
+        {
+            filename: 'Globo_shape_Naranja.png',
+            title: 'Shape naranja',
+            size: '256×356',
+            droppable: true,
+            hint: 'Shape (globo) naranja. Se ajusta a 256×356.'
+        },
+        {
+            filename: 'Globo_shape_Verde.png',
+            title: 'Shape verde',
+            size: '256×356',
+            droppable: true,
+            hint: 'Shape (globo) verde. Se ajusta a 256×356.'
+        },
+        {
+            filename: 'Fondo Pagina Principal.png',
+            title: 'Fondo Página Principal',
+            size: '1344×768',
+            droppable: true,
+            fullWidth: true,
+            hint: 'Reemplaza el fondo. Se ajusta a 1344×768 recortando el excedente.'
+        }
+    ];
+
+    grid.innerHTML = slots.map(slot => {
+        let slotClass = slot.droppable ? 'image-slot droppable' : 'image-slot not-droppable';
+        if (slot.fullWidth) slotClass += ' full-width';
+        
+        const dropAttr = slot.droppable ? `data-slot="${slot.filename}"` : '';
+        const dropText = slot.droppable ? 'Arrastra aquí para reemplazar' : 'No se puede soltar aquí';
+
+        return `
+            <div class="${slotClass}" ${dropAttr}>
+                <div class=\"slot-overlay\"><span class=\"spinner\"></span> Subiendo...</div>
+                <div class="image-slot-header">
+                    <div class="image-slot-title">${slot.title}</div>
+                    <div class="image-slot-size">${slot.size}</div>
+                </div>
+                <div class="image-slot-preview">
+                    <img src="/style/${encodeURIComponent(styleName)}/${encodeURIComponent(slot.filename)}?t=${t}"
+                         alt="${slot.filename}"
+                         onload="this.style.width = ${slot.fullWidth ? "'100%'" : "(this.naturalWidth / 2) + 'px'"}; this.style.height = 'auto'; this.style.opacity='1';"
+                         onerror="this.style.opacity='0.25'">
+                </div>
+                <div class="image-slot-hint">
+                    <div><strong>${dropText}</strong></div>
+                    <div>${slot.hint}</div>
+                    <div style="margin-top: 0.35rem;">Nombre: <code>${slot.filename}</code></div>
+                </div>
+                <div class=\"slot-status\" data-status-for=\"${slot.filename}\"></div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Drag & drop por slot
+function _setDragging(active) {
+    document.body.classList.toggle('dragging', Boolean(active));
+}
+
+document.addEventListener('dragenter', (e) => {
+    if (!canManageStyles) return;
+    if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) {
+        _setDragging(true);
+    }
+});
+
+document.addEventListener('dragleave', (e) => {
+    if (!canManageStyles) return;
+    if (e.target === document.documentElement) {
+        _setDragging(false);
+    }
+});
+
+document.addEventListener('drop', () => {
+    if (!canManageStyles) return;
+    _setDragging(false);
+});
+
+document.getElementById('imagesGrid').addEventListener('dragover', (e) => {
+    if (!canManageStyles) return;
+    const slot = e.target.closest('.image-slot.droppable');
+    if (!slot) return;
+    e.preventDefault();
+    slot.classList.add('dragover');
+});
+
+document.getElementById('imagesGrid').addEventListener('dragleave', (e) => {
+    if (!canManageStyles) return;
+    const slot = e.target.closest('.image-slot.droppable');
+    if (!slot) return;
+    slot.classList.remove('dragover');
+});
+
+document.getElementById('imagesGrid').addEventListener('drop', async (e) => {
+    if (!canManageStyles) return;
+    const slot = e.target.closest('.image-slot.droppable');
+    if (!slot) return;
+    e.preventDefault();
+    slot.classList.remove('dragover');
+
+    if (!currentEditStyle) return;
+    const files = e.dataTransfer?.files;
+    if (!files || !files.length) return;
+    const file = files[0];
+    const slotName = slot.getAttribute('data-slot');
+    if (!slotName) return;
+
+    await uploadSlotImage(currentEditStyle, slotName, file);
+});
+
+async function uploadSlotImage(styleName, slotName, file) {
+    const slotEl = document.querySelector(`.image-slot.droppable[data-slot="${CSS.escape(slotName)}"]`);
+    const statusEl = document.querySelector(`.slot-status[data-status-for="${CSS.escape(slotName)}"]`);
+
+    const setStatus = (kind, text) => {
+        if (!statusEl) return;
+        statusEl.classList.remove('success', 'error');
+        if (kind) statusEl.classList.add(kind);
+        statusEl.textContent = text || '';
+    };
+
+    if (slotEl) {
+        slotEl.classList.remove('updated', 'error');
+        slotEl.classList.add('is-uploading');
+    }
+    setStatus(null, '');
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('csrf_token', csrfToken);
+
+    try {
+        const res = await fetch(`/admin/personalizacion/api/style/${encodeURIComponent(styleName)}/slot/${encodeURIComponent(slotName)}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if (!data.ok) {
+            if (slotEl) slotEl.classList.add('error');
+            setStatus('error', data.error || 'No se pudo subir la imagen');
+            return;
+        }
+
+        // Refrescar previews y marcar como actualizado
+        loadStyleImages(styleName);
+
+        // Actualizar la imagen de la tarjeta en el grid principal si es el logo
+        if (slotName === 'Logo_AMPA.png') {
+            const mainCardImg = document.querySelector(`.style-card[data-style="${CSS.escape(styleName)}"] .style-preview img`);
+            if (mainCardImg) {
+                mainCardImg.src = `/style/${encodeURIComponent(styleName)}/Logo_AMPA_400x400.png?t=${Date.now()}`;
+                mainCardImg.style.display = 'block';
+                const placeholder = mainCardImg.parentNode.querySelector('.style-preview-placeholder');
+                if (placeholder) placeholder.style.display = 'none';
+            }
+        }
+
+        const updatedFiles = Array.isArray(data.files) && data.files.length ? data.files : [slotName];
+        setTimeout(() => {
+            for (const f of updatedFiles) {
+                const el = document.querySelector(`.image-slot[data-slot="${CSS.escape(f)}"], .image-slot.not-droppable:has(.slot-status[data-status-for="${CSS.escape(f)}"])`);
+                // Nota: :has no está garantizado; usamos búsqueda por status-for
+            }
+
+            for (const f of updatedFiles) {
+                const st = document.querySelector(`.slot-status[data-status-for="${CSS.escape(f)}"]`);
+                const card = st ? st.closest('.image-slot') : null;
+                if (card) {
+                    card.classList.add('updated');
+                    st.classList.add('success');
+                    st.textContent = 'Actualizada';
+                    setTimeout(() => card.classList.remove('updated'), 2000);
+                }
+            }
+        }, 250);
+    } catch (e) {
+        if (slotEl) slotEl.classList.add('error');
+        setStatus('error', 'Error de red al subir la imagen');
+        return;
+    } finally {
+        if (slotEl) slotEl.classList.remove('is-uploading');
+    }
+}
+
+// CSS Form
+document.getElementById('cssForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!canManageStyles) return;
+    if (!currentEditStyle) return;
+    
+    const css = document.getElementById('cssEditor').value;
+    const btn = e.target.querySelector('button[type=submit]');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Guardando...';
+    
+    try {
+        const res = await fetch(`/admin/personalizacion/api/style/${encodeURIComponent(currentEditStyle)}/css`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ css })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            alert('CSS guardado correctamente');
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (e) {
+        alert('Error guardando CSS');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '💾 Guardar CSS';
+    }
+});
+
+// Style actions
+async function activateStyle(name, btn) {
+    if (!canManageStyles) return;
+    const originalHtml = btn ? btn.innerHTML : '✓ Activar';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-inline"></span> Activando...';
+        btn.style.opacity = '0.7';
+        btn.style.cursor = 'not-allowed';
+    }
+
+    try {
+        const res = await fetch(`/admin/personalizacion/api/style/${encodeURIComponent(name)}/activate`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+        const data = await res.json();
+        if (data.ok) {
+            if (btn) btn.innerHTML = '✓ ¡Listo!';
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                btn.style.opacity = '';
+                btn.style.cursor = '';
+            }
+        }
+    } catch (e) {
+        alert('Error activando estilo');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            btn.style.opacity = '';
+            btn.style.cursor = '';
+        }
+    }
+}
+
+async function duplicateStyle(name, btn) {
+    if (!canManageStyles) return;
+    const newName = prompt('Nombre para el nuevo estilo:', name + ' (copia)');
+    if (!newName) return;
+    
+    const originalHtml = btn ? btn.innerHTML : '📋 Duplicar';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-inline"></span> Duplicando...';
+        btn.style.opacity = '0.7';
+    }
+
+    try {
+        const res = await fetch(`/admin/personalizacion/api/style/${encodeURIComponent(name)}/duplicate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ new_name: newName })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                btn.style.opacity = '';
+            }
+        }
+    } catch (e) {
+        alert('Error duplicando estilo');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            btn.style.opacity = '';
+        }
+    }
+}
+
+async function deleteStyle(name, btn) {
+    if (!canManageStyles) return;
+    if (!confirm(`¿Estás seguro de eliminar el estilo "${name}"? Esta acción no se puede deshacer.`)) return;
+    
+    const originalHtml = btn ? btn.innerHTML : '🗑️ Eliminar';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-inline"></span> Eliminando...';
+        btn.style.opacity = '0.7';
+    }
+
+    try {
+        const res = await fetch(`/admin/personalizacion/api/style/${encodeURIComponent(name)}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+        const data = await res.json();
+        if (data.ok) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                btn.style.opacity = '';
+            }
+        }
+    } catch (e) {
+        alert('Error eliminando estilo');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            btn.style.opacity = '';
+        }
+    }
+}
+
+async function initializeStyles(btn) {
+    if (!canManageStyles) return;
+    if (!confirm('Esto creará/actualizará los estilos "Navidad" y "General" en Google Drive con las imágenes locales. ¿Continuar?')) return;
+    
+    const originalHtml = btn ? btn.innerHTML : '🔄 Inicializar estilos por defecto';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-inline"></span> Inicializando...';
+        btn.style.opacity = '0.7';
+    }
+
+    try {
+        const res = await fetch('/admin/personalizacion/api/initialize', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+        const data = await res.json();
+        if (data.ok) {
+            alert('Estilos inicializados correctamente.');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                btn.style.opacity = '';
+            }
+        }
+    } catch (e) {
+        alert('Error inicializando estilos');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            btn.style.opacity = '';
+        }
+    }
+}
+
+// Close modal on ESC
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(m => {
+            m.classList.remove('active');
+        });
+        document.body.style.overflow = '';
+    }
+});
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+        if (e.target === overlay) {
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    });
+});
+</script>
+</div>
+{% endblock %}

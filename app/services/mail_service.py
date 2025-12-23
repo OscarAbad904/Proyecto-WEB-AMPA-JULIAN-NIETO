@@ -292,7 +292,7 @@ def send_member_verification_email(
     subject = "Verifica tu correo"
 
     # Ruta física del logo para incrustarlo (CID)
-    logo_path = os.path.join(current_app.static_folder, "images/general/Logo_AMPA_400x400.png")
+    logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")
     
     # Renderizar HTML usando el CID para la imagen
     body_html = render_template(
@@ -334,7 +334,7 @@ def send_member_deactivation_email(
 ) -> dict[str, Any]:
     subject = "Aviso: Tu cuenta ha sido desactivada"
     
-    logo_path = os.path.join(current_app.static_folder, "images/general/Logo_AMPA_400x400.png")
+    logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")
     
     body_html = render_template("email/deactivation.html")
 
@@ -369,7 +369,7 @@ def send_member_reactivation_email(
 ) -> dict[str, Any]:
     subject = "Tu cuenta ha sido reactivada"
     
-    logo_path = os.path.join(current_app.static_folder, "images/general/Logo_AMPA_400x400.png")
+    logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")
     login_url = url_for("public.home", _external=True)
 
     body_html = render_template(
@@ -437,7 +437,7 @@ def send_member_approval_email(
     subject = "¡Tu alta ha sido aprobada!"
     
     # Ruta física del logo para incrustarlo (CID)
-    logo_path = os.path.join(current_app.static_folder, "images/general/Logo_AMPA_400x400.png")
+    logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")
     
     # URL de login
     login_url = url_for("public.home", _external=True)
