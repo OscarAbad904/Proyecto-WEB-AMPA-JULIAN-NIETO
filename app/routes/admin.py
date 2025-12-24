@@ -1268,9 +1268,11 @@ def personalizacion():
     """Vista principal de personalización de estilos."""
     _require_view_styles()
     
-    from app.services.style_service import list_styles
+    from app.services.style_service import list_styles, get_style_calendar_color
     
     styles = list_styles()
+    for style in styles:
+        style["calendar_color"] = get_style_calendar_color(style.get("name"))
     return render_template("admin/personalizacion.html", styles=styles)
 
 

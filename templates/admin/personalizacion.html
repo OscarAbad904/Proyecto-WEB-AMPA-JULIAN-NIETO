@@ -131,7 +131,7 @@
     
     .style-preview {
         height: 160px;
-        background: linear-gradient(135deg, var(--color-bg-soft), var(--color-bg-mid));
+        background: var(--style-preview-bg, linear-gradient(135deg, var(--color-bg-soft), var(--color-bg-mid)));
         display: flex;
         align-items: center;
         justify-content: center;
@@ -627,11 +627,23 @@
             flex-direction: column;
             align-items: flex-start;
         }
-        
+
         .styles-grid {
             grid-template-columns: 1fr;
         }
-        
+
+        .image-slots {
+            grid-template-columns: 1fr;
+        }
+
+        #tab-images {
+            padding-bottom: 12rem;
+        }
+
+        #calendarColorPicker {
+            scroll-margin-bottom: 12rem;
+        }
+
         .modal {
             width: 100%;
             height: 100%;
@@ -684,7 +696,7 @@
     <div class="styles-grid" id="stylesGrid">
         {% for style in styles %}
         <div class="style-card{% if style.is_active %} active{% endif %}" data-style="{{ style.name }}">
-            <div class="style-preview">
+            <div class="style-preview"{% if style.calendar_color %} style="--style-preview-bg: {{ style.calendar_color }};"{% endif %}>
                 {% if style.is_active %}
                 <span class="active-badge">Activo</span>
                 {% endif %}
@@ -938,6 +950,7 @@ async function loadCalendarColor(styleName) {
         picker.value = (color && /^#[0-9a-fA-F]{6}$/.test(color)) ? color : '#ffffff';
         hexInput.value = color;
         status.textContent = color ? 'Configurado' : 'Sin configurar';
+        updateStylePreviewColor(styleName, color);
     } catch (e) {
         status.textContent = 'No se pudo cargar';
     }
@@ -947,6 +960,20 @@ function _normalizeHexColor(value) {
     const v = String(value || '').trim();
     if (/^#[0-9a-fA-F]{6}$/.test(v)) return v;
     return null;
+}
+
+function updateStylePreviewColor(styleName, color) {
+    if (!styleName) return;
+    const preview = document.querySelector(
+        `.style-card[data-style="${CSS.escape(styleName)}"] .style-preview`
+    );
+    if (!preview) return;
+    const normalized = _normalizeHexColor(color);
+    if (normalized) {
+        preview.style.setProperty('--style-preview-bg', normalized);
+    } else {
+        preview.style.removeProperty('--style-preview-bg');
+    }
 }
 
 async function saveCalendarColor(styleName, color) {
@@ -974,6 +1001,7 @@ async function saveCalendarColor(styleName, color) {
             return;
         }
         status.textContent = 'Guardado';
+        updateStylePreviewColor(styleName, normalized);
     } catch (e) {
         status.textContent = 'No se pudo guardar';
     }
@@ -987,6 +1015,7 @@ async function saveCalendarColor(styleName, color) {
 
     const syncToHex = () => {
         hexInput.value = picker.value;
+        updateStylePreviewColor(currentEditStyle, picker.value);
         if (canManageStyles && currentEditStyle) saveCalendarColor(currentEditStyle, picker.value);
     };
 
@@ -994,6 +1023,7 @@ async function saveCalendarColor(styleName, color) {
         const normalized = _normalizeHexColor(hexInput.value);
         if (normalized) {
             picker.value = normalized;
+            updateStylePreviewColor(currentEditStyle, normalized);
             if (canManageStyles && currentEditStyle) saveCalendarColor(currentEditStyle, normalized);
         }
     };
@@ -1097,7 +1127,7 @@ async function loadStyleImages(styleName) {
         if (slot.fullWidth) slotClass += ' full-width';
         
         const dropAttr = slot.droppable ? `data-slot="${slot.filename}"` : '';
-        const dropText = slot.droppable ? 'Arrastra aquí para reemplazar' : 'No se puede soltar aquí';
+        const dropText = slot.droppable ? 'Arrastra aqui o pulsa para reemplazar' : 'No se puede soltar aqui';
 
         return `
             <div class="${slotClass}" ${dropAttr}>
@@ -1121,6 +1151,28 @@ async function loadStyleImages(styleName) {
             </div>
         `;
     }).join('');
+}
+
+let _slotFileInput = null;
+let _slotFileTarget = null;
+
+function _ensureSlotFileInput() {
+    if (_slotFileInput) return _slotFileInput;
+    _slotFileInput = document.createElement('input');
+    _slotFileInput.type = 'file';
+    _slotFileInput.accept = 'image/*';
+    _slotFileInput.style.display = 'none';
+    _slotFileInput.addEventListener('change', async () => {
+        const files = _slotFileInput.files;
+        const slotName = _slotFileTarget;
+        _slotFileInput.value = '';
+        _slotFileTarget = null;
+        if (!files || !files.length) return;
+        if (!currentEditStyle || !slotName) return;
+        await uploadSlotImage(currentEditStyle, slotName, files[0]);
+    });
+    document.body.appendChild(_slotFileInput);
+    return _slotFileInput;
 }
 
 // Drag & drop por slot
@@ -1177,6 +1229,17 @@ document.getElementById('imagesGrid').addEventListener('drop', async (e) => {
     if (!slotName) return;
 
     await uploadSlotImage(currentEditStyle, slotName, file);
+});
+
+document.getElementById('imagesGrid').addEventListener('click', (e) => {
+    if (!canManageStyles) return;
+    if (!currentEditStyle) return;
+    const slot = e.target.closest('.image-slot.droppable');
+    if (!slot || slot.classList.contains('is-uploading')) return;
+    const slotName = slot.getAttribute('data-slot');
+    if (!slotName) return;
+    _slotFileTarget = slotName;
+    _ensureSlotFileInput().click();
 });
 
 async function uploadSlotImage(styleName, slotName, file) {
