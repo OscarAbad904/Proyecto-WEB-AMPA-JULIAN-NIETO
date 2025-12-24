@@ -1,4 +1,5 @@
 import os
+import time
 from flask import Flask
 from dotenv import load_dotenv
 from datetime import datetime
@@ -17,6 +18,18 @@ from app.commands import register_commands
 from app.services.permission_registry import ensure_roles_and_permissions
 from app.services.db_backup_scheduler import start_db_backup_scheduler
 from app.services.user_cleanup_scheduler import start_user_cleanup_scheduler
+
+
+def _is_werkzeug_reloader_child(app: Flask) -> bool:
+    """True si estamos en el proceso hijo del reloader de Werkzeug.
+
+    En modo debug, Flask arranca 2 procesos (padre watcher + hijo servidor).
+    Queremos ejecutar tareas de arranque (sync estilo, schedulers) solo en el hijo.
+    """
+    debug_enabled = bool(app.config.get("DEBUG") or app.debug)
+    if not debug_enabled:
+        return True
+    return os.getenv("WERKZEUG_RUN_MAIN") == "true"
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -61,15 +74,44 @@ def create_app(config_name: str | None = None) -> Flask:
     with app.app_context():
         try:
             ensure_roles_and_permissions()
-            # Sincronizar assets del estilo activo a rutas fijas en /assets
-            # Solo sincronizar si no estamos en modo CLI (migraciones, etc.)
-            if os.getenv("FLASK_RUN_FROM_CLI") != "true":
-                from app.services.style_service import sync_active_style_to_static
-                app.logger.info("Sincronizando estilo activo al iniciar...")
-                result = sync_active_style_to_static()
-                app.logger.info("Sincronización de estilo completada: %s", result)
-                if result.get("errors"):
-                    app.logger.warning("Errores durante sincronización de estilo: %s", result["errors"])
+            # Sincronizar assets del estilo activo a rutas fijas en /assets.
+            # En modo debug con reloader, esto se ejecuta dos veces (padre + hijo),
+            # así que lo limitamos al proceso hijo.
+            if os.getenv("FLASK_RUN_FROM_CLI") != "true" and _is_werkzeug_reloader_child(app):
+                # Además, la propia sincronización puede tocar archivos y disparar un reinicio
+                # inmediato del reloader. Para evitar doble log/ejecución, aplicamos un lock
+                # de ventana corta SOLO en debug.
+                should_sync_style = True
+                if app.debug:
+                    try:
+                        lock_path = ROOT_PATH / "cache" / "style_sync_boot.lock"
+                        lock_path.parent.mkdir(parents=True, exist_ok=True)
+                        if lock_path.exists():
+                            age = time.time() - lock_path.stat().st_mtime
+                            if age < 20:
+                                should_sync_style = False
+                        if should_sync_style:
+                            lock_path.write_text(str(time.time()), encoding="utf-8")
+                    except Exception:
+                        # Si falla el lock, no bloqueamos el arranque.
+                        should_sync_style = True
+
+                if should_sync_style:
+                    from app.services.style_service import sync_active_style_to_static
+
+                    app.logger.info("Sincronizando estilo activo al iniciar...")
+                    result = sync_active_style_to_static()
+                    copied_count = len(result.get("copied") or [])
+                    errors = result.get("errors") or []
+                    app.logger.info(
+                        "Sincronización de estilo completada: ok=%s style=%s copied=%s errors=%s",
+                        bool(result.get("ok")),
+                        result.get("style"),
+                        copied_count,
+                        len(errors),
+                    )
+                    if errors:
+                        app.logger.warning("Errores durante sincronización de estilo: %s", errors)
             
             # Liberar conexiones tras la inicialización para evitar problemas de SSL tras fork/arranque
             db.engine.dispose()
@@ -77,8 +119,10 @@ def create_app(config_name: str | None = None) -> Flask:
             db.session.rollback()
             app.logger.exception("No se pudieron sincronizar los permisos base", exc_info=exc)
 
-    start_db_backup_scheduler(app)
-    start_user_cleanup_scheduler(app)
+    # En modo debug con reloader, arrancar jobs solo en el proceso hijo
+    if _is_werkzeug_reloader_child(app):
+        start_db_backup_scheduler(app)
+        start_user_cleanup_scheduler(app)
 
     return app
 

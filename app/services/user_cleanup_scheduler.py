@@ -13,6 +13,10 @@ def start_user_cleanup_scheduler(app: Flask) -> None:
     if os.getenv("AMPA_DISABLE_BACKGROUND_JOBS") in {"1", "true", "yes"}:
         return
 
+    # En modo debug, el reloader ejecuta 2 procesos (padre + hijo). Solo arrancar en el hijo.
+    if (app.debug or app.config.get("DEBUG")) and os.getenv("WERKZEUG_RUN_MAIN") != "true":
+        return
+
     if os.getenv("FLASK_RUN_FROM_CLI") == "true":
         return
 

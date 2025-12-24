@@ -12,9 +12,17 @@ body.home-page {
     /* Ajusta al ancho (100%) y recorta verticalmente si falta alto */
     background-size: auto, 100% auto;
     background-repeat: no-repeat, no-repeat;
-    /* Recorte vertical por arriba (se ancla abajo, se pierde la parte superior) */
+    /* Escritorio: se ancla abajo para recortar por arriba */
     background-position: center center, 50% 100%;
     background-attachment: scroll, fixed;
+}
+
+@media (max-width: 768px) {
+    body.home-page {
+        /* Móvil: ajusta al alto y mantiene encuadre similar al anterior */
+        background-size: auto, auto 100%;
+        background-position: center center, 50% 45%;
+    }
 }
 
 /* Shapes flotantes */

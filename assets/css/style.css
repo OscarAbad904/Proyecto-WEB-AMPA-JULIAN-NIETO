@@ -50,9 +50,17 @@ body.home-page {
 /* === Personalizaciones adicionales === */
 /* Añade aquí CSS personalizado para este estilo */
 
-/* === Override (servidor): Fondo home ajusta al ancho y recorta por arriba === */
+/* === Override (servidor): Fondo home responsive === */
 body.home-page {
+    /* Escritorio: ajusta al ancho y se ancla abajo (recorte por arriba) */
     background-size: auto, 100% auto;
-    /* Se ancla abajo para que, si falta alto, se pierda la parte superior */
     background-position: center center, 50% 100%;
+}
+
+@media (max-width: 768px) {
+    body.home-page {
+        /* Móvil: ajusta al alto y mantiene encuadre como antes */
+        background-size: auto, auto 100%;
+        background-position: center center, 50% 45%;
+    }
 }

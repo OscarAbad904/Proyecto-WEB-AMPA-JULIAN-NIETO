@@ -68,11 +68,19 @@ def _enforce_home_background_fit_width(css_text: str) -> str:
     """
     override = """
 
-/* === Override (servidor): Fondo home ajusta al ancho y recorta por arriba === */
+/* === Override (servidor): Fondo home responsive === */
 body.home-page {
+    /* Escritorio: ajusta al ancho y se ancla abajo (recorte por arriba) */
     background-size: auto, 100% auto;
-    /* Se ancla abajo para que, si falta alto, se pierda la parte superior */
     background-position: center center, 50% 100%;
+}
+
+@media (max-width: 768px) {
+    body.home-page {
+        /* Móvil: ajusta al alto y mantiene encuadre como antes */
+        background-size: auto, auto 100%;
+        background-position: center center, 50% 45%;
+    }
 }
 """
     return (css_text or "").rstrip() + override
@@ -103,9 +111,25 @@ def _bump_active_style_version() -> None:
 def sync_active_style_to_static() -> Dict[str, Any]:
     """Sincroniza el estilo activo (Drive o fallback local) a rutas fijas en /assets."""
     active = get_active_style_with_fallback()
-    current_app.logger.info(f"Sincronizando estilo activo: {active}")
+    current_app.logger.info("Sincronizando estilo activo: %s", active)
     result = sync_style_to_static(active)
-    current_app.logger.info(f"Resultado sincronización: copied={result.get('copied', [])}, errors={result.get('errors', [])}")
+    copied = result.get("copied") or []
+    errors = result.get("errors") or []
+    if errors:
+        current_app.logger.warning(
+            "Sincronización de estilo con errores: style=%s copied=%s errors=%s",
+            result.get("style"),
+            len(copied),
+            errors,
+        )
+    else:
+        current_app.logger.info(
+            "Sincronización de estilo OK: style=%s copied=%s",
+            result.get("style"),
+            len(copied),
+        )
+        if str(os.getenv("AMPA_STYLE_SYNC_DEBUG") or "").lower() in {"1", "true", "yes", "on"}:
+            current_app.logger.debug("Detalles sincronización (copied): %s", copied)
     return result
 
 
@@ -118,12 +142,8 @@ def sync_style_to_static(style_name: str) -> Dict[str, Any]:
     images_dir = _get_current_style_images_dir()
     css_path = _get_current_style_css_path()
 
-    base_images = Path(current_app.static_folder) / "images"
-    tmp_dir = base_images / f"_{CURRENT_STYLE_DIRNAME}_tmp"
-
-    if tmp_dir.exists():
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-    tmp_dir.mkdir(parents=True, exist_ok=True)
+    # Mantener en memoria para no tocar disco hasta saber si hay cambios.
+    desired_assets: Dict[str, bytes] = {}
 
     copied: List[str] = []
     errors: List[str] = []
@@ -131,7 +151,12 @@ def sync_style_to_static(style_name: str) -> Dict[str, Any]:
     # 1) Intentar listar/descargar desde Drive (si falla, se usará fallback local)
     try:
         files = get_style_files(sanitized)
-        current_app.logger.info(f"Archivos encontrados para estilo '{sanitized}': {[f.get('name') for f in (files or [])]}")
+        if str(os.getenv("AMPA_STYLE_SYNC_DEBUG") or "").lower() in {"1", "true", "yes", "on"}:
+            current_app.logger.debug(
+                "Archivos encontrados para estilo '%s': %s",
+                sanitized,
+                [f.get("name") for f in (files or [])],
+            )
     except Exception as exc:
         files = []
         errors.append(f"No se pudieron listar archivos en Drive: {exc}")
@@ -140,7 +165,7 @@ def sync_style_to_static(style_name: str) -> Dict[str, Any]:
 
     css_bytes: Optional[bytes] = None
 
-    # Si hay lista de archivos (Drive o local), copiar todo lo que sea relevante
+    # Si hay lista de archivos (Drive o local), cargar todo lo que sea relevante
     for f in files or []:
         name = f.get("name")
         if not name:
@@ -155,21 +180,20 @@ def sync_style_to_static(style_name: str) -> Dict[str, Any]:
                 errors.append(f"No se pudo descargar CSS: {exc}")
             continue
 
-        # Copiamos imágenes/otros assets tal cual a current
+        # Cargamos imágenes/otros assets en memoria
         try:
             res = download_style_file(sanitized, name)
             if not res:
                 continue
             content, _mime = res
-            (tmp_dir / name).write_bytes(content)
-            copied.append(name)
+            desired_assets[name] = content
         except Exception as exc:
             errors.append(f"No se pudo copiar {name}: {exc}")
 
     # 2) Asegurar al menos los archivos clave
     required = set(STYLE_KEY_FILES.values())
     for filename in required:
-        if (tmp_dir / filename).exists():
+        if filename in desired_assets:
             continue
         res: Optional[Tuple[bytes, str]] = None
 
@@ -185,13 +209,10 @@ def sync_style_to_static(style_name: str) -> Dict[str, Any]:
         if not res:
             continue
 
-        try:
-            (tmp_dir / filename).write_bytes(res[0])
-            copied.append(filename)
-        except Exception as exc:
-            errors.append(f"No se pudo escribir {filename}: {exc}")
+        desired_assets[filename] = res[0]
 
     # 3) Escribir CSS local (si no hay en Drive, generarlo)
+    css_changed = False
     try:
         if css_bytes is None:
             # Fallback: generar uno mínimo
@@ -201,41 +222,58 @@ def sync_style_to_static(style_name: str) -> Dict[str, Any]:
 
         css_text = _rewrite_style_css_for_static(css_text)
         css_text = _enforce_home_background_fit_width(css_text)
-        css_path.write_text(css_text, encoding="utf-8")
+
+        existing_css = None
+        if css_path.exists():
+            try:
+                existing_css = css_path.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                existing_css = None
+
+        if existing_css != css_text:
+            css_path.write_text(css_text, encoding="utf-8")
+            css_changed = True
     except Exception as exc:
         errors.append(f"No se pudo escribir CSS local: {exc}")
 
-    # 4) Swap atómico del directorio current
-    try:
-        if images_dir.exists():
-            # Intentar eliminar el directorio existente
-            # En algunos entornos (como Render), los archivos del repo pueden ser read-only
-            try:
-                shutil.rmtree(images_dir, ignore_errors=False)
-            except PermissionError:
-                # Fallback: copiar archivos uno a uno sobre los existentes
-                current_app.logger.warning("No se pudo eliminar images/current, copiando archivos individualmente")
-                for src_file in tmp_dir.iterdir():
-                    dst_file = images_dir / src_file.name
+    # 4) Sincronizar imágenes en su destino solo si cambian
+    any_asset_changed = False
+    desired_names = set(desired_assets.keys())
+    for name, content in desired_assets.items():
+        dst_file = images_dir / name
+        try:
+            existing = None
+            if dst_file.exists() and dst_file.is_file():
+                try:
+                    existing = dst_file.read_bytes()
+                except Exception:
+                    existing = None
+
+            if existing == content:
+                continue
+
+            dst_file.write_bytes(content)
+            copied.append(name)
+            any_asset_changed = True
+        except Exception as exc:
+            errors.append(f"No se pudo escribir {name}: {exc}")
+
+    # Limpiar archivos obsoletos si hubo cambios (evita stale assets entre estilos)
+    if any_asset_changed:
+        try:
+            for existing_file in images_dir.iterdir():
+                if existing_file.is_file() and existing_file.name not in desired_names:
                     try:
-                        if dst_file.exists():
-                            dst_file.unlink()
-                        shutil.copy2(src_file, dst_file)
-                        copied.append(src_file.name)
-                    except Exception as copy_exc:
-                        errors.append(f"No se pudo copiar {src_file.name}: {copy_exc}")
-                shutil.rmtree(tmp_dir, ignore_errors=True)
-            else:
-                tmp_dir.rename(images_dir)
-        else:
-            tmp_dir.rename(images_dir)
-    except Exception as exc:
-        errors.append(f"No se pudo activar el directorio current: {exc}")
-        current_app.logger.error(f"Error activando directorio current: {exc}")
+                        existing_file.unlink()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
 
-    # 5) Bump versión para bustear caché
-    _bump_active_style_version()
+    # 5) Bump versión para bustear caché solo si hubo cambios reales
+    if css_changed or any_asset_changed:
+        _bump_active_style_version()
 
     return {
         "ok": True,
