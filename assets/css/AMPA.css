@@ -17,6 +17,24 @@
   --hero-logo-gap-mobile: 1rem;
   --hero-logo-float-duration: 10s;
 
+  /* Hero: separación del conjunto (logo+título) respecto al footer */
+  --hero-to-footer-gap-desktop: 6rem;
+  --hero-to-footer-gap-mobile: 3.5rem;
+  --hero-to-footer-gap: var(--hero-to-footer-gap-desktop);
+
+  /* Hero: tamaños (logo y tipografías) */
+  --hero-logo-size-desktop: 12rem;
+  --hero-logo-size-mobile: 9.5rem;
+  --hero-logo-size: var(--hero-logo-size-desktop);
+
+  --hero-title-font-size-desktop: 2rem;
+  --hero-title-font-size-mobile: 1.28rem;
+  --hero-title-font-size: var(--hero-title-font-size-desktop);
+
+  --hero-desc-font-size-desktop: 0.9rem;
+  --hero-desc-font-size-mobile: 0.7rem;
+  --hero-desc-font-size: var(--hero-desc-font-size-desktop);
+
   /* Colores claros con buen contraste */
   --color-bg-deep: #f0f4f8;
   --color-bg-dark: #f8fafc;
@@ -72,9 +90,11 @@ body.home-page {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.1)),
     url('../images/current/Fondo Pagina Principal.png');
-  background-size: auto, cover;
+  /* Ajusta al ancho (100%) y recorta verticalmente si falta alto */
+  background-size: auto, 100% auto;
   background-repeat: no-repeat, no-repeat;
-  background-position: center center, 50% 45%;
+  /* Recorte vertical por arriba (se ancla abajo, se pierde la parte superior) */
+  background-position: center center, 50% 100%;
   background-attachment: scroll, fixed;
   animation: home-bg-pan 18s ease-in-out infinite alternate;
   margin: 0;
@@ -82,10 +102,10 @@ body.home-page {
 
 @keyframes home-bg-pan {
   0% {
-    background-position: center center, 15% 45%;
+    background-position: center center, 15% 100%;
   }
   100% {
-    background-position: center center, 100% 45%;
+    background-position: center center, 100% 100%;
   }
 }
 
@@ -150,6 +170,10 @@ footer {
 @media (max-width: 768px) {
   :root {
     font-size: 12px;
+    --hero-to-footer-gap: var(--hero-to-footer-gap-mobile);
+    --hero-logo-size: var(--hero-logo-size-mobile);
+    --hero-title-font-size: var(--hero-title-font-size-mobile);
+    --hero-desc-font-size: var(--hero-desc-font-size-mobile);
   }
 
   .container-nav {
@@ -652,6 +676,7 @@ body.menu-open {
   overflow: hidden;
   border-bottom: 1px solid rgba(100, 116, 139, 0.15);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  padding-bottom: var(--hero-to-footer-gap, 0rem);
 }
 
 .hero-overlay {
@@ -708,8 +733,8 @@ body.menu-open {
   border-radius: 3rem;
   background: rgb(255 255 255 / 100%);
   object-fit: contain;
-  width: 40%;
-  height: 40%;
+  width: var(--hero-logo-size, 12rem);
+  height: var(--hero-logo-size, 12rem);
   filter: none;
   position: relative;
   z-index: 1;
@@ -737,7 +762,7 @@ body.menu-open {
   padding: 0rem 0.5rem;
   border-radius: 5rem;
   background: rgb(255 255 255 / 100%);
-  font-size: 1.28rem;
+  font-size: var(--hero-title-font-size, 1.28rem);
   font-weight: bold;
   margin-top: 0.5rem;
   margin-bottom: 1.5rem;
@@ -745,12 +770,6 @@ body.menu-open {
   position: relative;
   isolation: isolate;
   box-shadow: 0 0 0 0.5rem rgba(255, 255, 255, 0.5), 0rem 0rem 1.5rem 1.5rem rgba(255, 255, 255, 1);
-}
-
-@media (min-width: 768px) {
-  .hero-title {
-    font-size: 2rem;
-  }
 }
 
 .hero-desc {
@@ -767,13 +786,7 @@ body.menu-open {
   isolation: isolate;
   box-shadow: 0 0 0 0.5rem rgba(255, 255, 255, 0.5),
     0rem 0rem 1.5rem 1.5rem rgba(255, 255, 255, 1);
-  font-size: 0.7rem;
-}
-
-@media (min-width: 768px) {
-  .hero-desc {
-    font-size: 0.9rem;
-  }
+  font-size: var(--hero-desc-font-size, 0.7rem);
 }
 
 .hero-btns {

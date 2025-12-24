@@ -877,7 +877,7 @@
 
 <script>
 const csrfToken = "{{ csrf_token() }}";
-const canManageStyles = {{ 'true' if current_user.has_permission('manage_styles') else 'false' }};
+const canManageStyles = ("{{ 'true' if current_user.has_permission('manage_styles') else 'false' }}" === "true");
 let currentEditStyle = null;
 
 // Tabs
@@ -1163,13 +1163,13 @@ function _ensureSlotFileInput() {
     _slotFileInput.accept = 'image/*';
     _slotFileInput.style.display = 'none';
     _slotFileInput.addEventListener('change', async () => {
-        const files = _slotFileInput.files;
         const slotName = _slotFileTarget;
+        const file = (_slotFileInput.files && _slotFileInput.files[0]) ? _slotFileInput.files[0] : null;
         _slotFileInput.value = '';
         _slotFileTarget = null;
-        if (!files || !files.length) return;
+        if (!file) return;
         if (!currentEditStyle || !slotName) return;
-        await uploadSlotImage(currentEditStyle, slotName, files[0]);
+        await uploadSlotImage(currentEditStyle, slotName, file);
     });
     document.body.appendChild(_slotFileInput);
     return _slotFileInput;

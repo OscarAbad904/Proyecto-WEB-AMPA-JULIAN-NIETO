@@ -81,6 +81,17 @@
             font-weight: 700;
         }
 
+        .schedule-year-nav {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .schedule-year-label {
+            min-width: 4rem;
+            text-align: center;
+        }
+
         .calendar-shell {
             flex: 1;
             background: var(--color-panel);
@@ -370,6 +381,11 @@
             <span id="selectedInfo" class="schedule-selected">0 días seleccionados</span>
         </div>
         <div class="schedule-actions__right">
+            <div class="schedule-year-nav" aria-label="Navegación por año">
+                <button id="prevYearBtn" class="btn" type="button" aria-label="Año anterior">Año -</button>
+                <span id="yearLabel" class="schedule-selected schedule-year-label" aria-live="polite"></span>
+                <button id="nextYearBtn" class="btn" type="button" aria-label="Año siguiente">Año +</button>
+            </div>
             <span class="schedule-selected">Click: 1 día · Ctrl: añadir/quitar · Shift: rango</span>
         </div>
     </div>
@@ -407,6 +423,8 @@ let styleColors = {};
 let selectedDates = new Set();
 let anchorDateIso = null;
 
+let currentYear = new Date().getFullYear();
+
 let calendarFromIso = null;
 let calendarToIso = null;
 
@@ -435,6 +453,17 @@ function openAssignModal() {
 function closeAssignModal() {
     document.getElementById('assignModal').classList.remove('active');
     document.body.style.overflow = '';
+}
+
+function clearSelection() {
+    selectedDates.clear();
+    anchorDateIso = null;
+    syncSelectionUI();
+}
+
+function updateYearLabel() {
+    const el = document.getElementById('yearLabel');
+    if (el) el.textContent = String(currentYear);
 }
 
 function renderStyleModal() {
@@ -476,12 +505,12 @@ async function loadCatalog() {
     }
 }
 
-function renderCalendarMonths() {
+function renderCalendarMonths(year = currentYear) {
     const scroll = document.getElementById('calendarScroll');
     scroll.innerHTML = '';
 
-    const today = new Date();
-    const year = today.getFullYear();
+    currentYear = year;
+    updateYearLabel();
 
     const minDate = new Date(year, 0, 1);
     const maxDate = new Date(year, 11, 31);
@@ -536,6 +565,14 @@ function renderCalendarMonths() {
     }
 
     scroll.appendChild(gridYear);
+}
+
+async function changeYear(delta) {
+    clearSelection();
+    renderCalendarMonths(currentYear + delta);
+    await loadSchedulesAndPaint();
+    const scroll = document.getElementById('calendarScroll');
+    if (scroll) scroll.scrollTop = 0;
 }
 
 function onDayClick(ev, iso) {
@@ -726,6 +763,14 @@ document.getElementById('clearBtn').addEventListener('click', () => {
     clearSelected();
 });
 
+document.getElementById('prevYearBtn').addEventListener('click', () => {
+    changeYear(-1);
+});
+
+document.getElementById('nextYearBtn').addEventListener('click', () => {
+    changeYear(1);
+});
+
 document.getElementById('assignModal').addEventListener('click', (e) => {
     if (e.target && e.target.id === 'assignModal') closeAssignModal();
 });
@@ -734,7 +779,8 @@ document.getElementById('assignModal').addEventListener('click', (e) => {
     try {
         await loadCatalog();
         renderStyleModal();
-        renderCalendarMonths();
+        updateYearLabel();
+        renderCalendarMonths(currentYear);
         syncSelectionUI();
         await loadSchedulesAndPaint();
     } catch (e) {

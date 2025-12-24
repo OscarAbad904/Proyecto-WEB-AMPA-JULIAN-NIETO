@@ -1,22 +1,34 @@
 {
   "files": {
-    "Globo_shape_Verde.png": {
-      "cached_at": 1766564913.6661153,
-      "size": 121520,
-      "drive_file_id": "1qhooeKRFcsR0FEmwEuyZFCv3CKF246rg",
-      "etag": "762bec0ee191ba24c2bce9faff99d048"
-    },
     "Fondo Pagina Principal.png": {
-      "cached_at": 1766564916.6096087,
-      "size": 1351651,
+      "cached_at": 1766573465.722853,
+      "size": 1950408,
       "drive_file_id": "1iTjaQfZImJGOGEiCQkJsRWfNDti6ZQVf",
-      "etag": "8e937b4993ff82e162cd3e7e77329883"
+      "etag": "7974b725cc78f199ff6c1c5b39d1ad5a"
     },
-    "style.css": {
-      "cached_at": 1766564917.4758785,
-      "size": 1535,
-      "drive_file_id": "1fYx71BUCybfAPrm4GIVKO7GihBMWpvdx",
-      "etag": "b28f1e57434bd8836fd4a8cb69329403"
+    "Globo_shape_Naranja.png": {
+      "cached_at": 1766573466.2814589,
+      "size": 116364,
+      "drive_file_id": "1TRf6wky3QoF6PpRve8KkgkaaZedkTKEq",
+      "etag": "762145bba484844e2310efa2f1417490"
+    },
+    "Logo_AMPA_64x64.png": {
+      "cached_at": 1766574484.9685936,
+      "size": 8787,
+      "drive_file_id": "1goWnMU7i6OjyFoefN48FvT7yxV1-lHi-",
+      "etag": "baed3a9fb6c5a8f2a858a027d917afb1"
+    },
+    "Logo_AMPA.png": {
+      "cached_at": 1766573467.4642117,
+      "size": 1648455,
+      "drive_file_id": "18_DdaaSyNWb_N1y-4s-z3ito6m2e40oW",
+      "etag": "8675238667285e827691dea790d4094b"
+    },
+    "Logo_AMPA_400x400.png": {
+      "cached_at": 1766573468.1249695,
+      "size": 168697,
+      "drive_file_id": "1iCEpa8awNzkSE1DpM8tSp8wxt8ROFKeJ",
+      "etag": "d41221f17aea7765addf5f6f806570ea"
     }
   },
   "last_sync": 0

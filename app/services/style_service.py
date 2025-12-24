@@ -60,6 +60,24 @@ def _rewrite_style_css_for_static(css_text: str) -> str:
     return re.sub(r"url\(\s*(['\"]?)\./([^'\"\)]+)\1\s*\)", _repl, css_text)
 
 
+def _enforce_home_background_fit_width(css_text: str) -> str:
+    """Asegura que el fondo del home ajuste al ancho y recorte verticalmente.
+
+    Implementación: añade un override al final del CSS para que prevalezca sobre
+    cualquier valor existente (incluyendo CSS traído de Drive).
+    """
+    override = """
+
+/* === Override (servidor): Fondo home ajusta al ancho y recorta por arriba === */
+body.home-page {
+    background-size: auto, 100% auto;
+    /* Se ancla abajo para que, si falta alto, se pierda la parte superior */
+    background-position: center center, 50% 100%;
+}
+"""
+    return (css_text or "").rstrip() + override
+
+
 def get_active_style_version() -> str:
     """Versión (cache-bust) del estilo activo para forzar recarga de assets estáticos."""
     from app.models import SiteSetting
@@ -182,6 +200,7 @@ def sync_style_to_static(style_name: str) -> Dict[str, Any]:
             css_text = css_bytes.decode("utf-8", errors="replace")
 
         css_text = _rewrite_style_css_for_static(css_text)
+        css_text = _enforce_home_background_fit_width(css_text)
         css_path.write_text(css_text, encoding="utf-8")
     except Exception as exc:
         errors.append(f"No se pudo escribir CSS local: {exc}")
@@ -1660,9 +1679,9 @@ body.home-page {{
     background-image:
         linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.1)),
         url('./Fondo Pagina Principal.png');
-    background-size: auto, cover;
+    background-size: auto, 100% auto;
     background-repeat: no-repeat, no-repeat;
-    background-position: center center, 50% 45%;
+    background-position: center center, 50% 100%;
     background-attachment: scroll, fixed;
 }}
 
