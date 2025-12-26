@@ -193,7 +193,7 @@ def _commission_can_manage(membership: CommissionMembership | None, area: str) -
         return False
     role = (membership.role or "").strip().lower()
     if role == "coordinador":
-        return area in {"members", "projects", "meetings"}
+        return area in {"projects", "meetings", "discussions"}
     return False
 
 
@@ -642,7 +642,7 @@ def commission_discussion_new(slug: str):
     )
     if not can_view_commission:
         abort(403)
-    if not current_user.has_permission("create_suggestions"):
+    if not (_commission_can_manage(membership, "discussions") or user_is_privileged(current_user)):
         abort(403)
 
     return_to = _safe_return_to(request.args.get("return_to"))
@@ -699,9 +699,14 @@ def nueva_sugerencia():
 @members_bp.route("/sugerencias/<int:suggestion_id>")
 @login_required
 def detalle_sugerencia(suggestion_id: int):
-    if not current_user.has_permission("view_suggestions"):
-        abort(403)
     suggestion = Suggestion.query.get_or_404(suggestion_id)
+    category = (getattr(suggestion, "category", None) or "").strip()
+    is_scoped = (
+        _commission_discussion_commission_id(category) is not None
+        or _project_discussion_project_id(category) is not None
+    )
+    if not current_user.has_permission("view_suggestions") and not is_scoped:
+        abort(403)
     _ensure_can_access_scoped_discussion(suggestion)
     return_to = _safe_return_to(request.args.get("return_to"))
     back_url, back_label, breadcrumb = _discussion_back_target(suggestion, return_to=return_to)
@@ -844,7 +849,11 @@ def votar_sugerencia(suggestion_id: int):
 @login_required
 def commissions():
     scope = request.args.get("scope", "mis")
-    can_view_all = current_user.has_permission("view_commissions")
+    can_view_all = (
+        current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
     member_memberships = (
         CommissionMembership.query.filter_by(user_id=current_user.id, is_active=True)
         .join(Commission)
@@ -865,13 +874,44 @@ def commissions():
         query = query.filter(Commission.id.in_(commission_ids)) if commission_ids else query.filter(Commission.id == -1)
 
     commissions = query.order_by(Commission.name.asc()).all()
+    stats: dict[int, dict[str, object]] = {}
+    now_dt = datetime.utcnow()
+    active_project_statuses = ("pendiente", "en_progreso")
+    for commission in commissions:
+        members_count = (
+            commission.memberships.join(User)
+            .filter(
+                CommissionMembership.is_active.is_(True),
+                User.is_active.is_(True),
+                User.deleted_at.is_(None),
+            )
+            .count()
+        )
+        active_projects_count = commission.projects.filter(CommissionProject.status.in_(active_project_statuses)).count()
+        next_meeting = (
+            commission.meetings.filter(CommissionMeeting.start_at >= now_dt)
+            .order_by(CommissionMeeting.start_at.asc())
+            .first()
+        )
+        stats[commission.id] = {
+            "miembros": members_count,
+            "proyectos_activos": active_projects_count,
+            "proxima_reunion": next_meeting,
+        }
 
     return render_template(
-        "members/comisiones.html",
+        "admin/comisiones.html",
         commissions=commissions,
-        memberships=memberships_map,
+        stats=stats,
         scope=scope,
         can_view_all=can_view_all,
+        is_member_view=True,
+        header_kicker="Área privada",
+        header_title="Comisiones del AMPA",
+        header_subtitle="Consulta tus comisiones activas o todas las disponibles.",
+        empty_text="No hay comisiones disponibles en este momento.",
+        show_create_button=False,
+        show_empty_action=False,
     )
 
 
@@ -893,7 +933,13 @@ def commission_detail(slug: str):
         .order_by(CommissionMembership.role.asc())
         .all()
     )
-    projects = commission.projects.order_by(CommissionProject.created_at.desc()).all()
+    active_project_statuses = ("pendiente", "en_progreso")
+    active_projects = (
+        commission.projects
+        .filter(CommissionProject.status.in_(active_project_statuses))
+        .order_by(CommissionProject.created_at.desc())
+        .all()
+    )
 
     commission_discussions = (
         Suggestion.query.filter(
@@ -916,23 +962,33 @@ def commission_detail(slug: str):
         .all()
     )
 
-    is_coordinator = bool(membership and membership.role == "coordinador")
-    can_manage_members = _commission_can_manage(membership, "members") or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
-    can_manage_projects = _commission_can_manage(membership, "projects") or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
-    can_manage_meetings = _commission_can_manage(membership, "meetings") or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+    can_manage_members = (
+        current_user.has_permission("manage_commission_members")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    can_manage_projects = _commission_can_manage(membership, "projects") or user_is_privileged(current_user)
+    can_manage_meetings = _commission_can_manage(membership, "meetings") or user_is_privileged(current_user)
     can_edit_commission = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
-    can_create_discussions = current_user.has_permission("create_suggestions")
+    can_create_discussions = _commission_can_manage(membership, "discussions") or user_is_privileged(current_user)
+
+    next_meeting = upcoming_meetings[0] if upcoming_meetings else None
 
     return render_template(
-        "members/comision_detalle.html",
+        "admin/comision_detalle.html",
         commission=commission,
-        membership=membership,
-        members=members,
-        projects=projects,
-        commission_discussions=commission_discussions,
+        members_count=len(members),
+        active_projects=active_projects,
+        next_meeting=next_meeting,
         upcoming_meetings=upcoming_meetings,
         past_meetings=past_meetings,
-        is_coordinator=is_coordinator,
+        discussions=commission_discussions,
+        is_member_view=True,
+        header_kicker="Comisiones · Área privada",
+        back_href=url_for("members.commissions"),
+        back_label="← Volver a comisiones",
+        return_to_url=url_for("members.commission_detail", slug=commission.slug),
+        member_role=membership.role if membership else None,
         can_manage_members=can_manage_members,
         can_manage_projects=can_manage_projects,
         can_manage_meetings=can_manage_meetings,
@@ -967,12 +1023,8 @@ def commission_project_detail(slug: str, project_id: int):
         .all()
     )
 
-    can_create_discussions = current_user.has_permission("create_suggestions")
-    can_manage_projects = (
-        _commission_can_manage(membership, "projects")
-        or current_user.has_permission("manage_commissions")
-        or user_is_privileged(current_user)
-    )
+    can_create_discussions = _commission_can_manage(membership, "discussions") or user_is_privileged(current_user)
+    can_manage_projects = _commission_can_manage(membership, "projects") or user_is_privileged(current_user)
 
     if return_to:
         back_url = return_to
@@ -1019,7 +1071,7 @@ def project_discussion_new(slug: str, project_id: int):
     )
     if not can_view_commission:
         abort(403)
-    if not current_user.has_permission("create_suggestions"):
+    if not (_commission_can_manage(membership, "discussions") or user_is_privileged(current_user)):
         abort(403)
 
     project = CommissionProject.query.filter_by(id=project_id, commission_id=commission.id).first_or_404()
@@ -1064,8 +1116,12 @@ def project_discussion_new(slug: str, project_id: int):
 @login_required
 def commission_member_new(slug: str):
     commission, membership = _get_commission_and_membership(slug)
-    is_coord = _user_is_commission_coordinator(membership)
-    if not (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
+    can_manage_members = (
+        current_user.has_permission("manage_commission_members")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    if not can_manage_members:
         abort(403)
 
     form = CommissionMemberForm()
@@ -1103,8 +1159,12 @@ def commission_member_new(slug: str):
 @login_required
 def commission_member_disable(slug: str, membership_id: int):
     commission, membership = _get_commission_and_membership(slug)
-    is_coord = _user_is_commission_coordinator(membership)
-    if not (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
+    can_manage_members = (
+        current_user.has_permission("manage_commission_members")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    if not can_manage_members:
         abort(403)
 
     target = CommissionMembership.query.filter_by(id=membership_id, commission_id=commission.id).first_or_404()
@@ -1119,8 +1179,7 @@ def commission_member_disable(slug: str, membership_id: int):
 @login_required
 def commission_project_form(slug: str, project_id: int | None = None):
     commission, membership = _get_commission_and_membership(slug)
-    is_coord = _user_is_commission_coordinator(membership)
-    if not (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
+    if not (_commission_can_manage(membership, "projects") or user_is_privileged(current_user)):
         abort(403)
 
     project = CommissionProject.query.filter_by(id=project_id, commission_id=commission.id).first() if project_id else None
@@ -1176,8 +1235,7 @@ def commission_project_form(slug: str, project_id: int | None = None):
 @login_required
 def commission_meeting_form(slug: str, meeting_id: int | None = None):
     commission, membership = _get_commission_and_membership(slug)
-    is_coord = _user_is_commission_coordinator(membership)
-    if not (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
+    if not (_commission_can_manage(membership, "meetings") or user_is_privileged(current_user)):
         abort(403)
 
     meeting = CommissionMeeting.query.filter_by(id=meeting_id, commission_id=commission.id).first() if meeting_id else None
@@ -1254,8 +1312,7 @@ def commission_meeting_form(slug: str, meeting_id: int | None = None):
 def commission_meeting_delete(slug: str, meeting_id: int):
     """Elimina una reunión de la comisión."""
     commission, membership = _get_commission_and_membership(slug)
-    is_coord = _user_is_commission_coordinator(membership)
-    if not (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
+    if not (_commission_can_manage(membership, "meetings") or user_is_privileged(current_user)):
         abort(403)
 
     meeting = CommissionMeeting.query.filter_by(id=meeting_id, commission_id=commission.id).first_or_404()
@@ -1293,11 +1350,7 @@ def commission_meetings_list(slug: str):
     if not can_view_commission:
         abort(403)
     
-    can_manage_meetings = (
-        _commission_can_manage(membership, "meetings")
-        or current_user.has_permission("manage_commissions")
-        or user_is_privileged(current_user)
-    )
+    can_manage_meetings = _commission_can_manage(membership, "meetings") or user_is_privileged(current_user)
     
     # Parámetros de filtrado
     search_query = request.args.get("search", "").strip()
@@ -1355,6 +1408,12 @@ def commission_meetings_list(slug: str):
 @members_bp.route("/calendario")
 @login_required
 def calendar():
-    if not current_user.has_permission("view_private_calendar"):
+    membership = (
+        CommissionMembership.query.filter_by(user_id=current_user.id, is_active=True)
+        .join(Commission)
+        .filter(Commission.is_active.is_(True))
+        .first()
+    )
+    if not (membership or current_user.has_permission("view_all_commission_calendar") or user_is_privileged(current_user)):
         abort(403)
     return render_template("members/calendario.html")

@@ -1,0 +1,12 @@
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  border-radius: 12px;
+  background: var(--card);
+  padding: 1.25rem;
+  box-shadow: 0 12px 40px rgba(139, 92, 246, 0.08);
+}

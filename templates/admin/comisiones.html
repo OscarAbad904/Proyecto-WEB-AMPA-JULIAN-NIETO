@@ -2,6 +2,14 @@
 
 {% block title %}Comisiones | Admin{% endblock %}
 
+{% set is_member_view = is_member_view|default(false) %}
+{% set header_kicker = header_kicker|default("Administración") %}
+{% set header_title = header_title|default("Comisiones del AMPA") %}
+{% set header_subtitle = header_subtitle|default("Gestiona las comisiones, sus miembros, proyectos y reuniones con el mismo lenguaje visual que noticias y calendario.") %}
+{% set empty_text = empty_text|default("Todavía no hay comisiones registradas.") %}
+{% set show_create_button = show_create_button if show_create_button is defined else (not is_member_view) %}
+{% set show_empty_action = show_empty_action if show_empty_action is defined else (not is_member_view) %}
+
 {% block head %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
   <style>
@@ -20,6 +28,31 @@
       border: 1px solid rgba(139, 92, 246, 0.15);
     }
     .commission-top .btn-primary { width: auto; min-width: 190px; }
+    .commission-top-links { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; width: 100%; }
+    .commission-top .btn-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.4rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      color: #0f172a;
+      text-decoration: none;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.7);
+      transition: all 0.2s ease;
+    }
+    .commission-top .btn-link:hover {
+      background: rgba(255, 255, 255, 1);
+      border-color: rgba(139, 92, 246, 0.35);
+      transform: translateY(-1px);
+    }
+    .commission-top .btn-link.active {
+      background: #8b5cf6;
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 10px 24px rgba(139, 92, 246, 0.3);
+    }
 
     .commission-grid { 
       margin-top: 1rem; 
@@ -192,23 +225,39 @@
 {% block content %}
 <section class="admin-wrapper commission-admin">
   <div class="admin-header">
-    <p class="admin-kicker">Administración</p>
-    <h1 class="admin-title">Comisiones del AMPA</h1>
-    <p class="admin-subtitle">Gestiona las comisiones, sus miembros, proyectos y reuniones con el mismo lenguaje visual que noticias y calendario.</p>
+    <p class="admin-kicker">{{ header_kicker }}</p>
+    <h1 class="admin-title">{{ header_title }}</h1>
+    <p class="admin-subtitle">{{ header_subtitle }}</p>
   </div>
 
   {# flashes rendered globally in layout #}
 
   <div class="commission-top">
-    <div style="flex: 1;"></div>
-    <a class="btn-primary" href="{{ url_for('admin.commission_edit') }}">✨ Nueva comisión</a>
+    {% if is_member_view %}
+      <div class="commission-top-links">
+        <a class="btn-link {% if scope != 'todas' %}active{% endif %}" href="{{ url_for('members.commissions', scope='mis') }}">Mis comisiones</a>
+        {% if can_view_all %}
+        <a class="btn-link {% if scope == 'todas' %}active{% endif %}" href="{{ url_for('members.commissions', scope='todas') }}">Todas</a>
+        {% endif %}
+      </div>
+    {% else %}
+      <div style="flex: 1;"></div>
+      {% if show_create_button %}
+      <a class="btn-primary" href="{{ url_for('admin.commission_edit') }}">✨ Nueva comisión</a>
+      {% endif %}
+    {% endif %}
   </div>
 
   <div class="commission-grid">
     {% for commission in commissions %}
       {% set commission_stats = stats.get(commission.id, {}) %}
       {% set next_meeting = commission_stats.get("proxima_reunion") %}
-      <a class="commission-card admin-card" href="{{ url_for('admin.commission_detail', commission_id=commission.id) }}">
+      {% if is_member_view %}
+        {% set commission_href = url_for('members.commission_detail', slug=commission.slug) %}
+      {% else %}
+        {% set commission_href = url_for('admin.commission_detail', commission_id=commission.id) %}
+      {% endif %}
+      <a class="commission-card admin-card" href="{{ commission_href }}">
         <div class="commission-card-head">
           <h3 class="commission-title">{{ commission.name }}</h3>
           <div class="commission-head-right">
@@ -245,8 +294,10 @@
       </a>
     {% else %}
       <div class="commission-empty admin-card">
-        <p style="margin:0; font-size: 1.1rem;">Todavía no hay comisiones registradas.</p>
+        <p style="margin:0; font-size: 1.1rem;">{{ empty_text }}</p>
+        {% if show_empty_action %}
         <a class="btn-primary" href="{{ url_for('admin.commission_edit') }}">Crear la primera comisión</a>
+        {% endif %}
       </div>
     {% endfor %}
   </div>

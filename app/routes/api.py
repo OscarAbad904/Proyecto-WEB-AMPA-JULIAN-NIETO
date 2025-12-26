@@ -153,12 +153,22 @@ def calendario_eventos():
 def calendario_mis_eventos():
     """
     Eventos combinados para socios autenticados:
-    - Eventos generales del calendario del AMPA (Google Calendar).
+    - Eventos generales del calendario del AMPA (solo con permiso de eventos).
     - Reuniones de comisiones a las que pertenece el usuario o, si tiene permiso, todas.
     """
     from app.services.calendar_service import build_calendar_event_url
 
-    if not (current_user.has_permission("view_private_calendar") or user_is_privileged(current_user)):
+    membership = (
+        CommissionMembership.query.filter_by(user_id=current_user.id, is_active=True)
+        .join(Commission)
+        .filter(Commission.is_active.is_(True))
+        .first()
+    )
+    if not (
+        membership
+        or current_user.has_permission("view_all_commission_calendar")
+        or user_is_privileged(current_user)
+    ):
         return jsonify({"ok": False, "error": "No tienes permisos para ver el calendario"}), 403
 
     rango_inicial = request.args.get("rango_inicial")
@@ -214,26 +224,32 @@ def calendario_mis_eventos():
         time_max = time_max or range_end.isoformat() + "Z"
 
     general_events: list[dict] = []
-    events_query = (
-        Event.query
-        .filter(Event.end_at >= range_start)
-        .filter(Event.start_at <= range_end)
+    include_general_events = (
+        current_user.has_permission("manage_events")
+        or current_user.has_permission("view_events")
+        or user_is_privileged(current_user)
     )
-    if not (current_user.has_permission("manage_events") or user_is_privileged(current_user)):
-        events_query = events_query.filter(Event.status == "published")
+    if include_general_events:
+        events_query = (
+            Event.query
+            .filter(Event.end_at >= range_start)
+            .filter(Event.start_at <= range_end)
+        )
+        if not (current_user.has_permission("manage_events") or user_is_privileged(current_user)):
+            events_query = events_query.filter(Event.status == "published")
 
-    for event in events_query.order_by(Event.start_at.asc()).all():
-        general_events.append({
-            "id": f"event-{event.id}",
-            "titulo": event.title,
-            "descripcion": event.description_html or "",
-            "inicio": event.start_at.isoformat(),
-            "fin": event.end_at.isoformat(),
-            "ubicacion": event.location or "",
-            "url": None,
-            "todo_el_dia": False,
-            "categoria": event.category or "general",
-        })
+        for event in events_query.order_by(Event.start_at.asc()).all():
+            general_events.append({
+                "id": f"event-{event.id}",
+                "titulo": event.title,
+                "descripcion": event.description_html or "",
+                "inicio": event.start_at.isoformat(),
+                "fin": event.end_at.isoformat(),
+                "ubicacion": event.location or "",
+                "url": None,
+                "todo_el_dia": False,
+                "categoria": event.category or "general",
+            })
 
     include_all_commissions = user_is_privileged(current_user) or current_user.has_permission(
         "view_all_commission_calendar"

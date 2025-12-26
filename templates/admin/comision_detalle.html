@@ -2,6 +2,18 @@
 
 {% block title %}{{ commission.name }} | Comisiones | Admin{% endblock %}
 
+{% set is_member_view = is_member_view|default(false) %}
+{% set header_kicker = header_kicker|default("Comisiones · Administración") %}
+{% set back_href = back_href|default(url_for('admin.commissions_index')) %}
+{% set back_label = back_label|default("← Volver a comisiones") %}
+{% set return_to_url = return_to_url|default(url_for('admin.commission_detail', commission_id=commission.id)) %}
+{% set member_role = member_role if member_role is defined else None %}
+{% set can_edit_commission = can_edit_commission if can_edit_commission is defined else True %}
+{% set can_manage_members = can_manage_members if can_manage_members is defined else True %}
+{% set can_manage_projects = can_manage_projects if can_manage_projects is defined else True %}
+{% set can_manage_meetings = can_manage_meetings if can_manage_meetings is defined else True %}
+{% set can_create_discussions = can_create_discussions if can_create_discussions is defined else True %}
+
 {% block head %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
   <style>
@@ -74,8 +86,8 @@
 <section class="admin-wrapper commission-detail">
   <div class="admin-header">
     <div class="kicker-row">
-      <p class="admin-kicker">Comisiones · Administración</p>
-      <a class="nav-auth-btn nav-auth-btn--logout" href="{{ url_for('admin.commissions_index') }}">← Volver a comisiones</a>
+      <p class="admin-kicker">{{ header_kicker }}</p>
+      <a class="nav-auth-btn nav-auth-btn--logout" href="{{ back_href }}">{{ back_label }}</a>
     </div>
     <div class="detail-top">
       <div class="detail-headline">
@@ -85,14 +97,39 @@
           <span class="chip {% if commission.is_active %}chip-live{% else %}chip-off{% endif %}">
             {{ "Activa" if commission.is_active else "Inactiva" }}
           </span>
+          {% if member_role %}
+          <span>Tu rol: {{ member_role }}</span>
+          {% endif %}
         </div>
       </div>
       <div class="detail-actions">
+        {% if can_edit_commission %}
         <a class="btn-link" href="{{ url_for('admin.commission_edit', commission_id=commission.id) }}">Editar</a>
-        <a class="btn-link" href="{{ url_for('admin.commission_members', commission_id=commission.id) }}">Miembros</a>
-        <a class="btn-link" href="{{ url_for('admin.commission_project_edit', commission_id=commission.id) }}">Nuevo proyecto</a>
-        <a class="btn-link" href="{{ url_for('admin.commission_meeting_edit', commission_id=commission.id) }}">Nueva reunión</a>
-        <a class="btn-primary" style="width:auto; min-width: 190px;" href="{{ url_for('members.commission_discussion_new', slug=commission.slug, return_to=url_for('admin.commission_detail', commission_id=commission.id)) }}">Nueva discusión</a>
+        {% endif %}
+        {% if can_manage_members %}
+          {% if is_member_view %}
+          <a class="btn-link" href="{{ url_for('members.commission_member_new', slug=commission.slug) }}">Miembros</a>
+          {% else %}
+          <a class="btn-link" href="{{ url_for('admin.commission_members', commission_id=commission.id) }}">Miembros</a>
+          {% endif %}
+        {% endif %}
+        {% if can_manage_projects %}
+          {% if is_member_view %}
+          <a class="btn-link" href="{{ url_for('members.commission_project_form', slug=commission.slug) }}">Nuevo proyecto</a>
+          {% else %}
+          <a class="btn-link" href="{{ url_for('admin.commission_project_edit', commission_id=commission.id) }}">Nuevo proyecto</a>
+          {% endif %}
+        {% endif %}
+        {% if can_manage_meetings %}
+          {% if is_member_view %}
+          <a class="btn-link" href="{{ url_for('members.commission_meeting_form', slug=commission.slug) }}">Nueva reunión</a>
+          {% else %}
+          <a class="btn-link" href="{{ url_for('admin.commission_meeting_edit', commission_id=commission.id) }}">Nueva reunión</a>
+          {% endif %}
+        {% endif %}
+        {% if can_create_discussions %}
+        <a class="btn-primary" style="width:auto; min-width: 190px;" href="{{ url_for('members.commission_discussion_new', slug=commission.slug, return_to=return_to_url) }}">Nueva discusión</a>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -131,7 +168,13 @@
 
       <div class="section-title-row" style="margin-top: 2rem; border-top: 1px solid #e2e8f0; padding-top: 1.5rem;">
         <h3>Reuniones</h3>
-        <a class="btn-link" href="{{ url_for('admin.commission_meeting_edit', commission_id=commission.id) }}">➕ Nueva</a>
+        {% if can_manage_meetings %}
+          {% if is_member_view %}
+          <a class="btn-link" href="{{ url_for('members.commission_meeting_form', slug=commission.slug) }}">➕ Nueva</a>
+          {% else %}
+          <a class="btn-link" href="{{ url_for('admin.commission_meeting_edit', commission_id=commission.id) }}">➕ Nueva</a>
+          {% endif %}
+        {% endif %}
       </div>
       <div class="stack">
         <h4>Próximas</h4>
@@ -146,13 +189,19 @@
           {% if meeting.description_html %}
           <p style="font-size: 0.9rem; color: #666; margin: 0.5rem 0;">{{ meeting.description_html | striptags | truncate(200) }}</p>
           {% endif %}
+          {% if can_manage_meetings %}
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb;">
+            {% if is_member_view %}
+            <a href="{{ url_for('members.commission_meeting_form', slug=commission.slug, meeting_id=meeting.id) }}" style="background-color: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">✏️ Editar</a>
+            {% else %}
             <a href="{{ url_for('admin.commission_meeting_edit', commission_id=commission.id, meeting_id=meeting.id) }}" style="background-color: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">✏️ Editar</a>
+            {% endif %}
             <form method="post" action="{{ url_for('members.commission_meeting_delete', slug=commission.slug, meeting_id=meeting.id) }}" style="display:inline;" data-confirm="{{ '⚠️ ¿Estás seguro de que quieres eliminar esta reunión? Se eliminará de Google Calendar también.' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" style="background-color: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 4px; border: none; font-size: 0.9rem; cursor: pointer;">🗑️ Eliminar</button>
             </form>
           </div>
+          {% endif %}
         </article>
         {% else %}
         <p>📭 No hay reuniones próximas.</p>
@@ -170,13 +219,19 @@
           {% if meeting.minutes_document %}
           <a href="{{ meeting.minutes_document.file_path }}" target="_blank" style="color: #3b82f6; text-decoration: none; font-size: 0.9rem;">📄 Ver Acta</a>
           {% endif %}
+          {% if can_manage_meetings %}
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb;">
+            {% if is_member_view %}
+            <a href="{{ url_for('members.commission_meeting_form', slug=commission.slug, meeting_id=meeting.id) }}" style="background-color: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">✏️ Editar</a>
+            {% else %}
             <a href="{{ url_for('admin.commission_meeting_edit', commission_id=commission.id, meeting_id=meeting.id) }}" style="background-color: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">✏️ Editar</a>
+            {% endif %}
             <form method="post" action="{{ url_for('members.commission_meeting_delete', slug=commission.slug, meeting_id=meeting.id) }}" style="display:inline;" data-confirm="{{ '⚠️ ¿Estás seguro? Se eliminará de Google Calendar también.' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" style="background-color: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 4px; border: none; font-size: 0.9rem; cursor: pointer;">🗑️ Eliminar</button>
             </form>
           </div>
+          {% endif %}
         </article>
         {% else %}
         <p>📭 No hay reuniones previas.</p>
@@ -187,11 +242,13 @@
     <div class="admin-card">
       <div class="section-title-row">
         <h3>Discusiones activas</h3>
-        <a class="btn-link" href="{{ url_for('members.commission_discussion_new', slug=commission.slug, return_to=url_for('admin.commission_detail', commission_id=commission.id)) }}">Abrir discusión</a>
+        {% if can_create_discussions %}
+        <a class="btn-link" href="{{ url_for('members.commission_discussion_new', slug=commission.slug, return_to=return_to_url) }}">Abrir discusión</a>
+        {% endif %}
       </div>
       <div class="stack">
         {% for discussion in discussions %}
-          <a class="item" href="{{ url_for('members.detalle_sugerencia', suggestion_id=discussion.id, return_to=url_for('admin.commission_detail', commission_id=commission.id)) }}" style="display:block; text-decoration:none; color:inherit;">
+          <a class="item" href="{{ url_for('members.detalle_sugerencia', suggestion_id=discussion.id, return_to=return_to_url) }}" style="display:block; text-decoration:none; color:inherit;">
             <div class="item-top">
               <div class="meta">
                 <span class="chip">{{ discussion.status }}</span>
@@ -212,7 +269,13 @@
     <div class="admin-card" style="grid-column: 1 / -1;">
       <div class="section-title-row">
         <h3>Proyectos activos</h3>
-        <a class="btn-link" href="{{ url_for('admin.commission_project_edit', commission_id=commission.id) }}">Añadir</a>
+        {% if can_manage_projects %}
+          {% if is_member_view %}
+          <a class="btn-link" href="{{ url_for('members.commission_project_form', slug=commission.slug) }}">Añadir</a>
+          {% else %}
+          <a class="btn-link" href="{{ url_for('admin.commission_project_edit', commission_id=commission.id) }}">Añadir</a>
+          {% endif %}
+        {% endif %}
       </div>
       <div class="stack">
         {% for project in active_projects %}
@@ -220,8 +283,8 @@
             class="item project-item"
             role="link"
             tabindex="0"
-            onclick="window.location.href='{{ url_for('members.commission_project_detail', slug=commission.slug, project_id=project.id, return_to=url_for('admin.commission_detail', commission_id=commission.id)) }}'"
-            onkeydown="if(event.key==='Enter' || event.key===' '){event.preventDefault(); window.location.href='{{ url_for('members.commission_project_detail', slug=commission.slug, project_id=project.id, return_to=url_for('admin.commission_detail', commission_id=commission.id)) }}';}"
+            onclick="window.location.href='{{ url_for('members.commission_project_detail', slug=commission.slug, project_id=project.id, return_to=return_to_url) }}'"
+            onkeydown="if(event.key==='Enter' || event.key===' '){event.preventDefault(); window.location.href='{{ url_for('members.commission_project_detail', slug=commission.slug, project_id=project.id, return_to=return_to_url) }}';}"
           >
             <div class="item-top">
               <div class="meta">
@@ -230,7 +293,13 @@
                   <span>Responsable: {{ project.responsible.display_name }}</span>
                 {% endif %}
               </div>
-              <a class="btn-link" onclick="event.stopPropagation();" href="{{ url_for('admin.commission_project_edit', commission_id=commission.id, project_id=project.id) }}">Editar</a>
+              {% if can_manage_projects %}
+                {% if is_member_view %}
+                <a class="btn-link" onclick="event.stopPropagation();" href="{{ url_for('members.commission_project_form', slug=commission.slug, project_id=project.id) }}">Editar</a>
+                {% else %}
+                <a class="btn-link" onclick="event.stopPropagation();" href="{{ url_for('admin.commission_project_edit', commission_id=commission.id, project_id=project.id) }}">Editar</a>
+                {% endif %}
+              {% endif %}
             </div>
             <h4>{{ project.title }}</h4>
             {% if project.description_html %}

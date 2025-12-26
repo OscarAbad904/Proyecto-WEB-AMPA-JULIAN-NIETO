@@ -77,14 +77,16 @@
               </div>
               <a class="members-step__link" href="{{ url_for('members.sugerencias') }}">Entrar</a>
             </div>
+            {% if can_view_private_calendar %}
             <div class="members-step">
               <span class="members-step__dot"></span>
               <div>
                 <p class="members-step__title">Consulta el calendario</p>
                 <small>Reuniones y tareas de tu comisión.</small>
               </div>
-              <a class="members-step__link" href="{{ url_for('members.calendar') }}">Abrir</a>
+              <a class="members-step__link" href="{{ calendar_href }}">Abrir</a>
             </div>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -122,7 +124,8 @@
             <span class="members-arrow">→</span>
           </div>
         </a>
-        <a class="members-card" href="{{ url_for('members.calendar') }}">
+        {% if can_view_private_calendar %}
+        <a class="members-card" href="{{ calendar_href }}">
           <span class="members-card__icon">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="4" width="18" height="16" rx="3"></rect>
@@ -138,6 +141,7 @@
             <span class="members-arrow">→</span>
           </div>
         </a>
+        {% endif %}
         <a class="members-card members-card--muted" href="#">
           <span class="members-card__icon">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">

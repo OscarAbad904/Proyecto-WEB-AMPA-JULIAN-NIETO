@@ -200,14 +200,26 @@ def register_context(app: Flask) -> None:
             or current_user.has_permission("view_events")
             or user_is_privileged(current_user)
         ))
+        has_commission_membership = False
+        if current_user.is_authenticated and getattr(current_user, "registration_approved", False):
+            from app.models import Commission, CommissionMembership
+
+            has_commission_membership = (
+                CommissionMembership.query.filter_by(user_id=current_user.id, is_active=True)
+                .join(Commission)
+                .filter(Commission.is_active.is_(True))
+                .first()
+                is not None
+            )
         can_view_private_calendar = current_user.is_authenticated and (
             getattr(current_user, "registration_approved", False)
             and (
-                current_user.has_permission("view_private_calendar")
+                has_commission_membership
+                or current_user.has_permission("view_all_commission_calendar")
                 or user_is_privileged(current_user)
             )
         )
-        # El calendario publico consume eventos; el privado depende del permiso dedicado.
+        # El calendario publico consume eventos; el privado depende de pertenencia o permiso.
         can_view_calendar = can_view_events or can_view_private_calendar
         calendar_href = (
             url_for("members.calendar")
@@ -222,11 +234,21 @@ def register_context(app: Flask) -> None:
             or current_user.has_permission("view_documents")
             or user_is_privileged(current_user)
         ))
-        can_view_commissions = (
-            current_user.is_authenticated and current_user.has_permission("view_commissions")
+        can_view_commissions_admin = current_user.is_authenticated and (
+            current_user.has_permission("manage_commissions")
+            or current_user.has_permission("view_commissions")
+            or user_is_privileged(current_user)
         )
-        can_manage_commissions = (
-            current_user.is_authenticated and current_user.has_permission("manage_commissions")
+        can_view_commissions = (
+            current_user.is_authenticated and (has_commission_membership or can_view_commissions_admin)
+        )
+        commissions_href = (
+            url_for("admin.commissions_index")
+            if can_view_commissions_admin
+            else url_for("members.commissions")
+        )
+        can_manage_commissions = current_user.is_authenticated and (
+            current_user.has_permission("manage_commissions")
         )
         can_manage_permissions = (
             current_user.is_authenticated
@@ -257,6 +279,7 @@ def register_context(app: Flask) -> None:
             "can_manage_events": can_manage_events,
             "can_view_documents": can_view_documents,
             "can_view_commissions": can_view_commissions,
+            "commissions_href": commissions_href,
             "can_manage_commissions": can_manage_commissions,
             "can_manage_permissions": can_manage_permissions,
             "can_manage_styles": can_manage_styles,
