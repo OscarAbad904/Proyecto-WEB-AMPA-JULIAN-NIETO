@@ -7,6 +7,7 @@ con sistema de cache interno para optimizar llamadas a la API.
 
 from __future__ import annotations
 
+import base64
 import json
 import re
 import time
@@ -14,6 +15,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 from html import unescape
+from urllib.parse import parse_qs, urlparse
 
 from flask import current_app
 from google.auth.exceptions import RefreshError
@@ -29,7 +31,7 @@ from config import unwrap_fernet_json_layers
 # Scopes unificados para Drive, Calendar y Gmail (envío)
 UNIFIED_SCOPES = [
     "https://www.googleapis.com/auth/drive.file",
-    "https://www.googleapis.com/auth/calendar.events.readonly",
+    "https://www.googleapis.com/auth/calendar.events",
     "https://www.googleapis.com/auth/gmail.send",
 ]
 
@@ -170,7 +172,9 @@ def _get_unified_credentials() -> Credentials | None:
                             pass
 
                     if missing_scopes:
-                        return None
+                        current_app.logger.warning(
+                            "El token OAuth actual no tiene todos los scopes; algunas operaciones pueden fallar."
+                        )
             else:
                 current_app.logger.warning(
                     "El token OAuth no incluye el campo 'scopes'. Si hay errores 403, regenera el token."
@@ -197,17 +201,24 @@ def _get_unified_credentials() -> Credentials | None:
                     "Regenera el token con 'flask regenerate-google-token'. Detalle: %s",
                     exc,
                 )
-                return None
+                if current_app.debug:
+                    current_app.logger.warning(
+                        "Token OAuth inválido; intentando reautorización interactiva en modo debug."
+                    )
+                    creds = None
+                else:
+                    return None
             except Exception as exc:
                 current_app.logger.error("Error inesperado refrescando token OAuth: %s", exc)
                 return None
 
             # Persistir token actualizado (best-effort)
-            try:
-                with open(token_path, "w", encoding="utf-8") as token_file:
-                    token_file.write(creds.to_json())
-            except Exception as exc:
-                current_app.logger.warning("No se pudo persistir token_drive.json: %s", exc)
+            if creds:
+                try:
+                    with open(token_path, "w", encoding="utf-8") as token_file:
+                        token_file.write(creds.to_json())
+                except Exception as exc:
+                    current_app.logger.warning("No se pudo persistir token_drive.json: %s", exc)
 
         if not creds:
             if not credentials_path.exists():
@@ -364,6 +375,107 @@ def _format_event(event: dict) -> dict:
     }
 
 
+def _is_commission_meeting_event(event: dict) -> bool:
+    props = event.get("extendedProperties") or {}
+    if not isinstance(props, dict):
+        return False
+    private = props.get("private") or {}
+    if not isinstance(private, dict):
+        return False
+    if private.get("type") == "commission_meeting":
+        return True
+    return bool(private.get("commission_id"))
+
+
+def _get_commission_calendar_id() -> str:
+    return (
+        current_app.config.get("GOOGLE_CALENDAR_COMMISSIONS_ID")
+        or current_app.config.get("GOOGLE_CALENDAR_ID", "primary")
+    )
+
+
+def _get_calendar_timezone() -> str | None:
+    tz = current_app.config.get("GOOGLE_CALENDAR_TIMEZONE")
+    if not tz:
+        return "Europe/Madrid"
+    tz_value = str(tz).strip()
+    return tz_value or "Europe/Madrid"
+
+
+def _build_commission_meeting_payload(meeting, commission) -> dict:
+    description = _clean_html(getattr(meeting, "description_html", None))
+    commission_name = getattr(commission, "name", None) if commission else None
+    if commission_name:
+        header = f"Comision: {commission_name}"
+        description = f"{header}\n\n{description}" if description else header
+
+    start_at = getattr(meeting, "start_at", None)
+    end_at = getattr(meeting, "end_at", None)
+    payload = {
+        "summary": getattr(meeting, "title", "") or "Reunion",
+        "description": description or "",
+        "location": getattr(meeting, "location", None) or "",
+        "start": {"dateTime": start_at.isoformat()} if start_at else {},
+        "end": {"dateTime": end_at.isoformat()} if end_at else {},
+        "visibility": "private",
+        "extendedProperties": {
+            "private": {
+                "type": "commission_meeting",
+                "commission_id": str(getattr(commission, "id", "") or ""),
+                "meeting_id": str(getattr(meeting, "id", "") or ""),
+            }
+        },
+    }
+    tz = _get_calendar_timezone()
+    if tz:
+        if payload["start"]:
+            payload["start"]["timeZone"] = tz
+        if payload["end"]:
+            payload["end"]["timeZone"] = tz
+    return payload
+
+
+def _decode_calendar_eid(eid: str) -> tuple[str | None, str | None]:
+    if not eid:
+        return None, None
+    try:
+        padded = eid + "=" * (-len(eid) % 4)
+        decoded = base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8")
+        if " " in decoded:
+            event_id, calendar_id = decoded.split(" ", 1)
+            return event_id, calendar_id
+        return decoded, None
+    except Exception:
+        return None, None
+
+
+def _extract_calendar_event_id(raw_value: str | None) -> str | None:
+    if not raw_value:
+        return None
+    value = raw_value.strip()
+    if value.startswith(("http://", "https://")):
+        parsed = urlparse(value)
+        eid_values = parse_qs(parsed.query).get("eid") or []
+        if not eid_values:
+            return None
+        event_id, _ = _decode_calendar_eid(eid_values[0])
+        return event_id
+    return value
+
+
+def build_calendar_event_url(event_id: str | None, calendar_id: str | None = None) -> str | None:
+    if not event_id:
+        return None
+    if event_id.startswith(("http://", "https://")):
+        return event_id
+    calendar_id = calendar_id or _get_commission_calendar_id()
+    if not calendar_id:
+        return None
+    raw = f"{event_id} {calendar_id}"
+    eid = base64.urlsafe_b64encode(raw.encode("utf-8")).decode("utf-8").rstrip("=")
+    return f"https://calendar.google.com/calendar/event?eid={eid}"
+
+
 def get_calendar_events(
     calendar_id: str | None = None,
     time_min: str | None = None,
@@ -455,6 +567,7 @@ def get_calendar_events(
         ).execute()
         
         raw_events = events_result.get("items", [])
+        raw_events = [event for event in raw_events if not _is_commission_meeting_event(event)]
         
         # Transformar eventos al formato limpio
         eventos = [_format_event(event) for event in raw_events]
@@ -522,6 +635,85 @@ def get_calendar_events(
             "hasta": time_max,
             "cached": False,
         }
+
+
+def create_commission_meeting_event(meeting, commission, calendar_id: str | None = None) -> dict:
+    service = _get_calendar_service()
+    if not service:
+        return {"ok": False, "error": "Servicio de Google Calendar no disponible"}
+
+    target_calendar_id = calendar_id or _get_commission_calendar_id()
+    payload = _build_commission_meeting_payload(meeting, commission)
+    try:
+        created = service.events().insert(
+            calendarId=target_calendar_id,
+            body=payload,
+        ).execute()
+        event_id = created.get("id")
+        if not event_id:
+            return {"ok": False, "error": "Google Calendar no devolvio el ID del evento"}
+        return {
+            "ok": True,
+            "event_id": event_id,
+            "html_link": created.get("htmlLink"),
+            "calendar_id": target_calendar_id,
+        }
+    except HttpError as error:
+        current_app.logger.error("Error creando evento de comision en Google Calendar: %s", error)
+        return {"ok": False, "error": str(error)}
+    except Exception as exc:
+        current_app.logger.error("Error inesperado creando evento de comision: %s", exc)
+        return {"ok": False, "error": str(exc)}
+
+
+def update_commission_meeting_event(
+    event_id: str,
+    meeting,
+    commission,
+    calendar_id: str | None = None,
+) -> dict:
+    service = _get_calendar_service()
+    if not service:
+        return {"ok": False, "error": "Servicio de Google Calendar no disponible"}
+
+    target_calendar_id = calendar_id or _get_commission_calendar_id()
+    payload = _build_commission_meeting_payload(meeting, commission)
+    try:
+        updated = service.events().patch(
+            calendarId=target_calendar_id,
+            eventId=event_id,
+            body=payload,
+        ).execute()
+        return {
+            "ok": True,
+            "event_id": updated.get("id", event_id),
+            "html_link": updated.get("htmlLink"),
+            "calendar_id": target_calendar_id,
+        }
+    except HttpError as error:
+        status = getattr(error, "status_code", None)
+        if status is None:
+            status = getattr(getattr(error, "resp", None), "status", None)
+        current_app.logger.error("Error actualizando evento de comision en Google Calendar: %s", error)
+        return {"ok": False, "error": str(error), "status": status}
+    except Exception as exc:
+        current_app.logger.error("Error inesperado actualizando evento de comision: %s", exc)
+        return {"ok": False, "error": str(exc)}
+
+
+def sync_commission_meeting_to_calendar(meeting, commission) -> dict:
+    raw_value = getattr(meeting, "google_event_id", None)
+    event_id = _extract_calendar_event_id(raw_value)
+    if raw_value and not event_id:
+        return {"ok": False, "error": "No se pudo extraer el ID del evento de Google Calendar"}
+    if event_id:
+        result = update_commission_meeting_event(event_id, meeting, commission)
+        if result.get("ok"):
+            return result
+        if result.get("status") in {404, 410}:
+            return create_commission_meeting_event(meeting, commission)
+        return result
+    return create_commission_meeting_event(meeting, commission)
 
 
 def clear_calendar_cache() -> None:
@@ -662,3 +854,45 @@ def regenerate_token_with_calendar_scope() -> dict:
             "ok": False,
             "message": error_msg,
         }
+
+
+def delete_commission_meeting_event(event_id: str, calendar_id: str | None = None) -> dict:
+    """
+    Elimina un evento de reunión de comisión del calendario de Google.
+    
+    Args:
+        event_id: ID del evento a eliminar
+        calendar_id: ID del calendario (por defecto, el configurado en GOOGLE_CALENDAR_ID)
+    
+    Returns:
+        {"ok": True/False, "error": str (si ok=False)}
+    """
+    service = _get_calendar_service()
+    if not service:
+        return {"ok": False, "error": "Servicio de Google Calendar no disponible"}
+
+    extracted = _extract_calendar_event_id(event_id)
+    if not extracted:
+        return {"ok": False, "error": "No se pudo extraer el ID del evento de Google Calendar"}
+
+    target_calendar_id = calendar_id or _get_commission_calendar_id()
+    
+    try:
+        service.events().delete(
+            calendarId=target_calendar_id,
+            eventId=extracted,
+        ).execute()
+        
+        current_app.logger.info(
+            "Evento de comisión eliminado del calendario de Google: %s", event_id
+        )
+        return {
+            "ok": True,
+            "event_id": extracted,
+        }
+    except HttpError as error:
+        current_app.logger.error("Error eliminando evento de comisión de Google Calendar: %s", error)
+        return {"ok": False, "error": str(error)}
+    except Exception as exc:
+        current_app.logger.error("Error inesperado eliminando evento de comisión: %s", exc)
+        return {"ok": False, "error": str(exc)}

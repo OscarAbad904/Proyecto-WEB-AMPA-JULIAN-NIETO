@@ -153,7 +153,7 @@ function filterNews(category) {
 
 function handleEventForm(event) {
     event.preventDefault();
-    alert('Tu inscripción ha sido registrada correctamente. Recibirás un email de confirmación.');
+    window.ampaAlert('Tu inscripción ha sido registrada correctamente. Recibirás un email de confirmación.');
 }
 
 // Document downloads
@@ -164,8 +164,141 @@ function downloadDocument(type) {
         'formularios': 'Descargando Formularios...',
         'presupuesto': 'Descargando Presupuesto Anual...'
     };
-    alert(messages[type] || 'Iniciando descarga...');
+    window.ampaAlert(messages[type] || 'Iniciando descarga...');
 }
+
+(function () {
+    const dialog = document.getElementById('ampa-dialog');
+    const toMessage = (value) => {
+        if (!value) return '';
+        try {
+            return JSON.parse(value);
+        } catch (_) {
+            return value;
+        }
+    };
+
+    if (!dialog) {
+        window.ampaAlert = function (message) {
+            window.alert(typeof message === 'string' ? message : (message && message.message) || '');
+            return Promise.resolve(true);
+        };
+        window.ampaConfirm = function (options) {
+            const text = typeof options === 'string' ? options : (options && options.message) || '';
+            return Promise.resolve(window.confirm(text));
+        };
+        return;
+    }
+
+    const titleEl = dialog.querySelector('#ampa-dialog-title');
+    const messageEl = dialog.querySelector('#ampa-dialog-message');
+    const confirmBtn = dialog.querySelector('[data-ampa-dialog-confirm]');
+    const cancelBtn = dialog.querySelector('[data-ampa-dialog-cancel]');
+    const closeBtn = dialog.querySelector('[data-ampa-dialog-close]');
+    let resolver = null;
+    let lastFocus = null;
+
+    const closeDialog = (result) => {
+        dialog.classList.remove('is-open');
+        dialog.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('dialog-open');
+        if (lastFocus && typeof lastFocus.focus === 'function') {
+            lastFocus.focus();
+        }
+        if (resolver) {
+            resolver(result);
+            resolver = null;
+        }
+    };
+
+    const openDialog = (options, showCancel) => {
+        const opts = typeof options === 'string' ? { message: options } : (options || {});
+        const hasCancel = showCancel !== false;
+        const message = opts.message || '';
+        const title = opts.title || (hasCancel ? 'Confirmar acción' : 'Aviso');
+        const confirmText = opts.confirmText || 'Aceptar';
+        const cancelText = opts.cancelText || 'Cancelar';
+        const variant = opts.variant || (hasCancel ? 'warning' : 'info');
+
+        if (titleEl) titleEl.textContent = title;
+        if (messageEl) messageEl.textContent = message;
+        if (confirmBtn) confirmBtn.textContent = confirmText;
+        if (cancelBtn) cancelBtn.textContent = cancelText;
+
+        dialog.dataset.variant = variant;
+        dialog.classList.add('is-open');
+        dialog.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('dialog-open');
+        lastFocus = document.activeElement;
+        if (cancelBtn) {
+            cancelBtn.style.display = hasCancel ? '' : 'none';
+        }
+
+        return new Promise((resolve) => {
+            resolver = resolve;
+            if (confirmBtn) {
+                window.setTimeout(() => confirmBtn.focus(), 0);
+            }
+        });
+    };
+
+    window.ampaConfirm = function (options) {
+        return openDialog(options, true);
+    };
+
+    window.ampaAlert = function (options) {
+        return openDialog(options, false);
+    };
+
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', () => closeDialog(true));
+    }
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => closeDialog(false));
+    }
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => closeDialog(false));
+    }
+
+    dialog.addEventListener('click', (event) => {
+        if (event.target === dialog) {
+            closeDialog(false);
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && dialog.classList.contains('is-open')) {
+            closeDialog(false);
+        }
+    });
+
+    document.addEventListener('submit', (event) => {
+        const form = event.target;
+        if (!form || !form.matches('form[data-confirm]')) return;
+        if (form.dataset.confirmed === 'true') {
+            form.dataset.confirmed = '';
+            return;
+        }
+        event.preventDefault();
+        const message = toMessage(form.getAttribute('data-confirm'));
+        const title = toMessage(form.getAttribute('data-confirm-title')) || 'Confirmar acción';
+        const confirmText = toMessage(form.getAttribute('data-confirm-accept')) || 'Aceptar';
+        const cancelText = toMessage(form.getAttribute('data-confirm-cancel')) || 'Cancelar';
+        const variant = form.getAttribute('data-confirm-variant') || 'warning';
+
+        window.ampaConfirm({
+            title,
+            message,
+            confirmText,
+            cancelText,
+            variant
+        }).then((ok) => {
+            if (!ok) return;
+            form.dataset.confirmed = 'true';
+            form.submit();
+        });
+    });
+})();
 
 // Modal functions
 function openModal(title, content) {
@@ -315,19 +448,19 @@ function openMembershipForm() {
 function handleVolunteerForm(event) {
     event.preventDefault();
     closeModal();
-    alert('¡Gracias por tu interés en ser voluntario! Nos pondremos en contacto contigo pronto.');
+    window.ampaAlert('¡Gracias por tu interés en ser voluntario! Nos pondremos en contacto contigo pronto.');
 }
 
 function handleProposalForm(event) {
     event.preventDefault();
     closeModal();
-    alert('Tu propuesta ha sido enviada correctamente. La revisaremos y te daremos una respuesta.');
+    window.ampaAlert('Tu propuesta ha sido enviada correctamente. La revisaremos y te daremos una respuesta.');
 }
 
 function handleMembershipForm(event) {
     event.preventDefault();
     closeModal();
-    alert('Tu solicitud de membresía ha sido enviada. Recibirás información sobre el pago de la cuota por email.');
+    window.ampaAlert('Tu solicitud de membresía ha sido enviada. Recibirás información sobre el pago de la cuota por email.');
 }
 
 // Smooth scrolling for navigation links

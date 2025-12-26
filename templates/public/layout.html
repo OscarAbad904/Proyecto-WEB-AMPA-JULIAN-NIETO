@@ -111,6 +111,10 @@
             // Mostrar loader al enviar formularios
             document.addEventListener('submit', function (e) {
                 var form = e.target;
+                if (!form) return;
+                if (form.hasAttribute('data-confirm') && form.dataset.confirmed !== 'true') {
+                    return;
+                }
                 if (!form.hasAttribute('data-no-loader') && !form.hasAttribute('data-ajax')) {
                     loader.classList.add('active');
                 }
@@ -151,7 +155,7 @@
                         <a href="{{ url_for('public.eventos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.eventos') %} active{% endif %}">Eventos</a>
                         {% endif %}
                         {% if can_view_calendar %}
-                        <a href="{{ url_for('public.calendario') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.calendario') %} active{% endif %}">Calendario</a>
+                        <a href="{{ calendar_href }}" class="nav-link{% if request.endpoint in ['public.calendario', 'members.calendar'] %} active{% endif %}">Calendario</a>
                         {% endif %}
                         {% if can_view_documents %}
                         <a href="{{ url_for('public.documentos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.documentos') %} active{% endif %}">Documentos</a>
@@ -211,7 +215,7 @@
                     <a href="{{ url_for('public.eventos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.eventos') %} active{% endif %}" onclick="toggleMobileMenu()">Eventos</a>
                     {% endif %}
                     {% if can_view_calendar %}
-                    <a href="{{ url_for('public.calendario') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.calendario') %} active{% endif %}"
+                    <a href="{{ calendar_href }}" class="nav-link{% if request.endpoint in ['public.calendario', 'members.calendar'] %} active{% endif %}"
                         onclick="toggleMobileMenu()">Calendario</a>
                     {% endif %}
                     {% if can_view_documents %}
@@ -303,7 +307,7 @@
                         <a href="{{ url_for('public.eventos') }}" class="footer-link">Eventos</a>
                         {% endif %}
                         {% if can_view_calendar %}
-                        <a href="{{ url_for('public.calendario') }}" class="footer-link">Calendario</a>
+                        <a href="{{ calendar_href }}" class="footer-link">Calendario</a>
                         {% endif %}
                     </div>
                 </div>
@@ -673,6 +677,26 @@
             window.setInterval(refreshCount, 15000);
         })();
     </script>
+
+    <div class="ampa-dialog" id="ampa-dialog" aria-hidden="true">
+        <div class="ampa-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="ampa-dialog-title" aria-describedby="ampa-dialog-message">
+            <button class="ampa-dialog__close" type="button" aria-label="Cerrar" data-ampa-dialog-close>&times;</button>
+            <div class="ampa-dialog__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 9v4"></path>
+                    <path d="M12 17h.01"></path>
+                    <circle cx="12" cy="12" r="9"></circle>
+                </svg>
+            </div>
+            <h3 class="ampa-dialog__title" id="ampa-dialog-title">Confirmar acción</h3>
+            <p class="ampa-dialog__message" id="ampa-dialog-message">¿Estás seguro?</p>
+            <div class="ampa-dialog__actions">
+                <button class="btn-outline ampa-dialog__cancel" type="button" data-ampa-dialog-cancel>Cancelar</button>
+                <button class="btn-primary ampa-dialog__confirm" type="button" data-ampa-dialog-confirm>Aceptar</button>
+            </div>
+        </div>
+    </div>
+
     {% block scripts %}{% endblock %}
 </body>
 

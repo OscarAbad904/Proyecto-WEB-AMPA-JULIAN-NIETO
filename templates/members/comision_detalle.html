@@ -156,48 +156,106 @@
     </div>
 
     <div class="card">
+      <style>
+        .meeting-actions {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+          margin-top: 0.75rem;
+          padding-top: 0.75rem;
+          border-top: 1px solid #e5e7eb;
+        }
+        .btn-edit {
+          background-color: #3b82f6;
+          color: white;
+          padding: 0.5rem 1rem;
+          border-radius: 4px;
+          text-decoration: none;
+          font-size: 0.9rem;
+          transition: background-color 0.2s;
+        }
+        .btn-edit:hover {
+          background-color: #2563eb;
+        }
+        .btn-delete {
+          background-color: #ef4444;
+          color: white;
+          padding: 0.5rem 1rem;
+          border-radius: 4px;
+          border: none;
+          font-size: 0.9rem;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        .btn-delete:hover {
+          background-color: #dc2626;
+        }
+      </style>
+
       <div class="card-header">
         <h3>Reuniones</h3>
         {% if can_manage_meetings %}
-        <a class="btn-link" href="{{ url_for('members.commission_meeting_form', slug=commission.slug) }}">Nueva reunion</a>
+        <div class="btn-group" style="display: flex; gap: 0.5rem;">
+          <a class="btn-primary" href="{{ url_for('members.commission_meeting_form', slug=commission.slug) }}">➕ Nueva reunión</a>
+          {% if upcoming_meetings or past_meetings %}
+          <a class="btn-link" href="{{ url_for('members.commission_meetings_list', slug=commission.slug) }}">📋 Ver todas</a>
+          {% endif %}
+        </div>
         {% endif %}
       </div>
       <div class="stack">
-        <h4>Proximas</h4>
+        <h4>Próximas</h4>
         {% for meeting in upcoming_meetings %}
-        <article class="compact">
+        <article class="compact" style="border: 2px solid #ef4444; padding: 1rem; border-radius: 8px;">
           <div class="meta">
-            <span class="badge">Proxima</span>
-            <span>{{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</span>
-            {% if meeting.location %}<span>{{ meeting.location }}</span>{% endif %}
+            <span class="badge">Próxima</span>
+            <span><strong>📅 {{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</strong></span>
+            {% if meeting.location %}<span>📍 {{ meeting.location }}</span>{% endif %}
           </div>
           <h4>{{ meeting.title }}</h4>
+          {% if meeting.description_html %}
+          <p style="font-size: 0.9rem; color: #666; margin: 0.5rem 0;">{{ meeting.description_html | striptags | truncate(200) }}</p>
+          {% endif %}
           {% if can_manage_meetings %}
-          <a class="btn-link" href="{{ url_for('members.commission_meeting_form', slug=commission.slug, meeting_id=meeting.id) }}">Editar</a>
+          <div class="meeting-actions">
+            <a href="{{ url_for('members.commission_meeting_form', slug=commission.slug, meeting_id=meeting.id) }}" class="btn-edit">✏️ Editar reunión</a>
+            <form method="post" action="{{ url_for('members.commission_meeting_delete', slug=commission.slug, meeting_id=meeting.id) }}" style="display:inline;" data-confirm="{{ '⚠️ ¿Estás seguro de que quieres eliminar esta reunión? Se eliminará de Google Calendar también.' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn-delete">🗑️ Eliminar reunión</button>
+            </form>
+          </div>
+          {% else %}
+          <p style="font-size: 0.85rem; color: #999; margin-top: 0.5rem;">💡 Solo coordinadores pueden editar/eliminar</p>
           {% endif %}
         </article>
         {% else %}
-        <p>No hay reuniones proximas.</p>
+        <p>📭 No hay reuniones próximas.</p>
         {% endfor %}
 
-        <h4>Historial</h4>
+        <h4 style="margin-top: 1.5rem;">Historial</h4>
         {% for meeting in past_meetings %}
-        <article class="compact">
+        <article class="compact" style="opacity: 0.8; border-left: 4px solid #9ca3af; padding: 1rem; border-radius: 4px;">
           <div class="meta">
             <span class="badge muted">Pasada</span>
-            <span>{{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</span>
-            {% if meeting.location %}<span>{{ meeting.location }}</span>{% endif %}
+            <span>📅 {{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</span>
+            {% if meeting.location %}<span>📍 {{ meeting.location }}</span>{% endif %}
           </div>
           <h4>{{ meeting.title }}</h4>
           {% if meeting.minutes_document %}
-          <a class="btn-link" href="{{ meeting.minutes_document.file_path }}">Acta</a>
+          <a class="btn-link" href="{{ meeting.minutes_document.file_path }}" target="_blank">📄 Ver Acta</a>
           {% endif %}
           {% if can_manage_meetings %}
-          <a class="btn-link" href="{{ url_for('members.commission_meeting_form', slug=commission.slug, meeting_id=meeting.id) }}">Editar</a>
+          <div class="meeting-actions">
+            <a href="{{ url_for('members.commission_meeting_form', slug=commission.slug, meeting_id=meeting.id) }}" class="btn-edit">✏️ Editar</a>
+            <form method="post" action="{{ url_for('members.commission_meeting_delete', slug=commission.slug, meeting_id=meeting.id) }}" style="display:inline;" data-confirm="{{ '⚠️ ¿Estás seguro? Se eliminará de Google Calendar también.' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn-delete">🗑️ Eliminar</button>
+            </form>
+          </div>
           {% endif %}
         </article>
         {% else %}
-        <p>No hay reuniones previas.</p>
+        <p>📭 No hay reuniones previas.</p>
         {% endfor %}
       </div>
     </div>

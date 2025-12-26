@@ -298,8 +298,11 @@
                       <form
                         method="post"
                         action="{{ url_for('admin.eliminar_permanente_usuario', user_id=u.id) }}"
-                        onsubmit="return confirm({{ ('¿ELIMINAR PERMANENTEMENTE a ' ~ u.display_name ~ '? Esta acción borrará todos sus datos de la base de datos y NO se puede deshacer.') | tojson }});"
                         style="display: inline;"
+                        data-confirm='{{ ("¿ELIMINAR PERMANENTEMENTE a " ~ u.display_name ~ "? Esta acción borrará todos sus datos de la base de datos y NO se puede deshacer.") | tojson }}'
+                        data-confirm-title="Eliminar permanentemente"
+                        data-confirm-accept="Eliminar"
+                        data-confirm-variant="danger"
                       >
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-primary btn-mini btn-danger" title="Eliminar permanentemente de la base de datos">
@@ -375,7 +378,10 @@
                   <form
                     method="post"
                     action="{{ url_for('admin.eliminar_usuario', user_id=u.id) }}"
-                    onsubmit="return confirm({{ ('¿Eliminar definitivamente a ' ~ u.display_name ~ ' (' ~ (u.email or '') ~ ')? Esta acción no se puede deshacer.') | tojson }});"
+                    data-confirm='{{ ("¿Eliminar definitivamente a " ~ u.display_name ~ " (" ~ (u.email or '') ~ ")? Esta acción no se puede deshacer.") | tojson }}'
+                    data-confirm-title="Eliminar usuario"
+                    data-confirm-accept="Eliminar"
+                    data-confirm-variant="danger"
                   >
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn-primary btn-mini btn-danger">Eliminar socio</button>

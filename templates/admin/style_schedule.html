@@ -697,11 +697,13 @@ async function applySelectedStyle(styleName) {
     });
 
     if (res.status === 409) {
-        const overwrite = confirm(
-            'Hay conflicto: algunos días ya tienen un estilo programado.\n\n' +
-            'Aceptar = sobrescribir esos días con el nuevo estilo.\n' +
-            'Cancelar = mantener lo ya establecido en el solape.'
-        );
+        const overwrite = await window.ampaConfirm({
+            title: 'Conflicto de estilos',
+            message: 'Hay conflicto: algunos d?as ya tienen un estilo programado.\n\nAceptar = sobrescribir esos d?as con el nuevo estilo.\nCancelar = mantener lo ya establecido en el solape.',
+            confirmText: 'Sobrescribir',
+            cancelText: 'Mantener',
+            variant: 'warning'
+        });
         const mode = overwrite ? 'overwrite' : 'keep';
         res = await fetch('/admin/personalizacion/api/style-schedules/apply', {
             method: 'POST',
@@ -715,7 +717,7 @@ async function applySelectedStyle(styleName) {
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) {
-        alert(data && data.error ? data.error : 'No se pudo asignar el estilo');
+        window.ampaAlert(data && data.error ? data.error : 'No se pudo asignar el estilo');
         return;
     }
 
@@ -729,7 +731,14 @@ async function clearSelected() {
     const dates = selectedDatesSorted();
     if (!dates.length) return;
 
-    if (!confirm('¿Eliminar la asignación de estilo en los días seleccionados?\n\nEsto hará que esos días vuelvan a General por defecto.')) {
+    const shouldClear = await window.ampaConfirm({
+        title: 'Eliminar asignaci?n',
+        message: '?Eliminar la asignaci?n de estilo en los d?as seleccionados?\n\nEsto har? que esos d?as vuelvan a General por defecto.',
+        confirmText: 'Eliminar',
+        cancelText: 'Cancelar',
+        variant: 'danger'
+    });
+    if (!shouldClear) {
         return;
     }
 
@@ -743,7 +752,7 @@ async function clearSelected() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) {
-        alert(data && data.error ? data.error : 'No se pudo eliminar la asignación');
+        window.ampaAlert(data && data.error ? data.error : 'No se pudo eliminar la asignación');
         return;
     }
 
@@ -785,7 +794,7 @@ document.getElementById('assignModal').addEventListener('click', (e) => {
         await loadSchedulesAndPaint();
     } catch (e) {
         console.error(e);
-        alert('No se pudo inicializar el calendario.');
+        window.ampaAlert('No se pudo inicializar el calendario.');
     }
 })();
 </script>

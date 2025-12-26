@@ -40,7 +40,7 @@ IMAGE_SIZES_NEWS: Dict[str, Dict[str, Tuple[int, int]]] = {
 # Scopes unificados para Drive y Calendar (compartidos con calendar_service.py)
 SCOPES = [
     "https://www.googleapis.com/auth/drive.file",
-    "https://www.googleapis.com/auth/calendar.events.readonly",
+    "https://www.googleapis.com/auth/calendar.events",
 ]
 
 # Almacenamiento local al hilo para evitar problemas de SSL/concurrencia

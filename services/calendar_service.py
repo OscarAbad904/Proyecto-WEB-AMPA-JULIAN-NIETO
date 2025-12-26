@@ -25,7 +25,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 # Scopes unificados para Drive y Calendar
 UNIFIED_SCOPES = [
     "https://www.googleapis.com/auth/drive.file",
-    "https://www.googleapis.com/auth/calendar.events.readonly",
+    "https://www.googleapis.com/auth/calendar.events",
 ]
 
 # Cache interno para eventos del calendario

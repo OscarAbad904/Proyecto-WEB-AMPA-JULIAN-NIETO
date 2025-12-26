@@ -33,6 +33,7 @@ from app.services.mail_service import (
     send_member_deactivation_email,
     send_member_reactivation_email
 )
+from app.services.calendar_service import sync_commission_meeting_to_calendar
 from app.forms import (
     PostForm,
     EventForm,
@@ -403,6 +404,16 @@ def commission_detail(commission_id: int):
         .order_by(CommissionMeeting.start_at.asc())
         .first()
     )
+    upcoming_meetings = (
+        commission.meetings.filter(CommissionMeeting.end_at >= now_dt)
+        .order_by(CommissionMeeting.start_at.asc())
+        .all()
+    )
+    past_meetings = (
+        commission.meetings.filter(CommissionMeeting.end_at < now_dt)
+        .order_by(CommissionMeeting.start_at.desc())
+        .all()
+    )
     discussions = (
         Suggestion.query.filter(
             Suggestion.category == f"comision:{commission.id}",
@@ -419,6 +430,8 @@ def commission_detail(commission_id: int):
         members_count=members_count,
         active_projects=active_projects,
         next_meeting=next_meeting,
+        upcoming_meetings=upcoming_meetings,
+        past_meetings=past_meetings,
         discussions=discussions,
     )
 
@@ -650,6 +663,18 @@ def commission_meeting_edit(commission_id: int, meeting_id: int | None = None):
             )
             db.session.add(meeting)
         db.session.commit()
+        calendar_result = sync_commission_meeting_to_calendar(meeting, commission)
+        if calendar_result.get("ok"):
+            event_id = calendar_result.get("event_id")
+            if event_id and meeting.google_event_id != event_id:
+                meeting.google_event_id = event_id
+                db.session.commit()
+        else:
+            current_app.logger.warning(
+                "No se pudo sincronizar la reunion con Google Calendar: %s",
+                calendar_result.get("error"),
+            )
+            flash("Reunion guardada, pero no se pudo sincronizar con Google Calendar.", "warning")
         flash("Reunion guardada", "success")
         return redirect(url_for("admin.commissions_index"))
 

@@ -48,6 +48,7 @@ from app.utils import (
     _parse_datetime_local,
 )
 from app.services.permission_registry import ensure_roles_and_permissions, DEFAULT_ROLE_NAMES
+from app.services.calendar_service import sync_commission_meeting_to_calendar
 
 members_bp = Blueprint("members", __name__, template_folder="../../templates/members")
 
@@ -1220,6 +1221,18 @@ def commission_meeting_form(slug: str, meeting_id: int | None = None):
             )
             db.session.add(meeting)
         db.session.commit()
+        calendar_result = sync_commission_meeting_to_calendar(meeting, commission)
+        if calendar_result.get("ok"):
+            event_id = calendar_result.get("event_id")
+            if event_id and meeting.google_event_id != event_id:
+                meeting.google_event_id = event_id
+                db.session.commit()
+        else:
+            current_app.logger.warning(
+                "No se pudo sincronizar la reunion con Google Calendar: %s",
+                calendar_result.get("error"),
+            )
+            flash("Reunión guardada, pero no se pudo sincronizar con Google Calendar.", "warning")
         flash("Reunión guardada", "success")
         return redirect(url_for("members.commission_detail", slug=slug))
 
@@ -1233,6 +1246,109 @@ def commission_meeting_form(slug: str, meeting_id: int | None = None):
         form=form,
         commission=commission,
         meeting=meeting,
+    )
+
+
+@members_bp.route("/comisiones/<slug>/reuniones/<int:meeting_id>/eliminar", methods=["POST"])
+@login_required
+def commission_meeting_delete(slug: str, meeting_id: int):
+    """Elimina una reunión de la comisión."""
+    commission, membership = _get_commission_and_membership(slug)
+    is_coord = _user_is_commission_coordinator(membership)
+    if not (is_coord or current_user.has_permission("manage_commissions") or user_is_privileged(current_user)):
+        abort(403)
+
+    meeting = CommissionMeeting.query.filter_by(id=meeting_id, commission_id=commission.id).first_or_404()
+    
+    # Intentar eliminar del calendario de Google si existe
+    if meeting.google_event_id:
+        from app.services.calendar_service import delete_commission_meeting_event
+        delete_result = delete_commission_meeting_event(meeting.google_event_id)
+        if not delete_result.get("ok"):
+            current_app.logger.warning(
+                "No se pudo eliminar el evento de Google Calendar: %s",
+                delete_result.get("error"),
+            )
+            flash("Reunión eliminada localmente, pero no se pudo eliminar del calendario de Google.", "warning")
+    
+    # Eliminar de la base de datos
+    db.session.delete(meeting)
+    db.session.commit()
+    
+    flash("Reunión eliminada", "success")
+    return redirect(url_for("members.commission_detail", slug=slug))
+
+
+@members_bp.route("/comisiones/<slug>/reuniones")
+@login_required
+def commission_meetings_list(slug: str):
+    """Lista todas las reuniones de una comisión con filtros y búsqueda."""
+    commission, membership = _get_commission_and_membership(slug)
+    can_view_commission = (
+        bool(membership)
+        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    if not can_view_commission:
+        abort(403)
+    
+    can_manage_meetings = (
+        _commission_can_manage(membership, "meetings")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    
+    # Parámetros de filtrado
+    search_query = request.args.get("search", "").strip()
+    meeting_type = request.args.get("type", "all")  # "all", "upcoming", "past"
+    sort_by = request.args.get("sort", "date_desc")  # "date_asc", "date_desc", "title_asc", "title_desc"
+    
+    # Consulta base
+    query = CommissionMeeting.query.filter_by(commission_id=commission.id)
+    
+    # Búsqueda por título o ubicación
+    if search_query:
+        query = query.filter(
+            (CommissionMeeting.title.ilike(f"%{search_query}%")) |
+            (CommissionMeeting.location.ilike(f"%{search_query}%"))
+        )
+    
+    # Filtrado por tipo
+    now_dt = datetime.utcnow()
+    if meeting_type == "upcoming":
+        query = query.filter(CommissionMeeting.end_at >= now_dt)
+    elif meeting_type == "past":
+        query = query.filter(CommissionMeeting.end_at < now_dt)
+    
+    # Ordenamiento
+    if sort_by == "date_asc":
+        query = query.order_by(CommissionMeeting.start_at.asc())
+    elif sort_by == "date_desc":
+        query = query.order_by(CommissionMeeting.start_at.desc())
+    elif sort_by == "title_asc":
+        query = query.order_by(CommissionMeeting.title.asc())
+    elif sort_by == "title_desc":
+        query = query.order_by(CommissionMeeting.title.desc())
+    else:
+        query = query.order_by(CommissionMeeting.start_at.desc())
+    
+    meetings = query.all()
+    
+    # Separar próximas y pasadas
+    upcoming = [m for m in meetings if m.end_at >= now_dt]
+    past = [m for m in meetings if m.end_at < now_dt]
+    
+    return render_template(
+        "members/comision_reuniones_lista.html",
+        commission=commission,
+        meetings=meetings,
+        upcoming_meetings=upcoming,
+        past_meetings=past,
+        can_manage_meetings=can_manage_meetings,
+        search_query=search_query,
+        meeting_type=meeting_type,
+        sort_by=sort_by,
     )
 
 

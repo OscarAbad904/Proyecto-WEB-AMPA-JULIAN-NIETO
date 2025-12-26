@@ -126,7 +126,18 @@ def eventos():
 
 @public_bp.route("/calendario")
 def calendario():
-    """Vista pública del calendario de eventos del AMPA."""
+    """Vista publica del calendario de eventos del AMPA."""
+    if current_user.is_authenticated:
+        can_private = (
+            getattr(current_user, "registration_approved", False)
+            and (
+                current_user.has_permission("view_private_calendar")
+                or user_is_privileged(current_user)
+            )
+        )
+        if can_private and request.args.get("public") != "1":
+            return redirect(url_for("members.calendar"))
+
     if not _can_view_events():
         abort(403)
     return render_template("public/calendario.html")

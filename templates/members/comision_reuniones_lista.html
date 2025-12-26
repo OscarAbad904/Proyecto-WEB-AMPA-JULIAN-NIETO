@@ -1,0 +1,371 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Reuniones | {{ commission.name }}{% endblock %}
+
+{% block head %}
+<style>
+  .filters-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background-color: var(--color-neutral-50, #f9fafb);
+    border-radius: var(--border-radius-lg, 8px);
+  }
+
+  .filters-section input,
+  .filters-section select {
+    padding: 0.75rem;
+    border: 1px solid var(--color-neutral-200, #e5e7eb);
+    border-radius: var(--border-radius-md, 6px);
+    font-size: 0.95rem;
+  }
+
+  .filter-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+  }
+
+  .filter-actions button {
+    padding: 0.75rem 1.5rem;
+  }
+
+  .meetings-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    padding: 1.5rem;
+    background: linear-gradient(135deg, var(--color-primary-50, #eff6ff) 0%, var(--color-secondary-50, #f0fdf4) 100%);
+    border-radius: var(--border-radius-lg, 8px);
+    border-left: 4px solid var(--color-primary, #1f3ba2);
+  }
+
+  .stat-card.past {
+    border-left-color: var(--color-neutral-400, #9ca3af);
+  }
+
+  .stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-primary, #1f3ba2);
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-card.past .stat-number {
+    color: var(--color-neutral-600, #4b5563);
+  }
+
+  .stat-label {
+    font-size: 0.9rem;
+    color: var(--color-neutral-600, #4b5563);
+    font-weight: 500;
+  }
+
+  .meeting-card {
+    padding: 1.5rem;
+    border: 1px solid var(--color-neutral-200, #e5e7eb);
+    border-radius: var(--border-radius-lg, 8px);
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+  }
+
+  .meeting-card:hover {
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.1));
+    border-color: var(--color-primary, #1f3ba2);
+  }
+
+  .meeting-card.past {
+    opacity: 0.8;
+    background-color: var(--color-neutral-50, #f9fafb);
+  }
+
+  .meeting-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 1rem;
+  }
+
+  .meeting-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .meeting-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: var(--color-neutral-600, #4b5563);
+  }
+
+  .meeting-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .meeting-description {
+    margin-bottom: 1rem;
+    line-height: 1.6;
+    color: var(--color-neutral-700, #374151);
+  }
+
+  .meeting-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-neutral-200, #e5e7eb);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--color-neutral-600, #4b5563);
+  }
+
+  .empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  @media (max-width: 768px) {
+    .filters-section {
+      grid-template-columns: 1fr;
+    }
+
+    .meeting-header {
+      flex-direction: column;
+    }
+
+    .meeting-meta {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .meeting-actions {
+      flex-direction: column;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-section">
+  <div class="container">
+    <header class="section-header">
+      <p class="eyebrow">Comisión: {{ commission.name }}</p>
+      <h1 class="section-title">Gestión de Reuniones</h1>
+      <p class="lead">Visualiza, filtra y gestiona todas las reuniones de tu comisión.</p>
+    </header>
+
+    <!-- Filtros y búsqueda -->
+    <div class="filters-section">
+      <form method="get" action="{{ url_for('members.commission_meetings_list', slug=commission.slug) }}" style="display: contents;">
+        <div>
+          <label for="search" style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem;">Buscar</label>
+          <input 
+            type="text" 
+            id="search" 
+            name="search" 
+            placeholder="Título, ubicación..." 
+            value="{{ search_query }}"
+          >
+        </div>
+
+        <div>
+          <label for="type" style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem;">Tipo</label>
+          <select id="type" name="type">
+            <option value="all" {% if meeting_type == "all" %}selected{% endif %}>Todas</option>
+            <option value="upcoming" {% if meeting_type == "upcoming" %}selected{% endif %}>Próximas</option>
+            <option value="past" {% if meeting_type == "past" %}selected{% endif %}>Pasadas</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="sort" style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem;">Ordenar por</label>
+          <select id="sort" name="sort">
+            <option value="date_desc" {% if sort_by == "date_desc" %}selected{% endif %}>Fecha (más reciente)</option>
+            <option value="date_asc" {% if sort_by == "date_asc" %}selected{% endif %}>Fecha (más antigua)</option>
+            <option value="title_asc" {% if sort_by == "title_asc" %}selected{% endif %}>Título (A-Z)</option>
+            <option value="title_desc" {% if sort_by == "title_desc" %}selected{% endif %}>Título (Z-A)</option>
+          </select>
+        </div>
+
+        <div class="filter-actions">
+          <button type="submit" class="btn-primary">Filtrar</button>
+          <a href="{{ url_for('members.commission_meetings_list', slug=commission.slug) }}" class="btn-link">Limpiar</a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Estadísticas -->
+    {% if meetings %}
+    <div class="meetings-stats">
+      <div class="stat-card">
+        <div class="stat-number">{{ upcoming_meetings | length }}</div>
+        <div class="stat-label">Reuniones próximas</div>
+      </div>
+      <div class="stat-card past">
+        <div class="stat-number">{{ past_meetings | length }}</div>
+        <div class="stat-label">Reuniones pasadas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">{{ meetings | length }}</div>
+        <div class="stat-label">Total de reuniones</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Lista de reuniones -->
+    {% if meetings %}
+      {% if upcoming_meetings %}
+      <div>
+        <h2 style="margin-top: 2rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--color-primary, #1f3ba2);">
+          Próximas ({{ upcoming_meetings | length }})
+        </h2>
+        {% for meeting in upcoming_meetings %}
+        <div class="meeting-card">
+          <div class="meeting-header">
+            <div>
+              <h3 class="meeting-title">{{ meeting.title }}</h3>
+            </div>
+            <span class="badge">Próxima</span>
+          </div>
+
+          <div class="meeting-meta">
+            <div class="meeting-meta-item">
+              <strong>📅 Inicio:</strong> {{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}
+            </div>
+            <div class="meeting-meta-item">
+              <strong>🕒 Fin:</strong> {{ meeting.end_at.strftime("%d/%m/%Y %H:%M") }}
+            </div>
+            {% if meeting.location %}
+            <div class="meeting-meta-item">
+              <strong>📍 Ubicación:</strong> {{ meeting.location }}
+            </div>
+            {% endif %}
+          </div>
+
+          {% if meeting.description_html %}
+          <div class="meeting-description">
+            {{ meeting.description_html | safe }}
+          </div>
+          {% endif %}
+
+          {% if meeting.minutes_document or can_manage_meetings %}
+          <div class="meeting-actions">
+            {% if meeting.minutes_document %}
+            <a href="{{ meeting.minutes_document.file_path }}" class="btn-link" target="_blank">
+              📄 Acta
+            </a>
+            {% endif %}
+            {% if can_manage_meetings %}
+            <a href="{{ url_for('members.commission_meeting_form', slug=commission.slug, meeting_id=meeting.id) }}" class="btn-link">
+              ✏️ Editar
+            </a>
+            <form method="post" action="{{ url_for('members.commission_meeting_delete', slug=commission.slug, meeting_id=meeting.id) }}" style="display:inline;" data-confirm="{{ '¿Estás seguro de que quieres eliminar esta reunión?' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn-link danger">🗑️ Eliminar</button>
+            </form>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if past_meetings %}
+      <div>
+        <h2 style="margin-top: 2rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--color-neutral-400, #9ca3af);">
+          Historial ({{ past_meetings | length }})
+        </h2>
+        {% for meeting in past_meetings %}
+        <div class="meeting-card past">
+          <div class="meeting-header">
+            <div>
+              <h3 class="meeting-title">{{ meeting.title }}</h3>
+            </div>
+            <span class="badge muted">Pasada</span>
+          </div>
+
+          <div class="meeting-meta">
+            <div class="meeting-meta-item">
+              <strong>📅 Realizada:</strong> {{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}
+            </div>
+            {% if meeting.location %}
+            <div class="meeting-meta-item">
+              <strong>📍 Ubicación:</strong> {{ meeting.location }}
+            </div>
+            {% endif %}
+          </div>
+
+          {% if meeting.description_html %}
+          <div class="meeting-description">
+            {{ meeting.description_html | safe }}
+          </div>
+          {% endif %}
+
+          {% if meeting.minutes_document or can_manage_meetings %}
+          <div class="meeting-actions">
+            {% if meeting.minutes_document %}
+            <a href="{{ meeting.minutes_document.file_path }}" class="btn-link" target="_blank">
+              📄 Acta
+            </a>
+            {% endif %}
+            {% if can_manage_meetings %}
+            <a href="{{ url_for('members.commission_meeting_form', slug=commission.slug, meeting_id=meeting.id) }}" class="btn-link">
+              ✏️ Editar
+            </a>
+            <form method="post" action="{{ url_for('members.commission_meeting_delete', slug=commission.slug, meeting_id=meeting.id) }}" style="display:inline;" data-confirm="{{ '¿Estás seguro de que quieres eliminar esta reunión?' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn-link danger">🗑️ Eliminar</button>
+            </form>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">📭</div>
+      <h2>No hay reuniones</h2>
+      <p>
+        {% if search_query %}
+        No se encontraron reuniones con los filtros aplicados.
+        <br>
+        <a href="{{ url_for('members.commission_meetings_list', slug=commission.slug) }}">Limpiar filtros</a>
+        {% else %}
+        Aún no hay reuniones registradas. ¡Crea la primera!
+        {% endif %}
+      </p>
+    </div>
+    {% endif %}
+
+    <!-- Botones de acción -->
+    <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--color-neutral-200, #e5e7eb); display: flex; gap: 1rem; flex-wrap: wrap;">
+      {% if can_manage_meetings %}
+      <a href="{{ url_for('members.commission_meeting_form', slug=commission.slug) }}" class="btn-primary">
+        ➕ Nueva reunión
+      </a>
+      {% endif %}
+      <a href="{{ url_for('members.commission_detail', slug=commission.slug) }}" class="btn-link">
+        ← Volver a la comisión
+      </a>
+    </div>
+  </div>
+</section>
+{% endblock %}

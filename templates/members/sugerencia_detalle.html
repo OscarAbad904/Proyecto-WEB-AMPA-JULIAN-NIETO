@@ -343,17 +343,23 @@
 
       const sendVote = async (value) => {
         if (isClosed) {
-          alert('El hilo está cerrado; no se pueden registrar votos.');
+          window.ampaAlert('El hilo está cerrado; no se pueden registrar votos.');
           return;
         }
         if (currentVote && currentVote === value) {
           return;
         }
-        if (currentVote && !confirm('Ya habías votado. ¿Quieres cambiar tu voto?')) {
+        if (currentVote && !(await window.ampaConfirm({
+          title: 'Cambiar voto',
+          message: 'Ya habías votado. ¿Quieres cambiar tu voto?',
+          confirmText: 'Cambiar voto',
+          cancelText: 'Cancelar',
+          variant: 'warning'
+        }))) {
           return;
         }
         if (!csrf) {
-          alert('No se pudo validar la sesión. Recarga la página.');
+          window.ampaAlert('No se pudo validar la sesión. Recarga la página.');
           return;
         }
         if (hiddenInput) hiddenInput.value = value;
@@ -371,7 +377,7 @@
           });
           const data = await res.json().catch(() => null);
           if (!res.ok || !data?.success) {
-            alert(data?.message || 'No se pudo registrar el voto.');
+            window.ampaAlert(data?.message || 'No se pudo registrar el voto.');
             return;
           }
           currentVote = data.vote;
@@ -381,7 +387,7 @@
           updateCounts();
         } catch (err) {
           console.error(err);
-          alert('No se pudo registrar el voto. Inténtalo de nuevo.');
+          window.ampaAlert('No se pudo registrar el voto. Inténtalo de nuevo.');
         }
       };
 

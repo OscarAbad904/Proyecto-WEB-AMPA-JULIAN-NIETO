@@ -389,6 +389,8 @@ class BaseConfig:
     
     # Google Calendar configuration
     GOOGLE_CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID", "primary")
+    GOOGLE_CALENDAR_COMMISSIONS_ID = os.getenv("GOOGLE_CALENDAR_COMMISSIONS_ID", "")
+    GOOGLE_CALENDAR_TIMEZONE = os.getenv("GOOGLE_CALENDAR_TIMEZONE", "")
     GOOGLE_CALENDAR_CACHE_TTL = get_int_env("GOOGLE_CALENDAR_CACHE_TTL", 600)  # 10 minutos
 
     @staticmethod

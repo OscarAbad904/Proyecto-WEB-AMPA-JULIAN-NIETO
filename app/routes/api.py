@@ -3,7 +3,14 @@ from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 import sqlalchemy as sa
 
-from app.models import Permission, user_is_privileged, CommissionMeeting, CommissionMembership, Commission
+from app.models import (
+    Permission,
+    user_is_privileged,
+    CommissionMeeting,
+    CommissionMembership,
+    Commission,
+    Event,
+)
 
 api_bp = Blueprint("api", __name__)
 
@@ -30,13 +37,13 @@ def publicaciones() -> tuple[dict[str, object], int]:
 @api_bp.route("/calendario/eventos")
 def calendario_eventos():
     """
-    Endpoint REST para obtener eventos del calendario de Google del AMPA.
-    
-    Parámetros opcionales:
+    Endpoint REST para obtener eventos internos del AMPA.
+
+    Parametros opcionales:
         - rango_inicial: Fecha de inicio (formato YYYY-MM-DD)
         - rango_final: Fecha de fin (formato YYYY-MM-DD)
-        - limite: Número máximo de eventos a devolver (por defecto 50)
-    
+        - limite: Numero maximo de eventos a devolver (por defecto 50)
+
     Returns:
         JSON con estructura:
         {
@@ -48,9 +55,7 @@ def calendario_eventos():
             "cached": bool
         }
     """
-    from app.services.calendar_service import get_calendar_events
-
-    # Restringir acceso: solo público si el permiso de eventos está marcado como público.
+    # Restringir acceso: solo publico si el permiso de eventos esta marcado como publico.
     is_public = Permission.is_key_public("manage_events") or Permission.is_key_public("view_events")
     if not is_public:
         if not current_user.is_authenticated:
@@ -61,53 +66,86 @@ def calendario_eventos():
             or user_is_privileged(current_user)
         ):
             return jsonify({"ok": False, "error": "No tienes permisos para ver el calendario"}), 403
-    
-    # Obtener parámetros de la request
+
     rango_inicial = request.args.get("rango_inicial")
     rango_final = request.args.get("rango_final")
     limite = request.args.get("limite", 50, type=int)
-    
-    # Convertir formato de fecha si se proporciona
+
     time_min = None
     time_max = None
-    
+    range_start = None
+    range_end = None
+
     if rango_inicial:
         try:
             fecha_inicio = datetime.strptime(rango_inicial, "%Y-%m-%d")
+            range_start = fecha_inicio
             time_min = fecha_inicio.isoformat() + "Z"
         except ValueError:
             return jsonify({
                 "ok": False,
-                "error": "Formato de rango_inicial inválido. Use YYYY-MM-DD",
+                "error": "Formato de rango_inicial invalido. Use YYYY-MM-DD",
                 "eventos": [],
                 "total": 0,
             }), 400
-    
+
     if rango_final:
         try:
             fecha_fin = datetime.strptime(rango_final, "%Y-%m-%d")
-            # Ajustar al final del día
             fecha_fin = fecha_fin.replace(hour=23, minute=59, second=59)
+            range_end = fecha_fin
             time_max = fecha_fin.isoformat() + "Z"
         except ValueError:
             return jsonify({
                 "ok": False,
-                "error": "Formato de rango_final inválido. Use YYYY-MM-DD",
+                "error": "Formato de rango_final invalido. Use YYYY-MM-DD",
                 "eventos": [],
                 "total": 0,
             }), 400
-    
-    # Obtener eventos del servicio de calendario
-    resultado = get_calendar_events(
-        time_min=time_min,
-        time_max=time_max,
-        max_results=limite,
+
+    if range_start is None:
+        range_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        time_min = time_min or range_start.isoformat() + "Z"
+    if range_end is None:
+        range_end = range_start + timedelta(days=180)
+        time_max = time_max or range_end.isoformat() + "Z"
+
+    events_query = (
+        Event.query
+        .filter(Event.end_at >= range_start)
+        .filter(Event.start_at <= range_end)
+        .order_by(Event.start_at.asc())
     )
-    
-    if resultado.get("ok"):
-        return jsonify(resultado), 200
-    else:
-        return jsonify(resultado), 503
+    can_manage = current_user.is_authenticated and (
+        current_user.has_permission("manage_events") or user_is_privileged(current_user)
+    )
+    if not can_manage:
+        events_query = events_query.filter(Event.status == "published")
+
+    eventos: list[dict] = []
+    for event in events_query.limit(limite).all():
+        eventos.append({
+            "id": f"event-{event.id}",
+            "titulo": event.title,
+            "descripcion": event.description_html or "",
+            "inicio": event.start_at.isoformat(),
+            "fin": event.end_at.isoformat(),
+            "ubicacion": event.location or "",
+            "url": None,
+            "todo_el_dia": False,
+            "categoria": event.category or "general",
+        })
+
+    respuesta = {
+        "ok": True,
+        "eventos": eventos,
+        "total": len(eventos),
+        "desde": time_min,
+        "hasta": time_max,
+        "cached": False,
+    }
+
+    return jsonify(respuesta), 200
 
 
 @api_bp.route("/calendario/mis-eventos")
@@ -118,7 +156,10 @@ def calendario_mis_eventos():
     - Eventos generales del calendario del AMPA (Google Calendar).
     - Reuniones de comisiones a las que pertenece el usuario o, si tiene permiso, todas.
     """
-    from app.services.calendar_service import get_calendar_events
+    from app.services.calendar_service import build_calendar_event_url
+
+    if not (current_user.has_permission("view_private_calendar") or user_is_privileged(current_user)):
+        return jsonify({"ok": False, "error": "No tienes permisos para ver el calendario"}), 403
 
     rango_inicial = request.args.get("rango_inicial")
     rango_final = request.args.get("rango_final")
@@ -172,8 +213,27 @@ def calendario_mis_eventos():
         range_end = range_start + timedelta(days=180)
         time_max = time_max or range_end.isoformat() + "Z"
 
-    calendar_result = get_calendar_events(time_min=time_min, time_max=time_max, max_results=limite)
-    general_events = calendar_result.get("eventos") if calendar_result.get("ok") else []
+    general_events: list[dict] = []
+    events_query = (
+        Event.query
+        .filter(Event.end_at >= range_start)
+        .filter(Event.start_at <= range_end)
+    )
+    if not (current_user.has_permission("manage_events") or user_is_privileged(current_user)):
+        events_query = events_query.filter(Event.status == "published")
+
+    for event in events_query.order_by(Event.start_at.asc()).all():
+        general_events.append({
+            "id": f"event-{event.id}",
+            "titulo": event.title,
+            "descripcion": event.description_html or "",
+            "inicio": event.start_at.isoformat(),
+            "fin": event.end_at.isoformat(),
+            "ubicacion": event.location or "",
+            "url": None,
+            "todo_el_dia": False,
+            "categoria": event.category or "general",
+        })
 
     include_all_commissions = user_is_privileged(current_user) or current_user.has_permission(
         "view_all_commission_calendar"
@@ -213,7 +273,7 @@ def calendario_mis_eventos():
             "commission_slug": meeting.commission.slug if meeting.commission else "",
         }
         if meeting.google_event_id:
-            event_payload["url"] = f"https://calendar.google.com/calendar/event?eid={meeting.google_event_id}"
+            event_payload["url"] = build_calendar_event_url(meeting.google_event_id)
         commission_events.append(event_payload)
 
     eventos_combinados = (general_events or []) + commission_events
@@ -225,10 +285,8 @@ def calendario_mis_eventos():
         "total": len(eventos_combinados),
         "desde": time_min,
         "hasta": time_max,
-        "cached": calendar_result.get("cached", False),
+        "cached": False,
     }
-    if not calendar_result.get("ok"):
-        respuesta["calendar_error"] = calendar_result.get("error")
 
     return jsonify(respuesta), 200
 
@@ -256,4 +314,113 @@ def limpiar_cache_calendario():
     return jsonify({
         "ok": True,
         "message": "Cache del calendario limpiada correctamente",
+    }), 200
+
+@api_bp.route("/comisiones/<int:commission_id>/reuniones")
+@login_required
+def api_commission_meetings(commission_id: int):
+    """
+    Endpoint REST para obtener reuniones de una comisión.
+    
+    Parámetros opcionales:
+        - tipo: "all" (defecto), "upcoming", "past"
+        - ordenar: "fecha_desc" (defecto), "fecha_asc", "titulo_asc", "titulo_desc"
+        - buscar: Buscar en título o ubicación
+    
+    Returns:
+        JSON con estructura:
+        {
+            "ok": true/false,
+            "reuniones": [...],
+            "total": int,
+            "proximas": int,
+            "pasadas": int
+        }
+    """
+    # Validar permisos
+    commission = Commission.query.get(commission_id)
+    if not commission:
+        return jsonify({
+            "ok": False,
+            "error": "Comisión no encontrada",
+        }), 404
+    
+    membership = CommissionMembership.query.filter_by(
+        commission_id=commission_id, 
+        user_id=current_user.id, 
+        is_active=True
+    ).first()
+    
+    can_view = (
+        bool(membership)
+        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    
+    if not can_view:
+        return jsonify({
+            "ok": False,
+            "error": "No tienes permisos para ver esta comisión",
+        }), 403
+    
+    # Obtener parámetros
+    meeting_type = request.args.get("tipo", "all")
+    sort_by = request.args.get("ordenar", "fecha_desc")
+    search_query = request.args.get("buscar", "").strip()
+    
+    # Consulta base
+    query = CommissionMeeting.query.filter_by(commission_id=commission_id)
+    
+    # Búsqueda
+    if search_query:
+        query = query.filter(
+            (CommissionMeeting.title.ilike(f"%{search_query}%")) |
+            (CommissionMeeting.location.ilike(f"%{search_query}%"))
+        )
+    
+    # Filtrado
+    now_dt = datetime.utcnow()
+    if meeting_type == "upcoming":
+        query = query.filter(CommissionMeeting.end_at >= now_dt)
+    elif meeting_type == "past":
+        query = query.filter(CommissionMeeting.end_at < now_dt)
+    
+    # Ordenamiento
+    if sort_by == "fecha_asc":
+        query = query.order_by(CommissionMeeting.start_at.asc())
+    elif sort_by == "titulo_asc":
+        query = query.order_by(CommissionMeeting.title.asc())
+    elif sort_by == "titulo_desc":
+        query = query.order_by(CommissionMeeting.title.desc())
+    else:
+        query = query.order_by(CommissionMeeting.start_at.desc())
+    
+    meetings = query.all()
+    
+    # Contar próximas y pasadas
+    upcoming_count = sum(1 for m in meetings if m.end_at >= now_dt)
+    past_count = sum(1 for m in meetings if m.end_at < now_dt)
+    
+    # Formatear respuesta
+    meetings_data = []
+    for meeting in meetings:
+        meetings_data.append({
+            "id": meeting.id,
+            "titulo": meeting.title,
+            "descripcion": meeting.description_html,
+            "inicio": meeting.start_at.isoformat(),
+            "fin": meeting.end_at.isoformat(),
+            "ubicacion": meeting.location,
+            "es_proxima": meeting.end_at >= now_dt,
+            "tiene_acta": bool(meeting.minutes_document),
+            "google_event_id": meeting.google_event_id,
+        })
+    
+    return jsonify({
+        "ok": True,
+        "reuniones": meetings_data,
+        "total": len(meetings),
+        "proximas": upcoming_count,
+        "pasadas": past_count,
     }), 200

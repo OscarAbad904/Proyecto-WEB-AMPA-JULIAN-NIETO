@@ -63,7 +63,7 @@
         <div>
           <p class="events-desc">Consulta todas las fechas y actividades programadas en el calendario.</p>
           {% if can_view_calendar %}
-          <a class="btn-primary" href="{{ url_for('public.calendario') }}">Ver calendario completo</a>
+          <a class="btn-primary" href="{{ calendar_href }}">Ver calendario completo</a>
           {% endif %}
         </div>
         <div class="events-calendar">
@@ -124,7 +124,7 @@
                   style="border: 0; width: 100%; height: 400px;" frameborder="0" scrolling="no"></iframe>
           {% else %}
           <div class="alert">
-            Configura un ID de calendario público de Google para mostrar los eventos aquí (por ejemplo, <code>tu_email%40gmail.com</code>).
+            Publica eventos desde el panel de administracion para mostrarlos aqui.
           </div>
           {% endif %}
         </div>

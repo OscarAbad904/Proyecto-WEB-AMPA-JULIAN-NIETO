@@ -755,20 +755,20 @@
 
     if (startDT <= now) {
       e.preventDefault();
-      alert('La fecha de inicio debe ser posterior a la fecha y hora actual');
+      window.ampaAlert('La fecha de inicio debe ser posterior a la fecha y hora actual');
       return false;
     }
 
     const maxEnd = new Date(startDT.getTime() + 15 * 60 * 1000);
     if (endDT > maxEnd) {
       e.preventDefault();
-      alert('La fecha de fin no puede ser más de 15 minutos después de la fecha de inicio');
+      window.ampaAlert('La fecha de fin no puede ser más de 15 minutos después de la fecha de inicio');
       return false;
     }
 
     if (endDT <= startDT) {
       e.preventDefault();
-      alert('La fecha de fin debe ser posterior a la fecha de inicio');
+      window.ampaAlert('La fecha de fin debe ser posterior a la fecha de inicio');
       return false;
     }
   });

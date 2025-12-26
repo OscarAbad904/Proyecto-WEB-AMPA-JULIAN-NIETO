@@ -1339,12 +1339,12 @@ document.getElementById('cssForm').addEventListener('submit', async e => {
         });
         const data = await res.json();
         if (data.ok) {
-            alert('CSS guardado correctamente');
+            window.ampaAlert('CSS guardado correctamente');
         } else {
-            alert('Error: ' + data.error);
+            window.ampaAlert('Error: ' + data.error);
         }
     } catch (e) {
-        alert('Error guardando CSS');
+        window.ampaAlert('Error guardando CSS');
     } finally {
         btn.disabled = false;
         btn.innerHTML = '💾 Guardar CSS';
@@ -1374,7 +1374,7 @@ async function activateStyle(name, btn) {
             if (btn) btn.innerHTML = '✓ ¡Listo!';
             location.reload();
         } else {
-            alert('Error: ' + data.error);
+            window.ampaAlert('Error: ' + data.error);
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
@@ -1383,7 +1383,7 @@ async function activateStyle(name, btn) {
             }
         }
     } catch (e) {
-        alert('Error activando estilo');
+        window.ampaAlert('Error activando estilo');
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = originalHtml;
@@ -1418,7 +1418,7 @@ async function duplicateStyle(name, btn) {
         if (data.ok) {
             location.reload();
         } else {
-            alert('Error: ' + data.error);
+            window.ampaAlert('Error: ' + data.error);
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
@@ -1426,7 +1426,7 @@ async function duplicateStyle(name, btn) {
             }
         }
     } catch (e) {
-        alert('Error duplicando estilo');
+        window.ampaAlert('Error duplicando estilo');
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = originalHtml;
@@ -1437,7 +1437,13 @@ async function duplicateStyle(name, btn) {
 
 async function deleteStyle(name, btn) {
     if (!canManageStyles) return;
-    if (!confirm(`¿Estás seguro de eliminar el estilo "${name}"? Esta acción no se puede deshacer.`)) return;
+    if (!await window.ampaConfirm({
+        title: 'Eliminar estilo',
+        message: `?Est?s seguro de eliminar el estilo "${name}"? Esta acci?n no se puede deshacer.`,
+        confirmText: 'Eliminar',
+        cancelText: 'Cancelar',
+        variant: 'danger'
+    })) return;
     
     const originalHtml = btn ? btn.innerHTML : '🗑️ Eliminar';
     if (btn) {
@@ -1457,7 +1463,7 @@ async function deleteStyle(name, btn) {
         if (data.ok) {
             location.reload();
         } else {
-            alert('Error: ' + data.error);
+            window.ampaAlert('Error: ' + data.error);
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
@@ -1465,7 +1471,7 @@ async function deleteStyle(name, btn) {
             }
         }
     } catch (e) {
-        alert('Error eliminando estilo');
+        window.ampaAlert('Error eliminando estilo');
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = originalHtml;
@@ -1476,7 +1482,13 @@ async function deleteStyle(name, btn) {
 
 async function initializeStyles(btn) {
     if (!canManageStyles) return;
-    if (!confirm('Esto creará/actualizará los estilos "Navidad" y "General" en Google Drive con las imágenes locales. ¿Continuar?')) return;
+    if (!await window.ampaConfirm({
+        title: 'Inicializar estilos',
+        message: 'Esto crear?/actualizar? los estilos "Navidad" y "General" en Google Drive con las im?genes locales. ?Continuar?',
+        confirmText: 'Continuar',
+        cancelText: 'Cancelar',
+        variant: 'warning'
+    })) return;
     
     const originalHtml = btn ? btn.innerHTML : '🔄 Inicializar estilos por defecto';
     if (btn) {
@@ -1494,10 +1506,10 @@ async function initializeStyles(btn) {
         });
         const data = await res.json();
         if (data.ok) {
-            alert('Estilos inicializados correctamente.');
+            window.ampaAlert('Estilos inicializados correctamente.');
             location.reload();
         } else {
-            alert('Error: ' + data.error);
+            window.ampaAlert('Error: ' + data.error);
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
@@ -1505,7 +1517,7 @@ async function initializeStyles(btn) {
             }
         }
     } catch (e) {
-        alert('Error inicializando estilos');
+        window.ampaAlert('Error inicializando estilos');
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = originalHtml;

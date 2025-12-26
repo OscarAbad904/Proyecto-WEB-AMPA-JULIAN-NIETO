@@ -11,7 +11,7 @@
   /* Hero (logo): control de animación */
   --hero-logo-offset-desktop: 0rem;
   --hero-logo-float-desktop: 4.5rem;
-  --hero-logo-gap-desktop: 3.5rem;
+  --hero-logo-gap-desktop: 1rem;
   --hero-logo-offset-mobile: -2rem;
   --hero-logo-float-mobile: 3rem;
   --hero-logo-gap-mobile: 3rem;
@@ -20,7 +20,7 @@
   /* Hero: separación del conjunto (logo+título) respecto al footer */
   --hero-to-footer-gap-desktop: 6rem;
   --hero-to-footer-gap-mobile: 3.5rem;
-  --hero-to-footer-gap: 2rem;
+  --hero-to-footer-gap: 1rem;
 
   /* Hero: tamaños (logo y tipografías) */
   --hero-logo-size-desktop: 24rem;
@@ -3067,4 +3067,169 @@ section {
   .header-fixed .menu-mobile-icon path {
     stroke: currentColor;
   }
+}
+
+/* Dialogos personalizados */
+.ampa-dialog {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(14, 165, 233, 0.12), transparent 38%),
+    radial-gradient(circle at 85% 12%, rgba(249, 115, 22, 0.12), transparent 42%),
+    rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--transition-normal, 0.3s ease), visibility var(--transition-normal, 0.3s ease);
+  z-index: 1300;
+  --dialog-accent: var(--color-accent-warm, #f97316);
+}
+
+.ampa-dialog[data-variant="danger"] {
+  --dialog-accent: #ef4444;
+}
+
+.ampa-dialog[data-variant="info"] {
+  --dialog-accent: var(--color-accent-cool, #0ea5e9);
+}
+
+.ampa-dialog.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.ampa-dialog__panel {
+  width: min(92vw, 520px);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+  border-radius: 1.4rem;
+  border: 1px solid var(--color-border, rgba(100, 116, 139, 0.2));
+  box-shadow: var(--shadow-xl, 0 32px 58px rgba(0, 0, 0, 0.12));
+  padding: 2rem;
+  position: relative;
+  color: var(--color-text-base);
+  transform: translateY(16px) scale(0.98);
+  transition: transform var(--transition-normal, 0.3s ease);
+}
+
+.ampa-dialog.is-open .ampa-dialog__panel {
+  transform: translateY(0) scale(1);
+}
+
+.ampa-dialog__panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(14, 165, 233, 0.08), transparent 32%),
+    radial-gradient(circle at 85% 15%, rgba(249, 115, 22, 0.08), transparent 45%);
+  pointer-events: none;
+}
+
+.ampa-dialog__panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.ampa-dialog__close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  border: 1px solid var(--color-border, rgba(100, 116, 139, 0.2));
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 0.75rem;
+  width: 40px;
+  height: 40px;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-text-base);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  box-shadow: var(--shadow-sm, 0 4px 12px rgba(0, 0, 0, 0.05));
+  transition: transform var(--transition-fast, 0.2s ease), box-shadow var(--transition-fast, 0.2s ease);
+}
+
+.ampa-dialog__close:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md, 0 12px 24px rgba(0, 0, 0, 0.08));
+}
+
+.ampa-dialog__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(249, 115, 22, 0.12);
+  color: var(--dialog-accent);
+  margin-bottom: 1rem;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.ampa-dialog__icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.ampa-dialog__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.ampa-dialog__message {
+  margin: 0;
+  color: var(--color-text-soft, #475569);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.ampa-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+  flex-wrap: wrap;
+}
+
+.ampa-dialog__confirm {
+  background: var(--dialog-accent);
+  color: #fff;
+  border: none;
+  box-shadow: 0 16px 32px rgba(249, 115, 22, 0.3);
+}
+
+.ampa-dialog[data-variant="danger"] .ampa-dialog__confirm {
+  box-shadow: 0 16px 32px rgba(239, 68, 68, 0.35);
+}
+
+.ampa-dialog__confirm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 38px rgba(249, 115, 22, 0.35);
+}
+
+.ampa-dialog[data-variant="danger"] .ampa-dialog__confirm:hover {
+  box-shadow: 0 18px 38px rgba(239, 68, 68, 0.4);
+}
+
+.ampa-dialog__confirm:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2), var(--shadow-md, 0 12px 24px rgba(0, 0, 0, 0.08));
+}
+
+body.dialog-open {
+  overflow: hidden;
 }

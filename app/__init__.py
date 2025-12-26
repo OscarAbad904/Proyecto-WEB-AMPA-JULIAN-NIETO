@@ -200,8 +200,20 @@ def register_context(app: Flask) -> None:
             or current_user.has_permission("view_events")
             or user_is_privileged(current_user)
         ))
-        # El calendario público consume eventos, así que lo ligamos al permiso de eventos.
-        can_view_calendar = can_view_events
+        can_view_private_calendar = current_user.is_authenticated and (
+            getattr(current_user, "registration_approved", False)
+            and (
+                current_user.has_permission("view_private_calendar")
+                or user_is_privileged(current_user)
+            )
+        )
+        # El calendario publico consume eventos; el privado depende del permiso dedicado.
+        can_view_calendar = can_view_events or can_view_private_calendar
+        calendar_href = (
+            url_for("members.calendar")
+            if can_view_private_calendar
+            else url_for("public.calendario")
+        )
         can_manage_events = current_user.is_authenticated and (
             current_user.has_permission("manage_events") or user_is_privileged(current_user)
         )
@@ -240,6 +252,8 @@ def register_context(app: Flask) -> None:
             "can_manage_posts": can_manage_posts,
             "can_view_events": can_view_events,
             "can_view_calendar": can_view_calendar,
+            "can_view_private_calendar": can_view_private_calendar,
+            "calendar_href": calendar_href,
             "can_manage_events": can_manage_events,
             "can_view_documents": can_view_documents,
             "can_view_commissions": can_view_commissions,

@@ -524,6 +524,17 @@ function categorizeEvent(event) {
   const title = (event.titulo || '').toLowerCase();
   const desc = (event.descripcion || '').toLowerCase();
   const text = title + ' ' + desc;
+  const category = (event.categoria || event.category || '').toLowerCase();
+
+  if (category.includes('reunion')) {
+    return 'meeting';
+  }
+  if (category.includes('taller') || category.includes('actividad')) {
+    return 'activity';
+  }
+  if (category.includes('festivo') || category.includes('vacacion')) {
+    return 'holiday';
+  }
   
   if (text.includes('reunión') || text.includes('reunion') || text.includes('asamblea') || text.includes('junta')) {
     return 'meeting';

@@ -128,6 +128,60 @@
           {% endif %}
         </div>
       </div>
+
+      <div class="section-title-row" style="margin-top: 2rem; border-top: 1px solid #e2e8f0; padding-top: 1.5rem;">
+        <h3>Reuniones</h3>
+        <a class="btn-link" href="{{ url_for('admin.commission_meeting_edit', commission_id=commission.id) }}">➕ Nueva</a>
+      </div>
+      <div class="stack">
+        <h4>Próximas</h4>
+        {% for meeting in upcoming_meetings %}
+        <article style="border: 2px solid #ef4444; padding: 1rem; border-radius: 8px; margin-bottom: 0.75rem;">
+          <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; color: #64748b; font-weight: 700; font-size: 0.9rem;">
+            <span class="chip">Próxima</span>
+            <span><strong>📅 {{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</strong></span>
+            {% if meeting.location %}<span>📍 {{ meeting.location }}</span>{% endif %}
+          </div>
+          <h4 style="margin: 0.5rem 0;">{{ meeting.title }}</h4>
+          {% if meeting.description_html %}
+          <p style="font-size: 0.9rem; color: #666; margin: 0.5rem 0;">{{ meeting.description_html | striptags | truncate(200) }}</p>
+          {% endif %}
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb;">
+            <a href="{{ url_for('admin.commission_meeting_edit', commission_id=commission.id, meeting_id=meeting.id) }}" style="background-color: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">✏️ Editar</a>
+            <form method="post" action="{{ url_for('members.commission_meeting_delete', slug=commission.slug, meeting_id=meeting.id) }}" style="display:inline;" data-confirm="{{ '⚠️ ¿Estás seguro de que quieres eliminar esta reunión? Se eliminará de Google Calendar también.' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" style="background-color: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 4px; border: none; font-size: 0.9rem; cursor: pointer;">🗑️ Eliminar</button>
+            </form>
+          </div>
+        </article>
+        {% else %}
+        <p>📭 No hay reuniones próximas.</p>
+        {% endfor %}
+
+        <h4 style="margin-top: 1.5rem;">Historial</h4>
+        {% for meeting in past_meetings %}
+        <article style="opacity: 0.8; border-left: 4px solid #9ca3af; padding: 1rem; border-radius: 4px; margin-bottom: 0.75rem;">
+          <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; color: #64748b; font-weight: 700; font-size: 0.9rem;">
+            <span class="chip" style="background-color: #f3f4f6; color: #6b7280;">Pasada</span>
+            <span>📅 {{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</span>
+            {% if meeting.location %}<span>📍 {{ meeting.location }}</span>{% endif %}
+          </div>
+          <h4 style="margin: 0.5rem 0;">{{ meeting.title }}</h4>
+          {% if meeting.minutes_document %}
+          <a href="{{ meeting.minutes_document.file_path }}" target="_blank" style="color: #3b82f6; text-decoration: none; font-size: 0.9rem;">📄 Ver Acta</a>
+          {% endif %}
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb;">
+            <a href="{{ url_for('admin.commission_meeting_edit', commission_id=commission.id, meeting_id=meeting.id) }}" style="background-color: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">✏️ Editar</a>
+            <form method="post" action="{{ url_for('members.commission_meeting_delete', slug=commission.slug, meeting_id=meeting.id) }}" style="display:inline;" data-confirm="{{ '⚠️ ¿Estás seguro? Se eliminará de Google Calendar también.' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" style="background-color: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 4px; border: none; font-size: 0.9rem; cursor: pointer;">🗑️ Eliminar</button>
+            </form>
+          </div>
+        </article>
+        {% else %}
+        <p>📭 No hay reuniones previas.</p>
+        {% endfor %}
+      </div>
     </div>
 
     <div class="admin-card">
