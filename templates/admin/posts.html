@@ -78,19 +78,46 @@
       </form>
 
       <aside class="admin-card preview-card">
-        <p class="admin-kicker" style="margin-bottom:0.3rem;">Previsualización</p>
-        <div class="preview-shell">
-          <div class="post-preview layout-full" id="preview-card">
-            <figure id="preview-figure">
-              <img id="preview-image" src="{{ style_urls.placeholder }}" alt="Imagen de portada" referrerpolicy="no-referrer" />
-            </figure>
-            <div class="body">
-              <div>
-                <span class="chip" id="preview-status">Borrador</span>
-                <span class="muted" id="preview-date">Fecha pendiente</span>
+        <div class="preview-header">
+          <p class="admin-kicker">Previsualización</p>
+          <div class="preview-controls">
+            <button type="button" class="preview-btn active" data-view="desktop">Escritorio</button>
+            <button type="button" class="preview-btn" data-view="mobile">Móvil</button>
+          </div>
+        </div>
+
+        <div class="preview-viewport-container">
+          <!-- Desktop Viewport -->
+          <div class="viewport-wrapper view-desktop active" id="viewport-desktop">
+            <div class="viewport-emulator" style="width: 1814px; height: 875px;">
+              <div class="news-modal-dialog" id="preview-dialog-desktop">
+                <button class="news-modal-close" type="button">×</button>
+                <figure class="news-modal-cover" id="preview-figure-desktop">
+                  <img id="preview-image-desktop" src="{{ style_urls.placeholder }}" alt="Portada" referrerpolicy="no-referrer" />
+                </figure>
+                <div class="news-modal-body">
+                  <p class="news-modal-meta"><span id="preview-category-desktop">GENERAL</span> · <span id="preview-date-desktop">Fecha pendiente</span></p>
+                  <h2 id="preview-title-desktop">Título de ejemplo</h2>
+                  <div id="preview-content-desktop" class="ql-editor"></div>
+                </div>
               </div>
-              <h3 id="preview-title" style="margin: 0.35rem 0;">Título de ejemplo</h3>
-              <div class="ql-editor" id="preview-content"><p>El contenido enriquecido aparecerá aquí.</p></div>
+            </div>
+          </div>
+
+          <!-- Mobile Viewport -->
+          <div class="viewport-wrapper view-mobile" id="viewport-mobile">
+            <div class="viewport-emulator" style="width: 340px; height: 759px;">
+              <div class="news-modal-dialog" id="preview-dialog-mobile">
+                <button class="news-modal-close" type="button">×</button>
+                <figure class="news-modal-cover" id="preview-figure-mobile">
+                  <img id="preview-image-mobile" src="{{ style_urls.placeholder }}" alt="Portada" referrerpolicy="no-referrer" />
+                </figure>
+                <div class="news-modal-body">
+                  <p class="news-modal-meta"><span id="preview-category-mobile">GENERAL</span> · <span id="preview-date-mobile">Fecha pendiente</span></p>
+                  <h2 id="preview-title-mobile">Título de ejemplo</h2>
+                  <div id="preview-content-mobile" class="ql-editor"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -154,24 +181,85 @@
     document.addEventListener('DOMContentLoaded', () => {
       const editorEl = document.getElementById('editor');
       const hiddenContent = document.querySelector('textarea[name="{{ form.content.name }}"]');
-      const previewContent = document.getElementById('preview-content');
+      
+      // Preview Elements - Desktop
+      const previewContentD = document.getElementById('preview-content-desktop');
+      const previewTitleD = document.getElementById('preview-title-desktop');
+      const previewImageD = document.getElementById('preview-image-desktop');
+      const previewCategoryD = document.getElementById('preview-category-desktop');
+      const previewDateD = document.getElementById('preview-date-desktop');
+      const previewDialogD = document.getElementById('preview-dialog-desktop');
+      const previewFigureD = document.getElementById('preview-figure-desktop');
+
+      // Preview Elements - Mobile
+      const previewContentM = document.getElementById('preview-content-mobile');
+      const previewTitleM = document.getElementById('preview-title-mobile');
+      const previewImageM = document.getElementById('preview-image-mobile');
+      const previewCategoryM = document.getElementById('preview-category-mobile');
+      const previewDateM = document.getElementById('preview-date-mobile');
+      const previewDialogM = document.getElementById('preview-dialog-mobile');
+      const previewFigureM = document.getElementById('preview-figure-mobile');
+
       const titleInput = document.querySelector('input[name="{{ form.title.name }}"]');
       const coverInput = document.querySelector('input[name="{{ form.cover_image.name }}"]');
       const coverFileInput = document.querySelector('input[name="{{ form.cover_image_file.name }}"]');
       const statusSelect = document.querySelector('select[name="{{ form.status.name }}"]');
       const dateInput = document.querySelector('input[name="{{ form.published_at.name }}"]');
       const layoutSelect = document.querySelector('select[name="{{ form.image_layout.name }}"]');
-      const previewFigure = document.getElementById('preview-figure');
-      const previewImage = document.getElementById('preview-image');
-      const previewCard = document.getElementById('preview-card');
       const defaultImage = "{{ style_urls.placeholder }}";
       const categorySelect = document.querySelector('select[name="{{ form.category.name }}"]');
       const submitBtn = document.querySelector('input[name="{{ form.submit.name }}"]');
       const postIdInput = document.getElementById('post-id');
       const searchInput = document.getElementById('post-search');
-      const previewBody = document.querySelector('#preview-card .body');
       const formEl = document.querySelector('.admin-form');
       let currentPostId = '';
+
+      // View Switching
+      const previewBtns = document.querySelectorAll('.preview-btn');
+      const viewports = document.querySelectorAll('.viewport-wrapper');
+
+      previewBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          previewBtns.forEach(b => b.classList.remove('active'));
+          viewports.forEach(v => {
+            v.classList.remove('active');
+            v.style.display = 'none';
+          });
+          btn.classList.add('active');
+          const view = btn.dataset.view;
+          const activeViewport = document.getElementById(`viewport-${view}`);
+          activeViewport.classList.add('active');
+          activeViewport.style.display = 'flex';
+          updateScaling();
+        });
+      });
+
+      function updateScaling() {
+        const container = document.querySelector('.preview-viewport-container');
+        if (!container) return;
+        
+        const containerWidth = container.clientWidth - 40;
+        const containerHeight = container.clientHeight - 40;
+
+        document.querySelectorAll('.viewport-wrapper.active').forEach(wrapper => {
+          const emu = wrapper.querySelector('.viewport-emulator');
+          const targetWidth = parseInt(emu.style.width);
+          const targetHeight = parseInt(emu.style.height);
+          
+          const scaleX = containerWidth / targetWidth;
+          const scaleY = containerHeight / targetHeight;
+          const scale = Math.min(scaleX, scaleY, 1); // Allow up to 1:1 if it fits
+
+          emu.style.transform = `scale(${scale})`;
+          
+          // Force the wrapper to take only the scaled space to avoid pushing the grid
+          wrapper.style.width = `${targetWidth * scale}px`;
+          wrapper.style.height = `${targetHeight * scale}px`;
+        });
+      }
+
+      window.addEventListener('resize', updateScaling);
+      setTimeout(updateScaling, 100);
 
       const drivePatterns = [
         /https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\//,
@@ -277,34 +365,6 @@
         setSubmitLabel(!!currentPostId);
       }
 
-      function applyMediaConstraints() {
-        if (!previewCard || !previewFigure || !previewBody) return;
-        const layout = layoutSelect?.value || 'full';
-        const fallbackMax = Math.max(200, Math.round(window.innerHeight * 0.3));
-
-        if (layout === 'left' || layout === 'right') {
-          previewFigure.style.display = 'flex';
-          previewFigure.style.maxHeight = '';
-          previewFigure.style.flex = '0 0 30%';
-          previewFigure.style.maxWidth = '30%';
-          previewFigure.style.minWidth = '30%';
-          previewBody.style.flex = '1 1 70%';
-          previewBody.style.minWidth = '0';
-        } else if (layout === 'none') {
-          previewFigure.style.display = 'none';
-          previewBody.style.flex = '1 1 auto';
-        } else {
-          previewFigure.style.display = 'flex';
-          const cardHeight = previewCard.clientHeight || 0;
-          const maxH = cardHeight ? Math.round(cardHeight * 0.3) : 0;
-          previewFigure.style.maxHeight = `${maxH || fallbackMax}px`;
-          previewFigure.style.flex = '0 0 auto';
-          previewFigure.style.maxWidth = '100%';
-          previewFigure.style.minWidth = '0';
-          previewBody.style.flex = '1 1 auto';
-        }
-      }
-
       function applySearch() {
         const term = (searchInput?.value || '').toLowerCase().trim();
         document.querySelectorAll('.post-row').forEach((row) => {
@@ -321,28 +381,38 @@
       function syncContent() {
         const html = getContentHtml();
         if (hiddenContent) hiddenContent.value = html;
-        if (previewContent) {
-          previewContent.innerHTML = html || '<p>El contenido enriquecido aparecerá aquí.</p>';
-        }
+        const placeholder = '<p>El contenido enriquecido aparecerá aquí.</p>';
+        if (previewContentD) previewContentD.innerHTML = html || placeholder;
+        if (previewContentM) previewContentM.innerHTML = html || placeholder;
       }
 
       quill?.on('text-change', syncContent);
       hiddenContent?.addEventListener('input', syncContent);
 
       function updateTitle() {
-        const titleEl = document.getElementById('preview-title');
-        if (titleEl) titleEl.textContent = (titleInput?.value || 'Título de ejemplo');
+        const val = (titleInput?.value || 'Título de ejemplo');
+        if (previewTitleD) previewTitleD.textContent = val;
+        if (previewTitleM) previewTitleM.textContent = val;
       }
       titleInput?.addEventListener('input', updateTitle);
+
+      function updateCategory() {
+        const val = (categorySelect?.value || 'GENERAL').toUpperCase();
+        if (previewCategoryD) previewCategoryD.textContent = val;
+        if (previewCategoryM) previewCategoryM.textContent = val;
+      }
+      categorySelect?.addEventListener('change', updateCategory);
 
       function previewLocalFile(file) {
         if (!file || !file.type?.startsWith('image/')) return;
         const reader = new FileReader();
         reader.onload = (e) => {
-          if (!previewImage) return;
-          previewImage.dataset.driveId = '';
-          previewImage.dataset.fallbackApplied = '';
-          previewImage.src = e.target?.result || '';
+          [previewImageD, previewImageM].forEach(img => {
+            if (!img) return;
+            img.dataset.driveId = '';
+            img.dataset.fallbackApplied = '';
+            img.src = e.target?.result || '';
+          });
         };
         reader.readAsDataURL(file);
       }
@@ -360,13 +430,17 @@
           const normalized = typeof normalizedResult === 'string' ? normalizedResult : normalizedResult.url;
           const driveId = typeof normalizedResult === 'object' && normalizedResult.id ? normalizedResult.id : extractDriveId(url);
           if (normalized !== url && coverInput) coverInput.value = normalized;
-          previewImage.dataset.fallbackApplied = '';
-          // force reload by resetting src to avoid cached broken state
-          previewImage.src = '';
-          previewImage.src = normalized;
-          previewImage.dataset.driveId = driveId || '';
+          
+          [previewImageD, previewImageM].forEach(img => {
+            if (!img) return;
+            img.dataset.fallbackApplied = '';
+            img.src = '';
+            img.src = normalized;
+            img.dataset.driveId = driveId || '';
+          });
         } else {
-          previewImage.src = defaultImage;
+          if (previewImageD) previewImageD.src = defaultImage;
+          if (previewImageM) previewImageM.src = defaultImage;
         }
       }
 
@@ -381,33 +455,37 @@
           updateCover();
         }
       });
-      addDriveFallback(previewImage);
+      addDriveFallback(previewImageD);
+      addDriveFallback(previewImageM);
 
       function updateStatus() {
-        const chip = document.getElementById('preview-status');
-        if (!chip) return;
-        chip.textContent = statusSelect?.value === 'published' ? 'Publicada' : 'Borrador';
-        chip.classList.toggle('chip-live', statusSelect?.value === 'published');
+        // Status is not explicitly shown in the modal preview but we keep the logic if needed
       }
       statusSelect?.addEventListener('change', updateStatus);
 
       function updateDate() {
-        const dateEl = document.getElementById('preview-date');
-        if (!dateEl) return;
-        dateEl.textContent = dateInput?.value ? dateInput.value.split('-').reverse().join('/') : 'Fecha pendiente';
+        const val = dateInput?.value ? dateInput.value.split('-').reverse().join('/') : 'Fecha pendiente';
+        if (previewDateD) previewDateD.textContent = val;
+        if (previewDateM) previewDateM.textContent = val;
       }
       dateInput?.addEventListener('change', updateDate);
 
       function updateLayout() {
         const layout = layoutSelect?.value || 'full';
-        previewCard.classList.remove('layout-left', 'layout-right', 'layout-none', 'layout-full', 'layout-bottom');
-        previewCard.classList.add(`layout-${layout}`);
-        if (layout === 'none') {
-          previewFigure.style.display = 'none';
-        } else {
-          previewFigure.style.display = 'flex';
+        
+        // Desktop layout
+        if (previewDialogD) {
+          previewDialogD.classList.remove('layout-left', 'layout-right', 'layout-none', 'layout-full', 'layout-bottom');
+          previewDialogD.classList.add(`layout-${layout}`);
         }
-        applyMediaConstraints();
+        if (previewFigureD) {
+          previewFigureD.style.display = layout === 'none' ? 'none' : 'flex';
+        }
+
+        // Mobile layout is always stacked (handled by CSS)
+        if (previewFigureM) {
+          previewFigureM.style.display = layout === 'none' ? 'none' : 'flex';
+        }
       }
       layoutSelect?.addEventListener('change', updateLayout);
 
@@ -442,6 +520,7 @@
         updateStatus();
         updateDate();
         updateLayout();
+        updateCategory();
         setSubmitLabel(true);
       }
 
@@ -466,7 +545,6 @@
       formEl?.addEventListener('submit', () => {
         setCurrentPostId(postIdInput?.value || currentPostId);
       });
-      window.addEventListener('resize', () => requestAnimationFrame(applyMediaConstraints));
 
       syncContent();
       updateTitle();
@@ -476,7 +554,6 @@
       updateLayout();
       setCurrentPostId(postIdInput?.value || '');
       applySearch();
-      applyMediaConstraints();
       refreshThumbs();
     });
   </script>

@@ -154,11 +154,18 @@ def posts():
         variants_urls: dict[str, str] = {}
         if image_file and image_file.filename:
             try:
+                # Subimos las nuevas variantes primero
                 variants_urls = upload_news_image_variants(
                     image_file,
                     base_name=slug_value,
                     shared_drive_id=current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID", "") or None,
                 )
+                # Si la subida fue exitosa y estamos editando, eliminamos las imágenes anteriores
+                if post and variants_urls:
+                    try:
+                        delete_news_images(post.cover_image, post.image_variants)
+                    except Exception as exc:
+                        current_app.logger.error(f"Error eliminando imágenes previas de la noticia {post.id}: {exc}")
             except Exception as exc:  # noqa: BLE001
                 current_app.logger.exception("Error generando/subiendo variantes de imagen", exc_info=exc)
                 flash(

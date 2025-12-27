@@ -144,7 +144,7 @@ class PostForm(FlaskForm):
     image_layout = SelectField(
         "Maquetación de imagen",
         choices=[
-            ("full", "Portada grande"),
+            ("full", "Imagen arriba"),
             ("left", "Imagen a la izquierda"),
             ("right", "Imagen a la derecha"),
             ("bottom", "Imagen abajo"),
