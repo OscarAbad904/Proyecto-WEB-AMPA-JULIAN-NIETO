@@ -1006,6 +1006,9 @@ body.menu-open {
   transition: all var(--transition-normal);
   box-shadow: var(--shadow-md);
   border: 1px solid var(--color-border);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .news-card:hover {
@@ -1023,12 +1026,14 @@ body.menu-open {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   display: flex;
+  flex: 1 1 auto;
+  min-height: 11rem;
 }
 
 @media (min-width: 768px) {
   .news-card-cover {
     aspect-ratio: auto;
-    height: 13.5rem;
+    min-height: 13.5rem;
   }
 }
 
