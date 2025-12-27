@@ -90,6 +90,15 @@ def _validate_email_header(value: str, *, field_name: str) -> tuple[bool, str]:
     return True, ""
 
 
+
+def _build_web_subject(base_subject: str, *, section: str, category: str) -> str:
+    parts = ["WEB-AMPA", section, category]
+    prefix = " / ".join([part.strip() for part in parts if (part or "").strip()])
+    base = (base_subject or "").strip()
+    if base and prefix:
+        return f"{prefix} - {base}"
+    return base or prefix
+
 def send_email_gmail_api(
     *,
     subject: str,
@@ -272,7 +281,8 @@ def send_contact_email(datos_contacto: dict[str, str], app_config: Any) -> dict[
         f"{email_remitente}\n"
     )
 
-    subject = f"[Web AMPA] {asunto_formulario} - {nombre}".strip()
+    base_subject = " - ".join([part for part in [asunto_formulario, nombre] if part])
+    subject = _build_web_subject(base_subject, section="Contacto", category="Formulario")
 
     return send_email_gmail_api(
         subject=subject,
@@ -289,7 +299,7 @@ def send_member_verification_email(
     verify_url: str,
     app_config: Any,
 ) -> dict[str, Any]:
-    subject = "Verifica tu correo"
+    subject = _build_web_subject("Verifica tu correo", section="Registro", category="Verificacion")
 
     # Ruta física del logo para incrustarlo (CID)
     logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")
@@ -332,7 +342,11 @@ def send_member_deactivation_email(
     recipient_email: str,
     app_config: Any,
 ) -> dict[str, Any]:
-    subject = "Aviso: Tu cuenta ha sido desactivada"
+    subject = _build_web_subject(
+        "Aviso: Tu cuenta ha sido desactivada",
+        section="Administracion",
+        category="Desactivacion",
+    )
     
     logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")
     
@@ -367,7 +381,11 @@ def send_member_reactivation_email(
     recipient_email: str,
     app_config: Any,
 ) -> dict[str, Any]:
-    subject = "Tu cuenta ha sido reactivada"
+    subject = _build_web_subject(
+        "Tu cuenta ha sido reactivada",
+        section="Administracion",
+        category="Reactivacion",
+    )
     
     logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")
     login_url = url_for("public.home", _external=True)
@@ -412,7 +430,11 @@ def send_new_member_registration_notification_to_ampa(
         or (app_config.get("MAIL_CONTACT_RECIPIENT") or "").strip()
         or (app_config.get("MAIL_DEFAULT_SENDER") or "").strip()
     )
-    subject = "Nuevo registro de Socio"
+    subject = _build_web_subject(
+        "Nuevo registro de Socio",
+        section="Registro",
+        category="Nuevo socio",
+    )
     phone_line = member_phone.strip() if member_phone else ""
     body = (
         "Nuevo registro público de socio/a:\n\n"
@@ -434,7 +456,11 @@ def send_member_approval_email(
     recipient_email: str,
     app_config: Any,
 ) -> dict[str, Any]:
-    subject = "¡Tu alta ha sido aprobada!"
+    subject = _build_web_subject(
+        "Tu alta ha sido aprobada!",
+        section="Registro",
+        category="Aprobacion",
+    )
     
     # Ruta física del logo para incrustarlo (CID)
     logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")

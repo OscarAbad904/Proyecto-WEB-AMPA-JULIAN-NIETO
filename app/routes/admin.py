@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from datetime import datetime
 import re
 import unicodedata
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from email_validator import validate_email, EmailNotValidError
 
@@ -423,6 +424,15 @@ def commission_detail(commission_id: int):
         .limit(20)
         .all()
     )
+    discussion_vote_counts = {}
+    if discussions:
+        rows = (
+            db.session.query(Vote.suggestion_id, func.count(Vote.id))
+            .filter(Vote.suggestion_id.in_([discussion.id for discussion in discussions]))
+            .group_by(Vote.suggestion_id)
+            .all()
+        )
+        discussion_vote_counts = {suggestion_id: count for suggestion_id, count in rows}
 
     return render_template(
         "admin/comision_detalle.html",
@@ -433,6 +443,7 @@ def commission_detail(commission_id: int):
         upcoming_meetings=upcoming_meetings,
         past_meetings=past_meetings,
         discussions=discussions,
+        discussion_vote_counts=discussion_vote_counts,
     )
 
 

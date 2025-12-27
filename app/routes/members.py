@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import secrets
 import re
 from urllib.parse import urlparse
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
@@ -183,6 +184,49 @@ def _ensure_can_access_project_discussion(suggestion: Suggestion) -> None:
 def _ensure_can_access_scoped_discussion(suggestion: Suggestion) -> None:
     _ensure_can_access_commission_discussion(suggestion)
     _ensure_can_access_project_discussion(suggestion)
+
+
+def _ensure_can_access_suggestion_detail(suggestion: Suggestion) -> None:
+    category = (getattr(suggestion, "category", None) or "").strip()
+    is_scoped = (
+        _commission_discussion_commission_id(category) is not None
+        or _project_discussion_project_id(category) is not None
+    )
+    if not current_user.has_permission("view_suggestions") and not is_scoped:
+        abort(403)
+    _ensure_can_access_scoped_discussion(suggestion)
+
+
+def _user_can_participate_in_scoped_discussion(suggestion: Suggestion) -> bool:
+    category = (getattr(suggestion, "category", None) or "").strip()
+    commission_id = _commission_discussion_commission_id(category)
+    if commission_id is not None:
+        membership = CommissionMembership.query.filter_by(
+            commission_id=commission_id, user_id=current_user.id, is_active=True
+        ).first()
+        return bool(membership)
+    project_id = _project_discussion_project_id(category)
+    if project_id is not None:
+        project = CommissionProject.query.get(project_id)
+        if not project:
+            return False
+        membership = CommissionMembership.query.filter_by(
+            commission_id=project.commission_id, user_id=current_user.id, is_active=True
+        ).first()
+        return bool(membership)
+    return False
+
+
+def _vote_counts_for_suggestions(suggestion_ids: list[int]) -> dict[int, int]:
+    if not suggestion_ids:
+        return {}
+    rows = (
+        db.session.query(Vote.suggestion_id, func.count(Vote.id))
+        .filter(Vote.suggestion_id.in_(suggestion_ids))
+        .group_by(Vote.suggestion_id)
+        .all()
+    )
+    return {suggestion_id: count for suggestion_id, count in rows}
 
 
 def _user_is_commission_coordinator(membership: CommissionMembership | None) -> bool:
@@ -700,14 +744,7 @@ def nueva_sugerencia():
 @login_required
 def detalle_sugerencia(suggestion_id: int):
     suggestion = Suggestion.query.get_or_404(suggestion_id)
-    category = (getattr(suggestion, "category", None) or "").strip()
-    is_scoped = (
-        _commission_discussion_commission_id(category) is not None
-        or _project_discussion_project_id(category) is not None
-    )
-    if not current_user.has_permission("view_suggestions") and not is_scoped:
-        abort(403)
-    _ensure_can_access_scoped_discussion(suggestion)
+    _ensure_can_access_suggestion_detail(suggestion)
     return_to = _safe_return_to(request.args.get("return_to"))
     back_url, back_label, breadcrumb = _discussion_back_target(suggestion, return_to=return_to)
     comment_form = CommentForm()
@@ -716,20 +753,28 @@ def detalle_sugerencia(suggestion_id: int):
     if user_vote:
         vote_form.value.data = str(user_vote.value)
     comments = suggestion.comments.order_by(Comment.created_at.asc()).all()
+    child_parent_ids = {comment.parent_id for comment in comments if comment.parent_id}
+    leaf_comment_ids = {comment.id for comment in comments if comment.id not in child_parent_ids}
     likes_count = suggestion.votes.filter_by(value=1).count()
     dislikes_count = suggestion.votes.filter_by(value=-1).count()
+    total_votes = likes_count + dislikes_count
     is_closed = suggestion.status == "cerrada"
+    scoped_participant = _user_can_participate_in_scoped_discussion(suggestion)
     return render_template(
         "members/sugerencia_detalle.html",
         suggestion=suggestion,
         comments=comments,
         Comment=Comment,
+        leaf_comment_ids=leaf_comment_ids,
         comment_form=comment_form,
         vote_form=vote_form,
         user_vote=user_vote,
         likes_count=likes_count,
         dislikes_count=dislikes_count,
+        total_votes=total_votes,
         is_closed=is_closed,
+        can_comment=current_user.has_permission("comment_suggestions") or scoped_participant,
+        can_vote=current_user.has_permission("vote_suggestions") or scoped_participant,
         back_url=back_url,
         back_label=back_label,
         breadcrumb=breadcrumb,
@@ -739,10 +784,10 @@ def detalle_sugerencia(suggestion_id: int):
 @members_bp.route("/sugerencias/<int:suggestion_id>/comentar", methods=["POST"])
 @login_required
 def comentar_sugerencia(suggestion_id: int):
-    if not current_user.has_permission("comment_suggestions"):
-        abort(403)
     suggestion = Suggestion.query.get_or_404(suggestion_id)
-    _ensure_can_access_scoped_discussion(suggestion)
+    _ensure_can_access_suggestion_detail(suggestion)
+    if not current_user.has_permission("comment_suggestions") and not _user_can_participate_in_scoped_discussion(suggestion):
+        abort(403)
     form = CommentForm()
     if form.validate_on_submit():
         parent_id = request.form.get("parent_id")
@@ -758,6 +803,25 @@ def comentar_sugerencia(suggestion_id: int):
     return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion_id))
 
 
+@members_bp.route("/comentarios/<int:comment_id>/eliminar", methods=["POST"])
+@login_required
+def eliminar_comentario(comment_id: int):
+    comment = Comment.query.get_or_404(comment_id)
+    if comment.created_by != current_user.id:
+        abort(403)
+    suggestion = comment.suggestion
+    if not suggestion:
+        abort(404)
+    _ensure_can_access_suggestion_detail(suggestion)
+    if comment.children.count() > 0:
+        flash("Solo puedes eliminar tu ultimo mensaje si no hay respuestas posteriores.", "warning")
+        return redirect(url_for("members.detalle_sugerencia", suggestion_id=comment.suggestion_id))
+    db.session.delete(comment)
+    db.session.commit()
+    flash("Comentario eliminado", "success")
+    return redirect(url_for("members.detalle_sugerencia", suggestion_id=comment.suggestion_id))
+
+
 @members_bp.route("/comentarios/<int:comment_id>/editar", methods=["POST"])
 @login_required
 def editar_comentario(comment_id: int):
@@ -765,10 +829,14 @@ def editar_comentario(comment_id: int):
     if comment.created_by != current_user.id:
         abort(403)
 
-    # Verificar si es el último mensaje del hilo (nadie ha escrito después en esa sugerencia)
-    last_comment = Comment.query.filter_by(suggestion_id=comment.suggestion_id).order_by(Comment.created_at.desc()).first()
-    if last_comment.id != comment.id:
-        flash("Solo puedes editar tu último mensaje si no hay respuestas posteriores.", "warning")
+    suggestion = comment.suggestion
+    if not suggestion:
+        abort(404)
+    _ensure_can_access_suggestion_detail(suggestion)
+
+    # Solo se permite editar si nadie ha respondido a este comentario.
+    if comment.children.count() > 0:
+        flash("Solo puedes editar tu ultimo mensaje si no hay respuestas posteriores.", "warning")
         return redirect(url_for("members.detalle_sugerencia", suggestion_id=comment.suggestion_id))
 
     form = CommentForm()
@@ -784,10 +852,10 @@ def editar_comentario(comment_id: int):
 @members_bp.route("/sugerencias/<int:suggestion_id>/votar", methods=["POST"])
 @login_required
 def votar_sugerencia(suggestion_id: int):
-    if not current_user.has_permission("vote_suggestions"):
-        abort(403)
     suggestion = Suggestion.query.get_or_404(suggestion_id)
-    _ensure_can_access_scoped_discussion(suggestion)
+    _ensure_can_access_suggestion_detail(suggestion)
+    if not current_user.has_permission("vote_suggestions") and not _user_can_participate_in_scoped_discussion(suggestion):
+        abort(403)
     if suggestion.status == "cerrada":
         message = "El hilo está cerrado; no se pueden registrar votos nuevos."
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -818,25 +886,27 @@ def votar_sugerencia(suggestion_id: int):
             flash(message, "info")
             return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion_id))
 
-        previous_value = vote.value if vote else 0
+        is_new_vote = False
         if vote:
             vote.value = value
         else:
             vote = Vote(suggestion_id=suggestion.id, user_id=current_user.id, value=value)
             db.session.add(vote)
-        suggestion.votes_count = (suggestion.votes_count or 0) - previous_value + value
+            is_new_vote = True
+        existing_votes = Vote.query.filter_by(suggestion_id=suggestion.id).count()
+        suggestion.votes_count = existing_votes + (1 if is_new_vote else 0)
         db.session.commit()
         likes_count = suggestion.votes.filter_by(value=1).count()
         dislikes_count = suggestion.votes.filter_by(value=-1).count()
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return jsonify(
                 success=True,
-                message="Voto actualizado" if previous_value else "Voto registrado",
+                message="Voto actualizado" if not is_new_vote else "Voto registrado",
                 vote=value,
                 likes=likes_count,
                 dislikes=dislikes_count,
             )
-        flash("Voto actualizado" if previous_value else "Voto registrado", "success")
+        flash("Voto actualizado" if not is_new_vote else "Voto registrado", "success")
     else:
         message = "Selecciona Me gusta o No me gusta antes de guardar."
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -950,6 +1020,7 @@ def commission_detail(slug: str):
         .limit(20)
         .all()
     )
+    discussion_vote_counts = _vote_counts_for_suggestions([discussion.id for discussion in commission_discussions])
     now_dt = datetime.utcnow()
     upcoming_meetings = (
         commission.meetings.filter(CommissionMeeting.end_at >= now_dt)
@@ -983,6 +1054,7 @@ def commission_detail(slug: str):
         upcoming_meetings=upcoming_meetings,
         past_meetings=past_meetings,
         discussions=commission_discussions,
+        discussion_vote_counts=discussion_vote_counts,
         is_member_view=True,
         header_kicker="Comisiones · Área privada",
         back_href=url_for("members.commissions"),
@@ -1022,6 +1094,7 @@ def commission_project_detail(slug: str, project_id: int):
         .limit(20)
         .all()
     )
+    project_discussion_vote_counts = _vote_counts_for_suggestions([discussion.id for discussion in project_discussions])
 
     can_create_discussions = _commission_can_manage(membership, "discussions") or user_is_privileged(current_user)
     can_manage_projects = _commission_can_manage(membership, "projects") or user_is_privileged(current_user)
@@ -1046,6 +1119,7 @@ def commission_project_detail(slug: str, project_id: int):
         project=project,
         membership=membership,
         project_discussions=project_discussions,
+        project_discussion_vote_counts=project_discussion_vote_counts,
         can_create_discussions=can_create_discussions,
         can_manage_projects=can_manage_projects,
         return_to=return_to,

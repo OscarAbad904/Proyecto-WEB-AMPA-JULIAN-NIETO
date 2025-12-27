@@ -252,7 +252,7 @@
             <div class="item-top">
               <div class="meta">
                 <span class="chip">{{ discussion.status }}</span>
-                <span>{{ discussion.votes_count or 0 }} votos</span>
+                <span>{{ discussion_vote_counts.get(discussion.id, 0) }} votos</span>
                 {% if discussion.updated_at %}
                   <span>Actualizada: {{ discussion.updated_at.strftime("%d/%m/%Y %H:%M") }}</span>
                 {% endif %}

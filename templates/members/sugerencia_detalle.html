@@ -29,6 +29,9 @@
   .comment-item:hover .comment-actions-hover {
     opacity: 1;
   }
+  .comment-actions-hover form {
+    margin: 0;
+  }
   .action-icon-btn {
     background: white;
     border: 1px solid var(--color-border, rgba(15, 23, 42, 0.1));
@@ -101,7 +104,7 @@
               <span class="mini-pill down" id="dislikes-count-hero">👎 {{ dislikes_count }}</span>
             </div>
             <span class="status-pill status-{{ suggestion.status }}">{{ suggestion.status|capitalize }}</span>
-            <span class="thread-meta inline">Por {{ suggestion.creator.display_name if suggestion.creator else 'Socio' }} · Estado {{ suggestion.status }} · {{ suggestion.votes_count or 0 }} votos totales</span>
+            <span class="thread-meta inline">Por {{ suggestion.creator.display_name if suggestion.creator else 'Socio' }} · Estado {{ suggestion.status }} · {{ total_votes }} votos totales</span>
           </div>
         </div>
       </header>
@@ -119,6 +122,7 @@
         </div>
         <div class="comment-list">
           {% macro render_comment(comment, is_reply=False, is_last_overall=False) %}
+            {% set is_leaf = comment.id in leaf_comment_ids %}
             <article class="comment-item {{ 'is-own' if comment.created_by == current_user.id else '' }} {{ 'is-reply' if is_reply else '' }}" id="comment-{{ comment.id }}" {% if is_last_overall %}onclick="focusMainInput(event)"{% endif %}>
               <div class="comment-meta">
                 <span class="author">{{ comment.author.display_name if comment.author else 'Socio' }}</span>
@@ -136,7 +140,7 @@
               </div>
 
               {# Formulario de edición (oculto por defecto) #}
-              {% if comment.created_by == current_user.id and is_last_overall %}
+              {% if comment.created_by == current_user.id and is_leaf %}
                 <div class="edit-form-inline" id="edit-form-{{ comment.id }}">
                   <form method="post" action="{{ url_for('members.editar_comentario', comment_id=comment.id) }}">
                     {{ comment_form.hidden_tag() }}
@@ -151,14 +155,16 @@
 
               <div class="comment-actions-hover">
                 {# Icono de responder #}
-                <button class="action-icon-btn" title="Responder a este mensaje" onclick="showReplyForm('{{ comment.id }}', event)">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 10h10a8 8 0 0 1 8 8v2M3 10l6 6m-6-6l6-6"></path>
-                  </svg>
-                </button>
+                {% if can_comment %}
+                  <button class="action-icon-btn" title="Responder a este mensaje" onclick="showReplyForm('{{ comment.id }}', event)">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M3 10h10a8 8 0 0 1 8 8v2M3 10l6 6m-6-6l6-6"></path>
+                    </svg>
+                  </button>
+                {% endif %}
 
-                {# Icono de editar (solo si es el último mensaje del usuario y del hilo) #}
-                {% if comment.created_by == current_user.id and is_last_overall %}
+                {# Icono de editar (solo si es el ultimo mensaje del usuario en la rama) #}
+                {% if comment.created_by == current_user.id and is_leaf %}
                   <button class="action-icon-btn" title="Editar mensaje" onclick="toggleEdit('{{ comment.id }}', event)">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -166,21 +172,38 @@
                     </svg>
                   </button>
                 {% endif %}
+
+                {% if comment.created_by == current_user.id and is_leaf %}
+                  <form method="post" action="{{ url_for('members.eliminar_comentario', comment_id=comment.id) }}" onsubmit="return confirm('Eliminar este comentario?');">
+                    {{ comment_form.csrf_token }}
+                    <button class="action-icon-btn" title="Eliminar mensaje">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 6h18"></path>
+                        <path d="M8 6V4h8v2"></path>
+                        <path d="M6 6l1 14h10l1-14"></path>
+                        <path d="M10 11v6"></path>
+                        <path d="M14 11v6"></path>
+                      </svg>
+                    </button>
+                  </form>
+                {% endif %}
               </div>
             </article>
 
             {# Formulario de respuesta (oculto por defecto) #}
-            <div class="reply-form-inline" id="reply-form-{{ comment.id }}">
-              <form method="post" action="{{ url_for('members.comentar_sugerencia', suggestion_id=suggestion.id) }}">
-                {{ comment_form.hidden_tag() }}
-                <input type="hidden" name="parent_id" value="{{ comment.id }}">
-                <textarea name="content" class="comment-textarea" placeholder="Escribe tu respuesta..."></textarea>
-                <div class="comment-actions">
-                  <button type="button" class="nav-auth-btn nav-auth-btn--cancel btn-mini" onclick="showReplyForm('{{ comment.id }}', event)">Cancelar</button>
-                  <button type="submit" class="nav-auth-btn nav-auth-btn--logout btn-mini">Responder</button>
-                </div>
-              </form>
-            </div>
+            {% if can_comment %}
+              <div class="reply-form-inline" id="reply-form-{{ comment.id }}">
+                <form method="post" action="{{ url_for('members.comentar_sugerencia', suggestion_id=suggestion.id) }}">
+                  {{ comment_form.hidden_tag() }}
+                  <input type="hidden" name="parent_id" value="{{ comment.id }}">
+                  <textarea name="content" class="comment-textarea" placeholder="Escribe tu respuesta..."></textarea>
+                  <div class="comment-actions">
+                    <button type="button" class="nav-auth-btn nav-auth-btn--cancel btn-mini" onclick="showReplyForm('{{ comment.id }}', event)">Cancelar</button>
+                    <button type="submit" class="nav-auth-btn nav-auth-btn--logout btn-mini">Responder</button>
+                  </div>
+                </form>
+              </div>
+            {% endif %}
 
             {% for child in comment.children.order_by(Comment.created_at.asc()) %}
               {{ render_comment(child, is_reply=True, is_last_overall=(child.id == comments[-1].id if comments else False)) }}
@@ -194,18 +217,22 @@
           {% endfor %}
         </div>
 
-        <form
-          method="post"
-          action="{{ url_for('members.comentar_sugerencia', suggestion_id=suggestion.id) }}"
-          class="comment-form"
-        >
-          {{ comment_form.hidden_tag() }}
-          <label for="comment-content">Añadir comentario</label>
-          {{ comment_form.content(id="comment-content", class_="comment-textarea", placeholder="Comparte tu idea o duda...") }}
-          <div class="comment-actions">
-            {{ comment_form.submit(class_="nav-auth-btn nav-auth-btn--logout comment-submit-btn") }}
-          </div>
-        </form>
+        {% if can_comment %}
+          <form
+            method="post"
+            action="{{ url_for('members.comentar_sugerencia', suggestion_id=suggestion.id) }}"
+            class="comment-form"
+          >
+            {{ comment_form.hidden_tag() }}
+            <label for="comment-content">Añadir comentario</label>
+            {{ comment_form.content(id="comment-content", class_="comment-textarea", placeholder="Comparte tu idea o duda...") }}
+            <div class="comment-actions">
+              {{ comment_form.submit(class_="nav-auth-btn nav-auth-btn--logout comment-submit-btn") }}
+            </div>
+          </form>
+        {% else %}
+          <p class="comment-empty">No tienes permisos para comentar.</p>
+        {% endif %}
       </section>
 
       <section class="thread-vote card">
@@ -222,6 +249,7 @@
             </p>
           </div>
         </div>
+        {% if can_vote %}
         <form
           method="post"
           action="{{ url_for('members.votar_sugerencia', suggestion_id=suggestion.id) }}"
@@ -262,6 +290,9 @@
             {% endif %}
           </div>
         </form>
+        {% else %}
+          <p class="vote-locked">No tienes permisos para votar.</p>
+        {% endif %}
       </section>
     </div>
   </section>
