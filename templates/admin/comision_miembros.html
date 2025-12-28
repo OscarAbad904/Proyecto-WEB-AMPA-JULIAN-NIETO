@@ -2,6 +2,11 @@
 
 {% block title %}Miembros | {{ commission.name }}{% endblock %}
 
+{% set is_member_view = is_member_view|default(false) %}
+{% set back_href = back_href|default(url_for('admin.commissions_index')) %}
+{% set back_label = back_label|default("Volver") %}
+{% set header_kicker = header_kicker|default("Comisiones") %}
+
 {% block head %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
 {% endblock %}
@@ -9,7 +14,7 @@
 {% block content %}
 <section class="admin-wrapper">
   <div class="admin-header">
-    <p class="admin-kicker">Comisiones · Administración</p>
+    <p class="admin-kicker">{{ header_kicker }}</p>
     <h1 class="admin-title">Miembros de {{ commission.name }}</h1>
     <p class="admin-subtitle">Añade responsables, define su rol y activa o desactiva miembros según su participación.</p>
   </div>
@@ -34,7 +39,7 @@
       </div>
       <div class="admin-actions">
         {{ form.submit(class="btn-primary") }}
-        <a class="btn-link" href="{{ url_for('admin.commissions_index') }}">Volver</a>
+        <a class="btn-link" href="{{ back_href }}">{{ back_label }}</a>
       </div>
     </form>
   </div>
@@ -59,7 +64,11 @@
               <span class="chip chip-live">Activo</span>
             </td>
             <td>
+              {% if is_member_view %}
+              <form method="post" action="{{ url_for('members.commission_member_disable', slug=commission.slug, membership_id=member.id) }}">
+              {% else %}
               <form method="post" action="{{ url_for('admin.commission_member_disable_admin', commission_id=commission.id, membership_id=member.id) }}">
+              {% endif %}
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-link">Desactivar</button>
               </form>

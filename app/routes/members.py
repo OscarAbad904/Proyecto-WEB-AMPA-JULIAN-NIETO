@@ -237,7 +237,7 @@ def _commission_can_manage(membership: CommissionMembership | None, area: str) -
         return False
     role = (membership.role or "").strip().lower()
     if role == "coordinador":
-        return area in {"projects", "meetings", "discussions"}
+        return area in {"members", "projects", "meetings", "discussions"}
     return False
 
 
@@ -1034,7 +1034,8 @@ def commission_detail(slug: str):
     )
 
     can_manage_members = (
-        current_user.has_permission("manage_commission_members")
+        _commission_can_manage(membership, "members")
+        or current_user.has_permission("manage_commission_members")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
@@ -1191,7 +1192,8 @@ def project_discussion_new(slug: str, project_id: int):
 def commission_member_new(slug: str):
     commission, membership = _get_commission_and_membership(slug)
     can_manage_members = (
-        current_user.has_permission("manage_commission_members")
+        _commission_can_manage(membership, "members")
+        or current_user.has_permission("manage_commission_members")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
@@ -1206,6 +1208,20 @@ def commission_member_new(slug: str):
     )
     active_users_sorted = sorted(active_users, key=lambda user: user.display_name.casefold())
     form.user_id.choices = [(user.id, user.display_name) for user in active_users_sorted]
+    from sqlalchemy.orm import joinedload
+
+    memberships = (
+        commission.memberships.options(joinedload(CommissionMembership.user))
+        .order_by(CommissionMembership.created_at.desc())
+        .all()
+    )
+    members_active = [
+        m
+        for m in memberships
+        if m.is_active and m.user.is_active and m.user.deleted_at is None
+    ]
+    active_member_ids = {m.id for m in members_active}
+    members_history = [m for m in memberships if m.id not in active_member_ids]
 
     if form.validate_on_submit():
         existing = CommissionMembership.query.filter_by(
@@ -1224,9 +1240,19 @@ def commission_member_new(slug: str):
             db.session.add(membership_obj)
         db.session.commit()
         flash("Miembro guardado en la comisión", "success")
-        return redirect(url_for("members.commission_detail", slug=slug))
+        return redirect(url_for("members.commission_member_new", slug=slug))
 
-    return render_template("members/comision_miembro_form.html", form=form, commission=commission)
+    return render_template(
+        "admin/comision_miembros.html",
+        commission=commission,
+        members_active=members_active,
+        members_history=members_history,
+        form=form,
+        is_member_view=True,
+        back_href=url_for("members.commission_detail", slug=commission.slug),
+        back_label="Volver",
+        header_kicker="Comisiones - Area privada",
+    )
 
 
 @members_bp.route("/comisiones/<slug>/miembros/<int:membership_id>/desactivar", methods=["POST"])
@@ -1234,7 +1260,8 @@ def commission_member_new(slug: str):
 def commission_member_disable(slug: str, membership_id: int):
     commission, membership = _get_commission_and_membership(slug)
     can_manage_members = (
-        current_user.has_permission("manage_commission_members")
+        _commission_can_manage(membership, "members")
+        or current_user.has_permission("manage_commission_members")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
@@ -1245,7 +1272,7 @@ def commission_member_disable(slug: str, membership_id: int):
     target.is_active = False
     db.session.commit()
     flash("Miembro desactivado", "info")
-    return redirect(url_for("members.commission_detail", slug=slug))
+    return redirect(url_for("members.commission_member_new", slug=slug))
 
 
 @members_bp.route("/comisiones/<slug>/proyectos/nuevo", methods=["GET", "POST"])

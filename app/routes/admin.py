@@ -549,6 +549,7 @@ def commission_members(commission_id: int):
         members_active=members_active,
         members_history=members_history,
         form=form,
+        header_kicker="Comisiones · Administración",
     )
 
 
