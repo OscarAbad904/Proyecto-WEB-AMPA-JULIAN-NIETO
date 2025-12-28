@@ -53,6 +53,7 @@
 
     .detail-grid { display:grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1rem; align-items:start; }
     .detail-grid .admin-card { padding: 1.25rem; }
+    .detail-column { display:flex; flex-direction:column; gap: 1rem; }
 
     .section-title-row { display:flex; align-items:center; justify-content:space-between; gap: 0.75rem; flex-wrap:wrap; margin-bottom: 0.75rem; }
     .section-title-row h3 { margin:0; color:#0f172a; letter-spacing:-0.01em; }
@@ -120,13 +121,7 @@
           <a class="btn-link" href="{{ url_for('admin.commission_project_edit', commission_id=commission.id) }}">Nuevo proyecto</a>
           {% endif %}
         {% endif %}
-        {% if can_manage_meetings %}
-          {% if is_member_view %}
-          <a class="btn-link" href="{{ url_for('members.commission_meeting_form', slug=commission.slug) }}">Nueva reunión</a>
-          {% else %}
-          <a class="btn-link" href="{{ url_for('admin.commission_meeting_edit', commission_id=commission.id) }}">Nueva reunión</a>
-          {% endif %}
-        {% endif %}
+        
         {% if can_create_discussions %}
         <a class="btn-primary" style="width:auto; min-width: 190px;" href="{{ url_for('members.commission_discussion_new', slug=commission.slug, return_to=return_to_url) }}">Nueva discusión</a>
         {% endif %}
@@ -135,6 +130,7 @@
   </div>
 
   <div class="detail-grid">
+    <div class="detail-column">
     <div class="admin-card">
       <div class="section-title-row">
         <h3>Descripción</h3>
@@ -166,13 +162,16 @@
         </div>
       </div>
 
-      <div class="section-title-row" style="margin-top: 2rem; border-top: 1px solid #e2e8f0; padding-top: 1.5rem;">
+      </div>
+
+      <div class="admin-card">
+        <div class="section-title-row">
         <h3>Reuniones</h3>
         {% if can_manage_meetings %}
           {% if is_member_view %}
-          <a class="btn-link" href="{{ url_for('members.commission_meeting_form', slug=commission.slug) }}">➕ Nueva</a>
+          <a class="btn-link" href="{{ url_for('members.commission_meeting_form', slug=commission.slug) }}">Nueva reunión</a>
           {% else %}
-          <a class="btn-link" href="{{ url_for('admin.commission_meeting_edit', commission_id=commission.id) }}">➕ Nueva</a>
+          <a class="btn-link" href="{{ url_for('admin.commission_meeting_edit', commission_id=commission.id) }}">Nueva reunión</a>
           {% endif %}
         {% endif %}
       </div>
@@ -266,7 +265,10 @@
       </div>
     </div>
 
-    <div class="admin-card" style="grid-column: 1 / -1;">
+    </div>
+
+    <div class="detail-column">
+      <div class="admin-card">
       <div class="section-title-row">
         <h3>Proyectos activos</h3>
         {% if can_manage_projects %}
@@ -314,6 +316,7 @@
           <p class="muted" style="margin:0;">No hay proyectos activos en este momento.</p>
         {% endfor %}
       </div>
+    </div>
     </div>
   </div>
 </section>
