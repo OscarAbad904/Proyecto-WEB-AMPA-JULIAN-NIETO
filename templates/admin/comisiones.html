@@ -232,21 +232,19 @@
 
   {# flashes rendered globally in layout #}
 
+  {% if (is_member_view and can_view_all) or (not is_member_view and show_create_button) %}
   <div class="commission-top">
     {% if is_member_view %}
       <div class="commission-top-links">
         <a class="btn-link {% if scope != 'todas' %}active{% endif %}" href="{{ url_for('members.commissions', scope='mis') }}">Mis comisiones</a>
-        {% if can_view_all %}
         <a class="btn-link {% if scope == 'todas' %}active{% endif %}" href="{{ url_for('members.commissions', scope='todas') }}">Todas</a>
-        {% endif %}
       </div>
     {% else %}
       <div style="flex: 1;"></div>
-      {% if show_create_button %}
       <a class="btn-primary" href="{{ url_for('admin.commission_edit') }}">✨ Nueva comisión</a>
-      {% endif %}
     {% endif %}
   </div>
+  {% endif %}
 
   <div class="commission-grid">
     {% for commission in commissions %}

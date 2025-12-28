@@ -364,7 +364,7 @@ def api_commission_meetings(commission_id: int):
     
     can_view = (
         bool(membership)
-        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commission_members")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )

@@ -151,7 +151,7 @@ def _ensure_can_access_commission_discussion(suggestion: Suggestion) -> None:
     ).first()
     can_view_commission = (
         bool(membership)
-        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commission_members")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
@@ -173,7 +173,7 @@ def _ensure_can_access_project_discussion(suggestion: Suggestion) -> None:
     ).first()
     can_view_commission = (
         bool(membership)
-        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commission_members")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
@@ -680,7 +680,7 @@ def commission_discussion_new(slug: str):
     commission, membership = _get_commission_and_membership(slug)
     can_view_commission = (
         bool(membership)
-        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commission_members")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
@@ -924,7 +924,7 @@ def votar_sugerencia(suggestion_id: int):
 def commissions():
     scope = request.args.get("scope", "mis")
     can_view_all = (
-        current_user.has_permission("view_commissions")
+        current_user.has_permission("manage_commission_members")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
@@ -993,7 +993,12 @@ def commissions():
 @login_required
 def commission_detail(slug: str):
     commission, membership = _get_commission_and_membership(slug)
-    can_view_commission = bool(membership) or current_user.has_permission("view_commissions") or user_is_privileged(current_user)
+    can_view_commission = (
+        bool(membership)
+        or current_user.has_permission("manage_commission_members")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
     if not can_view_commission:
         abort(403)
 
@@ -1092,7 +1097,7 @@ def commission_project_detail(slug: str, project_id: int):
     return_to = _safe_return_to(request.args.get("return_to"))
     can_view_commission = (
         bool(membership)
-        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commission_members")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
@@ -1163,7 +1168,7 @@ def project_discussion_new(slug: str, project_id: int):
     return_to = _safe_return_to(request.args.get("return_to"))
     can_view_commission = (
         bool(membership)
-        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commission_members")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
@@ -1481,7 +1486,7 @@ def commission_meetings_list(slug: str):
     commission, membership = _get_commission_and_membership(slug)
     can_view_commission = (
         bool(membership)
-        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commission_members")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )

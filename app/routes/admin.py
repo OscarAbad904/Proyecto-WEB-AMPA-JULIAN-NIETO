@@ -341,7 +341,7 @@ def admin_eventos():
 def commissions_index():
     can_view_commissions_admin = (
         current_user.has_permission("manage_commissions")
-        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commission_members")
         or user_is_privileged(current_user)
     )
     if not can_view_commissions_admin:
@@ -383,7 +383,7 @@ def commissions_index():
 def commission_detail(commission_id: int):
     can_view_commissions_admin = (
         current_user.has_permission("manage_commissions")
-        or current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commission_members")
         or user_is_privileged(current_user)
     )
     if not can_view_commissions_admin:
