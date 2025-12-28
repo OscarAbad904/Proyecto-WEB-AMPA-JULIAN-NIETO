@@ -366,9 +366,35 @@ def register_guards(app: Flask) -> None:
                 )
                 or path.startswith("/socios/comisiones")
             )
+            is_scoped_discussion_endpoint = False
+            if endpoint in {
+                "members.detalle_sugerencia",
+                "members.comentar_sugerencia",
+                "members.votar_sugerencia",
+                "members.eliminar_comentario",
+                "members.editar_comentario",
+            }:
+                try:
+                    from app.models import Suggestion, Comment
+
+                    view_args = request.view_args or {}
+                    suggestion_id = view_args.get("suggestion_id")
+                    comment_id = view_args.get("comment_id")
+                    suggestion = None
+                    if suggestion_id is not None:
+                        suggestion = Suggestion.query.get(int(suggestion_id))
+                    elif comment_id is not None:
+                        comment = Comment.query.get(int(comment_id))
+                        suggestion = comment.suggestion if comment else None
+                    category = (getattr(suggestion, "category", "") or "").strip().lower()
+                    if category.startswith("comision:") or category.startswith("proyecto:"):
+                        is_scoped_discussion_endpoint = True
+                except Exception:
+                    is_scoped_discussion_endpoint = False
             if (
                 endpoint not in private_area_exempt
                 and not is_commission_endpoint
+                and not is_scoped_discussion_endpoint
                 and not current_user.has_permission("view_private_area")
             ):
                 if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
