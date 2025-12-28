@@ -187,6 +187,10 @@ def register_context(app: Flask) -> None:
         can_manage_members = current_user.is_authenticated and (
             current_user.has_permission("manage_members") or user_is_privileged(current_user)
         )
+        can_view_private_area = current_user.is_authenticated and (
+            getattr(current_user, "registration_approved", False)
+            and current_user.has_permission("view_private_area")
+        )
         can_view_posts = public_view_posts or (current_user.is_authenticated and (
             current_user.has_permission("manage_posts")
             or current_user.has_permission("view_posts")
@@ -211,13 +215,10 @@ def register_context(app: Flask) -> None:
                 .first()
                 is not None
             )
-        can_view_private_calendar = current_user.is_authenticated and (
-            getattr(current_user, "registration_approved", False)
-            and (
-                has_commission_membership
-                or current_user.has_permission("view_all_commission_calendar")
-                or user_is_privileged(current_user)
-            )
+        can_view_private_calendar = can_view_private_area and (
+            has_commission_membership
+            or current_user.has_permission("view_all_commission_calendar")
+            or user_is_privileged(current_user)
         )
         # El calendario publico consume eventos; el privado depende de pertenencia o permiso.
         can_view_calendar = can_view_events or can_view_private_calendar
@@ -239,8 +240,8 @@ def register_context(app: Flask) -> None:
             or current_user.has_permission("view_commissions")
             or user_is_privileged(current_user)
         )
-        can_view_commissions = (
-            current_user.is_authenticated and (has_commission_membership or can_view_commissions_admin)
+        can_view_commissions = current_user.is_authenticated and (
+            can_view_commissions_admin or (has_commission_membership and can_view_private_area)
         )
         commissions_href = (
             url_for("admin.commissions_index")
@@ -275,6 +276,7 @@ def register_context(app: Flask) -> None:
             "can_view_events": can_view_events,
             "can_view_calendar": can_view_calendar,
             "can_view_private_calendar": can_view_private_calendar,
+            "can_view_private_area": can_view_private_area,
             "calendar_href": calendar_href,
             "can_manage_events": can_manage_events,
             "can_view_documents": can_view_documents,
@@ -344,6 +346,19 @@ def register_guards(app: Flask) -> None:
                 return jsonify({"ok": False, "error": "Registro pendiente de aprobación"}), 403
             flash("Tu alta está pendiente de aprobación. Solo puedes acceder a tu perfil.", "info")
             return redirect(url_for("public.home"))
+
+        if request.blueprint == "members":
+            private_area_exempt = {
+                "members.login",
+                "members.logout",
+                "members.register",
+                "members.recuperar",
+            }
+            if endpoint not in private_area_exempt and not current_user.has_permission("view_private_area"):
+                if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify({"ok": False, "error": "Area privada desactivada"}), 403
+                flash("El area privada esta desactivada.", "info")
+                return redirect(url_for("public.home"))
 
         return None
 

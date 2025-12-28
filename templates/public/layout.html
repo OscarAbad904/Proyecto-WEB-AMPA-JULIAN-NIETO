@@ -163,8 +163,10 @@
                         <a href="{{ url_for('public.contacto') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.contacto') %} active{% endif %}">Contacto</a>
                         <a href="{{ url_for('public.faq') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.faq') %} active{% endif %}">FAQ</a>
                         {% if current_user.is_authenticated %}
+                        {% if can_view_private_area %}
                         <a href="{{ url_for('members.dashboard') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('members.') %} active{% endif %}">Área privada</a>
                         <a href="{{ url_for('members.mi_cuenta') }}" class="nav-link{% if request.endpoint == 'members.mi_cuenta' %} active{% endif %}">Mi cuenta</a>
+                        {% endif %}
                         {% if can_manage_members %}
                         <a href="{{ url_for('admin.usuarios') }}" class="nav-link nav-link--with-badge{% if request.endpoint == 'admin.usuarios' %} active{% endif %}">Usuarios <span class="nav-badge" data-pending-users-badge style="display:none;"></span></a>
                         {% endif %}
@@ -226,9 +228,11 @@
                         onclick="toggleMobileMenu()">Contacto</a>
                     <a href="{{ url_for('public.faq') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.faq') %} active{% endif %}" onclick="toggleMobileMenu()">FAQ</a>
                     {% if current_user.is_authenticated %}
+                    {% if can_view_private_area %}
                     <a href="{{ url_for('members.dashboard') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('members.') %} active{% endif %}" onclick="toggleMobileMenu()">Área
                         privada</a>
                     <a href="{{ url_for('members.mi_cuenta') }}" class="nav-link{% if request.endpoint == 'members.mi_cuenta' %} active{% endif %}" onclick="toggleMobileMenu()">Mi cuenta</a>
+                    {% endif %}
                     {% if can_manage_members %}
                     <a href="{{ url_for('admin.usuarios') }}" class="nav-link nav-link--with-badge{% if request.endpoint == 'admin.usuarios' %} active{% endif %}" onclick="toggleMobileMenu()">Usuarios <span class="nav-badge" data-pending-users-badge style="display:none;"></span></a>
                     {% endif %}
@@ -320,7 +324,9 @@
                         <a href="{{ url_for('public.contacto') }}" class="footer-link">Contacto</a>
                         <a href="{{ url_for('public.faq') }}" class="footer-link">FAQ</a>
                         {% if current_user.is_authenticated %}
+                        {% if can_view_private_area %}
                         <a href="{{ url_for('members.dashboard') }}" class="footer-link">Área privada</a>
+                        {% endif %}
                         {% if can_manage_members %}
                         <a href="{{ url_for('members.register') }}" class="footer-link">Crear cuenta</a>
                         {% endif %}

@@ -72,6 +72,13 @@ PERMISSION_DEFINITIONS = [
         "section": "Sistema",
     },
     {
+        "key": "view_private_area",
+        "name": "Ver area privada",
+        "description": "Acceso a la zona privada de socios.",
+        "section": "Sistema",
+        "grant_to_all_roles": True,
+    },
+    {
         "key": "view_posts",
         "name": "Ver noticias",
         "description": "Acceso de solo lectura al tablón de noticias en el panel.",

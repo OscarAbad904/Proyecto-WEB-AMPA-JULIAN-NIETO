@@ -130,6 +130,7 @@ def calendario():
     if current_user.is_authenticated:
         can_private = (
             getattr(current_user, "registration_approved", False)
+            and current_user.has_permission("view_private_area")
             and (
                 current_user.has_permission("view_private_calendar")
                 or user_is_privileged(current_user)
