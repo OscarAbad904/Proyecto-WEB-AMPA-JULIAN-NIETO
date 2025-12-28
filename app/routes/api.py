@@ -154,7 +154,7 @@ def calendario_mis_eventos():
     """
     Eventos combinados para socios autenticados:
     - Eventos generales del calendario del AMPA (solo con permiso de eventos).
-    - Reuniones de comisiones a las que pertenece el usuario o, si tiene permiso, todas.
+    - Reuniones de comisiones a las que pertenece el usuario.
     """
     from app.services.calendar_service import build_calendar_event_url
 
@@ -166,8 +166,7 @@ def calendario_mis_eventos():
     )
     if not (
         membership
-        or current_user.has_permission("view_all_commission_calendar")
-        or user_is_privileged(current_user)
+        or current_user.has_permission("view_private_calendar")
     ):
         return jsonify({"ok": False, "error": "No tienes permisos para ver el calendario"}), 403
 
@@ -251,9 +250,6 @@ def calendario_mis_eventos():
                 "categoria": event.category or "general",
             })
 
-    include_all_commissions = user_is_privileged(current_user) or current_user.has_permission(
-        "view_all_commission_calendar"
-    )
     membership_query = (
         CommissionMembership.query.filter_by(user_id=current_user.id, is_active=True)
         .join(Commission)
@@ -267,11 +263,10 @@ def calendario_mis_eventos():
         .filter(CommissionMeeting.end_at >= range_start)
         .filter(CommissionMeeting.start_at <= range_end)
     )
-    if not include_all_commissions:
-        if commission_ids:
-            meetings_query = meetings_query.filter(CommissionMeeting.commission_id.in_(commission_ids))
-        else:
-            meetings_query = meetings_query.filter(sa.false())
+    if commission_ids:
+        meetings_query = meetings_query.filter(CommissionMeeting.commission_id.in_(commission_ids))
+    else:
+        meetings_query = meetings_query.filter(sa.false())
 
     commission_events: list[dict] = []
     for meeting in meetings_query.order_by(CommissionMeeting.start_at.asc()).all():

@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, current_app, flash, redir
 from flask_login import current_user, login_required
 import re
 from app.extensions import db
-from app.models import Post, Permission, User, user_is_privileged
+from app.models import Post, Permission, User, user_is_privileged, Commission, CommissionMembership
 from app.forms import ResendVerificationForm, SetPasswordForm
 from app.utils import (
     _normalize_drive_url,
@@ -128,12 +128,20 @@ def eventos():
 def calendario():
     """Vista publica del calendario de eventos del AMPA."""
     if current_user.is_authenticated:
+        membership = None
+        if getattr(current_user, "registration_approved", False):
+            membership = (
+                CommissionMembership.query.filter_by(user_id=current_user.id, is_active=True)
+                .join(Commission)
+                .filter(Commission.is_active.is_(True))
+                .first()
+            )
         can_private = (
             getattr(current_user, "registration_approved", False)
             and current_user.has_permission("view_private_area")
             and (
-                current_user.has_permission("view_private_calendar")
-                or user_is_privileged(current_user)
+                bool(membership)
+                or current_user.has_permission("view_private_calendar")
             )
         )
         if can_private and request.args.get("public") != "1":

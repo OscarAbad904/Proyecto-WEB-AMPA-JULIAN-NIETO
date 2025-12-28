@@ -494,7 +494,6 @@ def commission_edit(commission_id: int | None = None):
 def commission_members(commission_id: int):
     can_manage_members = (
         current_user.has_permission("manage_commission_members")
-        or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
     if not can_manage_members:
@@ -558,7 +557,6 @@ def commission_members(commission_id: int):
 def commission_member_disable_admin(commission_id: int, membership_id: int):
     if not (
         current_user.has_permission("manage_commission_members")
-        or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     ):
         abort(403)
@@ -574,8 +572,7 @@ def commission_member_disable_admin(commission_id: int, membership_id: int):
 @login_required
 def commission_project_edit(commission_id: int, project_id: int | None = None):
     if not (
-        current_user.has_permission("manage_commission_projects")
-        or current_user.has_permission("manage_commissions")
+        current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     ):
         abort(403)
@@ -633,8 +630,7 @@ def commission_project_edit(commission_id: int, project_id: int | None = None):
 @login_required
 def commission_meeting_edit(commission_id: int, meeting_id: int | None = None):
     if not (
-        current_user.has_permission("manage_commission_meetings")
-        or current_user.has_permission("manage_commissions")
+        current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     ):
         abort(403)
@@ -736,6 +732,17 @@ def permissions():
         roles = Role.query.order_by(Role.name_lookup.asc()).all()
     if not permissions_list:
         permissions_list = Permission.query.order_by(Permission.key.asc()).all()
+
+    excluded_permission_keys = {
+        "manage_commission_projects",
+        "manage_commission_meetings",
+        "view_all_commission_calendar",
+    }
+    permissions_list = [
+        permission
+        for permission in permissions_list
+        if (getattr(permission, "key", "") or "") not in excluded_permission_keys
+    ]
 
     role_ids = [role.id for role in roles if role.id is not None]
     permission_ids = [permission.id for permission in permissions_list if permission.id is not None]

@@ -217,8 +217,7 @@ def register_context(app: Flask) -> None:
             )
         can_view_private_calendar = can_view_private_area and (
             has_commission_membership
-            or current_user.has_permission("view_all_commission_calendar")
-            or user_is_privileged(current_user)
+            or current_user.has_permission("view_private_calendar")
         )
         # El calendario publico consume eventos; el privado depende de pertenencia o permiso.
         can_view_calendar = can_view_events or can_view_private_calendar
@@ -236,12 +235,13 @@ def register_context(app: Flask) -> None:
             or user_is_privileged(current_user)
         ))
         can_view_commissions_admin = current_user.is_authenticated and (
-            current_user.has_permission("manage_commissions")
-            or current_user.has_permission("view_commissions")
-            or user_is_privileged(current_user)
+            current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+        )
+        can_view_commissions_all = current_user.is_authenticated and (
+            current_user.has_permission("view_commissions") or can_view_commissions_admin
         )
         can_view_commissions = current_user.is_authenticated and (
-            can_view_commissions_admin or (has_commission_membership and can_view_private_area)
+            can_view_commissions_all or has_commission_membership
         )
         commissions_href = (
             url_for("admin.commissions_index")
@@ -354,7 +354,22 @@ def register_guards(app: Flask) -> None:
                 "members.register",
                 "members.recuperar",
             }
-            if endpoint not in private_area_exempt and not current_user.has_permission("view_private_area"):
+            path = request.path or ""
+            is_commission_endpoint = (
+                (
+                    bool(endpoint)
+                    and (
+                        endpoint.startswith("members.commission")
+                        or endpoint.startswith("members.project_")
+                    )
+                )
+                or path.startswith("/socios/comisiones")
+            )
+            if (
+                endpoint not in private_area_exempt
+                and not is_commission_endpoint
+                and not current_user.has_permission("view_private_area")
+            ):
                 if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
                     return jsonify({"ok": False, "error": "Area privada desactivada"}), 403
                 flash("El area privada esta desactivada.", "info")
