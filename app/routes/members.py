@@ -1139,7 +1139,7 @@ def commission_detail(slug: str):
         discussion_vote_counts=discussion_vote_counts,
         is_member_view=True,
         can_manage_discussions=can_manage_discussions,
-        header_kicker="Comisiones · Área privada",
+        header_kicker=f"Comisiones \u00b7 {commission.name}",
         back_href=url_for("members.commissions"),
         back_label="Volver a comisiones",
         return_to_url=url_for("members.commission_detail", slug=commission.slug),

@@ -3,7 +3,7 @@
 {% block title %}{{ commission.name }} | Comisiones | Admin{% endblock %}
 
 {% set is_member_view = is_member_view|default(false) %}
-{% set header_kicker = header_kicker|default("Comisiones · Administración") %}
+{% set header_kicker = header_kicker|default("Comisiones · " ~ commission.name) %}
 {% set back_href = back_href|default(url_for('admin.commissions_index')) %}
 {% set back_label = back_label|default("Volver a comisiones") %}
 {% set return_to_url = return_to_url|default(url_for('admin.commission_detail', commission_id=commission.id)) %}
@@ -88,20 +88,29 @@
     .detail-grid .admin-card { padding: 1.25rem; }
     .detail-column { display:flex; flex-direction:column; gap: 1rem; }
     .detail-column--shell {
-      background: linear-gradient(135deg, #cfe0f2 0%, #a7c0dd 55%, #8aa9cc 100%);
+      background: #ffffff;
       border-radius: 1.35rem;
       padding: 0.7rem;
-      border: 1px solid #94a3b8;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+    }
+    .detail-column--shell .admin-card {
+      background: linear-gradient(135deg, #f8fafc 0%, #e8eef3 55%, #d7dee5 100%);
+      border: 1px solid #cbd5e1;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
     }
     .projects-shell {
-      background: linear-gradient(135deg, #d2ebda 0%, #a6cfb5 55%, #7fad8f 100%);
+      background: linear-gradient(135deg, #f2faf5 0%, #e7f2ec 55%, #dbe9e1 100%);
       border-radius: 1.35rem;
       padding: 0.6rem;
-      border: 1px solid rgba(45, 106, 79, 0.18);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+      border: 1px solid #c9d9cf;
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
     }
-    .projects-shell .item { border-color: #9ca3af; }
+    .projects-shell .item {
+      background: linear-gradient(135deg, #e7f5ee 0%, #cfe6d9 55%, #b8d4c4 100%);
+      border: 1px solid rgba(45, 106, 79, 0.14);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    }
 
     .section-title-row { display:flex; align-items:center; justify-content:space-between; gap: 0.75rem; flex-wrap:wrap; margin-bottom: 0.75rem; }
     .section-title-row h3 { margin:0; color:#0f172a; letter-spacing:-0.01em; }
@@ -112,13 +121,24 @@
     .muted { color:#94a3b8; }
 
     .stack { display:flex; flex-direction:column; gap: 0.75rem; }
-    .item { border: 1px solid #e2e8f0; border-radius: 1rem; padding: 0.9rem 1rem; background: #ffffff; }
+    .item {
+      border: 1px solid #e2e8f0;
+      border-radius: 1rem;
+      padding: 0.9rem 1rem;
+      background: #ffffff;
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.14);
+    }
+    .stack a.item,
+    .stack .discussion-item,
+    .stack .project-item {
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
+    }
     .stack a.item,
     .stack .discussion-item { transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease; }
     .stack a.item:hover,
-    .stack .discussion-item:hover { transform: translateY(-1px); border-color: rgba(139,92,246,0.35); box-shadow: 0 18px 38px rgba(15,23,42,0.16); }
+    .stack .discussion-item:hover { transform: translateY(-2px); border-color: rgba(139,92,246,0.35); box-shadow: 0 22px 50px rgba(15,23,42,0.22); }
     .stack .project-item { cursor: pointer; transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease; }
-    .stack .project-item:hover { transform: translateY(-1px); border-color: rgba(139,92,246,0.35); box-shadow: 0 18px 38px rgba(15,23,42,0.16); }
+    .stack .project-item:hover { transform: translateY(-2px); border-color: rgba(139,92,246,0.35); box-shadow: 0 22px 50px rgba(15,23,42,0.22); }
     .item-top { display:flex; align-items:center; justify-content:space-between; gap: 0.75rem; flex-wrap:wrap; }
     .item h4 { margin: 0.35rem 0 0; color:#0f172a; }
     .item p { margin: 0.35rem 0 0; color:#475569; }

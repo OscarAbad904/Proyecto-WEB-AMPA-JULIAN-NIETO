@@ -506,15 +506,21 @@ def commission_edit(commission_id: int | None = None):
 
     if form.validate_on_submit():
         if commission:
-            commission.name = form.name.data.strip()
+            new_name = form.name.data.strip()
+            name_changed = new_name != (commission.name or "").strip()
+            commission.name = new_name
             commission.description_html = form.description.data
             commission.is_active = bool(form.is_active.data)
-            if not commission.slug:
-                commission.slug = _generate_unique_commission_slug(commission.name)
+            if not commission.slug or name_changed:
+                commission.slug = _generate_unique_commission_slug(
+                    new_name,
+                    exclude_id=commission.id,
+                )
         else:
+            new_name = form.name.data.strip()
             commission = Commission(
-                name=form.name.data.strip(),
-                slug=_generate_unique_commission_slug(form.name.data),
+                name=new_name,
+                slug=_generate_unique_commission_slug(new_name),
                 description_html=form.description.data,
                 is_active=bool(form.is_active.data),
             )

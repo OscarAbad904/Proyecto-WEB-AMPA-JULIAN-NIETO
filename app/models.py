@@ -476,11 +476,16 @@ class Media(db.Model):
     uploader = db.relationship("User", back_populates="media")
 
 
-def _generate_unique_commission_slug(title: str) -> str:
+def _generate_unique_commission_slug(title: str, exclude_id: int | None = None) -> str:
     base_slug = slugify(title or "comision")
     slug_candidate = base_slug
     counter = 2
-    while Commission.query.filter_by(slug=slug_candidate).first():
+    while True:
+        query = Commission.query.filter_by(slug=slug_candidate)
+        if exclude_id is not None:
+            query = query.filter(Commission.id != exclude_id)
+        if not query.first():
+            break
         slug_candidate = f"{base_slug}-{counter}"
         counter += 1
     return slug_candidate
