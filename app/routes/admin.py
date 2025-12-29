@@ -393,15 +393,30 @@ def commission_detail(commission_id: int):
     now_dt = datetime.utcnow()
     active_project_statuses = ("pendiente", "en_progreso")
 
-    members_count = (
+    members_active = (
         commission.memberships.join(User)
         .filter(
             CommissionMembership.is_active.is_(True),
             User.is_active.is_(True),
             User.deleted_at.is_(None),
         )
-        .count()
+        .all()
     )
+    members_active = sorted(
+        members_active,
+        key=lambda membership: (
+            0 if (membership.role or "").lower() == "coordinador" else 1,
+            (membership.user.display_name if membership.user else "").casefold(),
+        ),
+    )
+    members_list = [
+        {
+            "name": m.user.display_name if m.user else "Usuario",
+            "role": (m.role or "").replace("_", " "),
+        }
+        for m in members_active
+    ]
+    members_count = len(members_list)
     active_projects = (
         commission.projects.filter(CommissionProject.status.in_(active_project_statuses))
         .order_by(CommissionProject.created_at.desc())
@@ -441,16 +456,38 @@ def commission_detail(commission_id: int):
         )
         discussion_vote_counts = {suggestion_id: count for suggestion_id, count in rows}
 
+    can_manage_members = (
+        current_user.has_permission("manage_commission_members")
+        or user_is_privileged(current_user)
+    )
+
+    can_manage_discussions = (
+        current_user.has_permission("manage_suggestions")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    can_manage_projects = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+    can_manage_meetings = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+    can_edit_commission = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+    can_create_discussions = can_manage_discussions
+
     return render_template(
         "admin/comision_detalle.html",
         commission=commission,
         members_count=members_count,
+        members_list=members_list,
         active_projects=active_projects,
         next_meeting=next_meeting,
         upcoming_meetings=upcoming_meetings,
         past_meetings=past_meetings,
         discussions=discussions,
         discussion_vote_counts=discussion_vote_counts,
+        can_manage_members=can_manage_members,
+        can_manage_discussions=can_manage_discussions,
+        can_manage_projects=can_manage_projects,
+        can_manage_meetings=can_manage_meetings,
+        can_edit_commission=can_edit_commission,
+        can_create_discussions=can_create_discussions,
     )
 
 
@@ -569,14 +606,23 @@ def commission_member_disable_admin(commission_id: int, membership_id: int):
 
 @admin_bp.route("/comisiones/<int:commission_id>/proyectos/nuevo", methods=["GET", "POST"])
 @admin_bp.route("/comisiones/<int:commission_id>/proyectos/<int:project_id>/editar", methods=["GET", "POST"])
+@admin_bp.route("/comisiones/<slug>/proyectos/nuevo", methods=["GET", "POST"])
+@admin_bp.route("/comisiones/<slug>/proyectos/<int:project_id>/editar", methods=["GET", "POST"])
 @login_required
-def commission_project_edit(commission_id: int, project_id: int | None = None):
+def commission_project_edit(
+    commission_id: int | None = None,
+    slug: str | None = None,
+    project_id: int | None = None,
+):
     if not (
         current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     ):
         abort(403)
-    commission = Commission.query.get_or_404(commission_id)
+    if commission_id is not None:
+        commission = Commission.query.get_or_404(commission_id)
+    else:
+        commission = Commission.query.filter_by(slug=slug).first_or_404()
     project = CommissionProject.query.filter_by(id=project_id, commission_id=commission.id).first() if project_id else None
     form = CommissionProjectForm(obj=project)
     active_users = (
@@ -618,10 +664,13 @@ def commission_project_edit(commission_id: int, project_id: int | None = None):
         form.responsible_id.data = project.responsible_id or 0
 
     return render_template(
-        "admin/comision_proyecto_form.html",
+        "shared/comision_proyecto_form.html",
         form=form,
         commission=commission,
         project=project,
+        header_kicker="Comisiones - Administracion",
+        back_href=url_for("admin.commissions_index"),
+        back_label="Volver",
     )
 
 

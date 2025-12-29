@@ -724,6 +724,51 @@ def commission_discussion_new(slug: str):
     )
 
 
+@members_bp.route("/comisiones/<slug>/discusiones/<int:suggestion_id>/editar", methods=["GET", "POST"])
+@login_required
+def commission_discussion_edit(slug: str, suggestion_id: int):
+    commission, membership = _get_commission_and_membership(slug)
+    suggestion = Suggestion.query.get_or_404(suggestion_id)
+    category_commission_id = _commission_discussion_commission_id(getattr(suggestion, "category", None))
+    if category_commission_id != commission.id:
+        abort(404)
+
+    can_manage = (
+        _commission_can_manage(membership, "discussions")
+        or current_user.has_permission("manage_suggestions")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    if not can_manage:
+        abort(403)
+
+    return_to = _safe_return_to(request.args.get("return_to"))
+
+    if request.method == "POST":
+        action = (request.form.get("action") or "").strip().lower()
+        if action == "close":
+            suggestion.status = "cerrada"
+            db.session.commit()
+            flash("Discusión finalizada.", "success")
+        elif action == "delete":
+            Comment.query.filter_by(suggestion_id=suggestion.id).delete(synchronize_session=False)
+            Vote.query.filter_by(suggestion_id=suggestion.id).delete(synchronize_session=False)
+            db.session.delete(suggestion)
+            db.session.commit()
+            flash("Discusión eliminada.", "info")
+        target = return_to or url_for("members.commission_detail", slug=commission.slug)
+        return redirect(target)
+
+    return render_template(
+        "members/comision_discusion_edit.html",
+        commission=commission,
+        suggestion=suggestion,
+        return_to=return_to,
+        back_href=return_to or url_for("members.commission_detail", slug=commission.slug),
+        back_label="Volver a comisiones",
+    )
+
+
 @members_bp.route("/sugerencias/nueva", methods=["GET", "POST"])
 @login_required
 def nueva_sugerencia():
@@ -1002,16 +1047,29 @@ def commission_detail(slug: str):
     if not can_view_commission:
         abort(403)
 
-    members = (
+    members_active = (
         commission.memberships.join(User)
         .filter(
             CommissionMembership.is_active.is_(True),
             User.is_active.is_(True),
             User.deleted_at.is_(None),
         )
-        .order_by(CommissionMembership.role.asc())
         .all()
     )
+    members_active = sorted(
+        members_active,
+        key=lambda membership: (
+            0 if (membership.role or "").lower() == "coordinador" else 1,
+            (membership.user.display_name if membership.user else "").casefold(),
+        ),
+    )
+    members_list = [
+        {
+            "name": m.user.display_name if m.user else "Usuario",
+            "role": (m.role or "").replace("_", " "),
+        }
+        for m in members_active
+    ]
     active_project_statuses = ("pendiente", "en_progreso")
     active_projects = (
         commission.projects
@@ -1058,18 +1116,21 @@ def commission_detail(slug: str):
         or user_is_privileged(current_user)
     )
     can_edit_commission = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
-    can_create_discussions = (
+    can_manage_discussions = (
         _commission_can_manage(membership, "discussions")
+        or current_user.has_permission("manage_suggestions")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
+    can_create_discussions = can_manage_discussions
 
     next_meeting = upcoming_meetings[0] if upcoming_meetings else None
 
     return render_template(
         "admin/comision_detalle.html",
         commission=commission,
-        members_count=len(members),
+        members_count=len(members_list),
+        members_list=members_list,
         active_projects=active_projects,
         next_meeting=next_meeting,
         upcoming_meetings=upcoming_meetings,
@@ -1077,9 +1138,10 @@ def commission_detail(slug: str):
         discussions=commission_discussions,
         discussion_vote_counts=discussion_vote_counts,
         is_member_view=True,
+        can_manage_discussions=can_manage_discussions,
         header_kicker="Comisiones · Área privada",
         back_href=url_for("members.commissions"),
-        back_label="← Volver a comisiones",
+        back_label="Volver a comisiones",
         return_to_url=url_for("members.commission_detail", slug=commission.slug),
         member_role=membership.role if membership else None,
         can_manage_members=can_manage_members,
@@ -1358,10 +1420,13 @@ def commission_project_form(slug: str, project_id: int | None = None):
         form.responsible_id.data = project.responsible_id or 0
 
     return render_template(
-        "members/comision_proyecto_form.html",
+        "shared/comision_proyecto_form.html",
         form=form,
         commission=commission,
         project=project,
+        header_kicker="Comisiones - Area privada",
+        back_href=url_for("members.commission_detail", slug=commission.slug),
+        back_label="Cancelar",
     )
 
 

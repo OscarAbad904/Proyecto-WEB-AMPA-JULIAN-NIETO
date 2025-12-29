@@ -1,0 +1,56 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Proyecto | {{ commission.name }}{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+{% endblock %}
+
+{% block content %}
+{% set header_kicker = header_kicker|default("Comisiones - Administracion") %}
+{% set header_subtitle = header_subtitle|default("Define fechas, responsable y estado del proyecto para " ~ commission.name ~ ".") %}
+{% set back_href = back_href|default(url_for('admin.commissions_index')) %}
+{% set back_label = back_label|default("Volver") %}
+<section class="admin-wrapper">
+  <div class="admin-header">
+    <p class="admin-kicker">{{ header_kicker }}</p>
+    <h1 class="admin-title">{{ project.title if project else "Nuevo proyecto" }}</h1>
+    <p class="admin-subtitle">{{ header_subtitle }}</p>
+  </div>
+  <div class="admin-card">
+    <form method="post" class="admin-form">
+      {{ form.hidden_tag() }}
+      <div class="field">
+        {{ form.title.label }}
+        {{ form.title(placeholder="Nombre del proyecto") }}
+      </div>
+      <div class="field">
+        {{ form.description.label }}
+        {{ form.description(rows="4", placeholder="Objetivos, entregables y alcance") }}
+      </div>
+      <div class="field">
+        {{ form.status.label }}
+        {{ form.status() }}
+      </div>
+      <div class="field-row">
+        <div class="field">
+          {{ form.start_date.label }}
+          {{ form.start_date() }}
+        </div>
+        <div class="field">
+          {{ form.end_date.label }}
+          {{ form.end_date() }}
+        </div>
+      </div>
+      <div class="field">
+        {{ form.responsible_id.label }}
+        {{ form.responsible_id() }}
+      </div>
+      <div class="admin-actions">
+        {{ form.submit(class="btn-primary") }}
+        <a class="btn-link" href="{{ back_href }}">{{ back_label }}</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

@@ -5,14 +5,16 @@
 {% set is_member_view = is_member_view|default(false) %}
 {% set header_kicker = header_kicker|default("Comisiones · Administración") %}
 {% set back_href = back_href|default(url_for('admin.commissions_index')) %}
-{% set back_label = back_label|default("← Volver a comisiones") %}
+{% set back_label = back_label|default("Volver a comisiones") %}
 {% set return_to_url = return_to_url|default(url_for('admin.commission_detail', commission_id=commission.id)) %}
 {% set member_role = member_role if member_role is defined else None %}
-{% set can_edit_commission = can_edit_commission if can_edit_commission is defined else True %}
-{% set can_manage_members = can_manage_members if can_manage_members is defined else True %}
-{% set can_manage_projects = can_manage_projects if can_manage_projects is defined else True %}
-{% set can_manage_meetings = can_manage_meetings if can_manage_meetings is defined else True %}
-{% set can_create_discussions = can_create_discussions if can_create_discussions is defined else True %}
+{% set can_edit_commission = can_edit_commission if can_edit_commission is defined else False %}
+{% set can_manage_members = can_manage_members if can_manage_members is defined else False %}
+{% set can_manage_projects = can_manage_projects if can_manage_projects is defined else False %}
+{% set can_manage_meetings = can_manage_meetings if can_manage_meetings is defined else False %}
+{% set can_create_discussions = can_create_discussions if can_create_discussions is defined else False %}
+{% set can_manage_discussions = can_manage_discussions if can_manage_discussions is defined else False %}
+{% set members_list = members_list if members_list is defined else [] %}
 
 {% block head %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
@@ -22,6 +24,37 @@
     .detail-top .back-link { text-decoration:none; font-weight:800; color:#0f172a; }
     .detail-top .back-link:hover { text-decoration: underline; }
     .detail-headline { display:flex; flex-direction:column; gap: 0.25rem; }
+    .commission-title-row { display:flex; align-items:center; flex-wrap:wrap; gap: 0.65rem; margin-top: 0.35rem; }
+    .commission-title-row .admin-title { margin: 0; }
+    .member-count {
+      display:inline-flex;
+      align-items:center;
+      gap: 0.35rem;
+      padding: 0.15rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid #c7d2fe;
+      background: #eef2ff;
+      color:#1e3a8a;
+      font-weight: 800;
+      font-size: 1.5rem;
+    }
+    .member-actions { display:flex; align-items:center; gap: 0.35rem; }
+    .icon-square {
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.55rem;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      color: #0f172a;
+      text-decoration: none;
+      padding: 0;
+      cursor: pointer;
+    }
+    .icon-square:hover { background:#f1f5f9; }
+    .icon-square svg { width: 18px; height: 18px; }
     .commission-detail .kicker-row {
       display: flex;
       align-items: center;
@@ -54,28 +87,113 @@
     .detail-grid { display:grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1rem; align-items:start; }
     .detail-grid .admin-card { padding: 1.25rem; }
     .detail-column { display:flex; flex-direction:column; gap: 1rem; }
+    .detail-column--shell {
+      background: linear-gradient(135deg, #cfe0f2 0%, #a7c0dd 55%, #8aa9cc 100%);
+      border-radius: 1.35rem;
+      padding: 0.7rem;
+      border: 1px solid #94a3b8;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+    .projects-shell {
+      background: linear-gradient(135deg, #d2ebda 0%, #a6cfb5 55%, #7fad8f 100%);
+      border-radius: 1.35rem;
+      padding: 0.6rem;
+      border: 1px solid rgba(45, 106, 79, 0.18);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    }
+    .projects-shell .item { border-color: #9ca3af; }
 
     .section-title-row { display:flex; align-items:center; justify-content:space-between; gap: 0.75rem; flex-wrap:wrap; margin-bottom: 0.75rem; }
     .section-title-row h3 { margin:0; color:#0f172a; letter-spacing:-0.01em; }
+    .section-title-group { display:flex; align-items:baseline; gap: 0.6rem; }
+    .section-count { font-weight:800; color:#64748b; font-size: 0.95rem; }
 
     .rich-text { color:#334155; line-height:1.6; }
     .muted { color:#94a3b8; }
 
-    .metrics { display:flex; flex-wrap:wrap; gap: 0.75rem; margin-top: 0.9rem; }
-    .metric { flex: 1 1 180px; background:#f8fafc; border:1px solid #e2e8f0; border-radius: 0.85rem; padding: 0.75rem 0.9rem; }
-    .metric-label { margin:0; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color:#64748b; font-weight: 800; }
-    .metric-value { margin:0.25rem 0 0; font-size: 1.05rem; color:#0f172a; font-weight: 900; }
-
     .stack { display:flex; flex-direction:column; gap: 0.75rem; }
     .item { border: 1px solid #e2e8f0; border-radius: 1rem; padding: 0.9rem 1rem; background: #ffffff; }
-    .stack a.item { transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease; }
-    .stack a.item:hover { transform: translateY(-1px); border-color: rgba(139,92,246,0.35); box-shadow: 0 18px 38px rgba(15,23,42,0.16); }
+    .stack a.item,
+    .stack .discussion-item { transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease; }
+    .stack a.item:hover,
+    .stack .discussion-item:hover { transform: translateY(-1px); border-color: rgba(139,92,246,0.35); box-shadow: 0 18px 38px rgba(15,23,42,0.16); }
     .stack .project-item { cursor: pointer; transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease; }
     .stack .project-item:hover { transform: translateY(-1px); border-color: rgba(139,92,246,0.35); box-shadow: 0 18px 38px rgba(15,23,42,0.16); }
     .item-top { display:flex; align-items:center; justify-content:space-between; gap: 0.75rem; flex-wrap:wrap; }
     .item h4 { margin: 0.35rem 0 0; color:#0f172a; }
     .item p { margin: 0.35rem 0 0; color:#475569; }
     .item .meta { display:flex; flex-wrap:wrap; gap: 0.5rem; align-items:center; color:#64748b; font-weight:700; }
+    .meeting-row { display:flex; align-items:center; gap: 0.5rem; flex-wrap:wrap; }
+    .meeting-row h4 { margin: 0; }
+    .meeting-dates { display:flex; flex-wrap:wrap; gap: 0.25rem; justify-content:flex-start; }
+    .date-chip {
+      display:inline-flex;
+      align-items:center;
+      padding: 0.14rem 0.45rem;
+      border-radius: 9999px;
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+    .date-chip--upcoming { background:#2563eb; color:#ffffff; }
+    .date-chip--past { background:#f59e0b; color:#111827; }
+
+    .member-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 1200;
+    }
+    .member-modal.open { opacity: 1; pointer-events: auto; }
+    .member-modal__dialog {
+      background: #ffffff;
+      border-radius: 1rem;
+      width: min(92vw, 520px);
+      max-height: 80vh;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .member-modal__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .member-modal__header h3 { margin: 0; color:#0f172a; }
+    .member-modal__close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+      color: #64748b;
+    }
+    .member-modal__body {
+      padding: 1rem 1.25rem 1.25rem;
+      overflow: auto;
+    }
+    .member-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+    .member-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.6rem 0.8rem;
+      border-radius: 0.75rem;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+    .member-role { font-weight: 700; color:#475569; text-transform: capitalize; }
 
     @media (max-width: 960px) {
       .detail-grid { grid-template-columns: 1fr; }
@@ -92,7 +210,31 @@
     </div>
     <div class="detail-top">
       <div class="detail-headline">
-        <h1 class="admin-title" style="margin-top:0.35rem;">{{ commission.name }}</h1>
+        {% set show_member_edit = can_manage_members or (member_role and member_role|lower == "coordinador") %}
+        <div class="commission-title-row">
+          <h1 class="admin-title">{{ commission.name }}</h1>
+          <span class="member-count">{{ members_count }} Miembros</span>
+          <div class="member-actions">
+            <button type="button" class="icon-square" id="open-members-modal" aria-label="Ver miembros">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                <path d="M2.5 12s3.8-6.5 9.5-6.5S21.5 12 21.5 12s-3.8 6.5-9.5 6.5S2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8" />
+              </svg>
+            </button>
+            {% if show_member_edit %}
+              {% if is_member_view %}
+              <a class="icon-square" href="{{ url_for('members.commission_member_new', slug=commission.slug) }}" aria-label="Editar miembros">
+              {% else %}
+              <a class="icon-square" href="{{ url_for('admin.commission_members', commission_id=commission.id) }}" aria-label="Editar miembros">
+              {% endif %}
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                  <path d="M12 20h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </a>
+            {% endif %}
+          </div>
+        </div>
         <div class="detail-meta">
           <span>Creación: {{ commission.created_at.strftime("%d/%m/%Y") if commission.created_at else "Sin fecha" }}</span>
           <span class="chip {% if commission.is_active %}chip-live{% else %}chip-off{% endif %}">
@@ -103,34 +245,16 @@
           {% endif %}
         </div>
       </div>
+      {% if can_edit_commission %}
       <div class="detail-actions">
-        {% if can_edit_commission %}
         <a class="btn-link" href="{{ url_for('admin.commission_edit', commission_id=commission.id) }}">Editar</a>
-        {% endif %}
-        {% if can_manage_members %}
-          {% if is_member_view %}
-          <a class="btn-link" href="{{ url_for('members.commission_member_new', slug=commission.slug) }}">Miembros</a>
-          {% else %}
-          <a class="btn-link" href="{{ url_for('admin.commission_members', commission_id=commission.id) }}">Miembros</a>
-          {% endif %}
-        {% endif %}
-        {% if can_manage_projects %}
-          {% if is_member_view %}
-          <a class="btn-link" href="{{ url_for('members.commission_project_form', slug=commission.slug) }}">Nuevo proyecto</a>
-          {% else %}
-          <a class="btn-link" href="{{ url_for('admin.commission_project_edit', commission_id=commission.id) }}">Nuevo proyecto</a>
-          {% endif %}
-        {% endif %}
-        
-        {% if can_create_discussions %}
-        <a class="btn-primary" style="width:auto; min-width: 190px;" href="{{ url_for('members.commission_discussion_new', slug=commission.slug, return_to=return_to_url) }}">Nueva discusión</a>
-        {% endif %}
       </div>
+      {% endif %}
     </div>
   </div>
 
   <div class="detail-grid">
-    <div class="detail-column">
+    <div class="detail-column detail-column--shell">
     <div class="admin-card">
       <div class="section-title-row">
         <h3>Descripción</h3>
@@ -143,30 +267,11 @@
         {% endif %}
       </div>
 
-      <div class="metrics">
-        <div class="metric">
-          <p class="metric-label">Miembros</p>
-          <p class="metric-value">{{ members_count }}</p>
-        </div>
-        <div class="metric">
-          <p class="metric-label">Proyectos activos</p>
-          <p class="metric-value">{{ active_projects|length }}</p>
-        </div>
-        <div class="metric">
-          <p class="metric-label">Próxima reunión</p>
-          {% if next_meeting %}
-            <p class="metric-value">{{ next_meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</p>
-          {% else %}
-            <p class="metric-value muted">No hay reuniones programadas</p>
-          {% endif %}
-        </div>
-      </div>
-
       </div>
 
       <div class="admin-card">
         <div class="section-title-row">
-        <h3>Reuniones</h3>
+        <h3>Reuniones de comisión</h3>
         {% if can_manage_meetings %}
           {% if is_member_view %}
           <a class="btn-link" href="{{ url_for('members.commission_meeting_form', slug=commission.slug) }}">Nueva reunión</a>
@@ -176,7 +281,18 @@
         {% endif %}
       </div>
       <div class="stack">
-        <h4>Próximas</h4>
+        <div class="meeting-row">
+          <h4>Próximas</h4>
+          <div class="meeting-dates">
+            {% if upcoming_meetings %}
+              {% for meeting in upcoming_meetings %}
+                <span class="date-chip date-chip--upcoming">{{ meeting.start_at.strftime("%d/%m/%Y") }}</span>
+              {% endfor %}
+            {% else %}
+              <span class="date-chip date-chip--upcoming">📭 No hay reuniones próximas.</span>
+            {% endif %}
+          </div>
+        </div>
         {% for meeting in upcoming_meetings %}
         <article style="border: 2px solid #ef4444; padding: 1rem; border-radius: 8px; margin-bottom: 0.75rem;">
           <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; color: #64748b; font-weight: 700; font-size: 0.9rem;">
@@ -202,11 +318,20 @@
           </div>
           {% endif %}
         </article>
-        {% else %}
-        <p>📭 No hay reuniones próximas.</p>
         {% endfor %}
 
-        <h4 style="margin-top: 1.5rem;">Historial</h4>
+        <div class="meeting-row" style="margin-top: 0.6rem;">
+          <h4>Historial</h4>
+          <div class="meeting-dates">
+            {% if past_meetings %}
+              {% for meeting in past_meetings %}
+                <span class="date-chip date-chip--past">{{ meeting.start_at.strftime("%d/%m/%Y") }}</span>
+              {% endfor %}
+            {% else %}
+              <span class="date-chip date-chip--past">📭 No hay reuniones previas.</span>
+            {% endif %}
+          </div>
+        </div>
         {% for meeting in past_meetings %}
         <article style="opacity: 0.8; border-left: 4px solid #9ca3af; padding: 1rem; border-radius: 4px; margin-bottom: 0.75rem;">
           <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; color: #64748b; font-weight: 700; font-size: 0.9rem;">
@@ -232,22 +357,25 @@
           </div>
           {% endif %}
         </article>
-        {% else %}
-        <p>📭 No hay reuniones previas.</p>
         {% endfor %}
       </div>
     </div>
 
     <div class="admin-card">
       <div class="section-title-row">
-        <h3>Discusiones activas</h3>
+        <h3>Discusiones activas de comisión</h3>
         {% if can_create_discussions %}
         <a class="btn-link" href="{{ url_for('members.commission_discussion_new', slug=commission.slug, return_to=return_to_url) }}">Abrir discusión</a>
         {% endif %}
       </div>
       <div class="stack">
         {% for discussion in discussions %}
-          <a class="item" href="{{ url_for('members.detalle_sugerencia', suggestion_id=discussion.id, return_to=return_to_url) }}" style="display:block; text-decoration:none; color:inherit;">
+          <article
+            class="item discussion-item"
+            role="link"
+            tabindex="0"
+            data-href="{{ url_for('members.detalle_sugerencia', suggestion_id=discussion.id, return_to=return_to_url) }}"
+          >
             <div class="item-top">
               <div class="meta">
                 <span class="chip">{{ discussion.status }}</span>
@@ -256,9 +384,22 @@
                   <span>Actualizada: {{ discussion.updated_at.strftime("%d/%m/%Y %H:%M") }}</span>
                 {% endif %}
               </div>
+              {% if can_manage_discussions %}
+                <a
+                  class="icon-square"
+                  onclick="event.stopPropagation();"
+                  href="{{ url_for('members.commission_discussion_edit', slug=commission.slug, suggestion_id=discussion.id, return_to=return_to_url) }}"
+                  aria-label="Editar discusión"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="M12 20h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </a>
+              {% endif %}
             </div>
             <h4>{{ discussion.title }}</h4>
-          </a>
+          </article>
         {% else %}
           <p class="muted" style="margin:0;">No hay discusiones activas todavía.</p>
         {% endfor %}
@@ -268,9 +409,12 @@
     </div>
 
     <div class="detail-column">
-      <div class="admin-card">
+      <div class="admin-card projects-shell">
       <div class="section-title-row">
-        <h3>Proyectos activos</h3>
+        <div class="section-title-group">
+          <h3>Proyectos activos</h3>
+          <span class="section-count">{{ active_projects|length }}</span>
+        </div>
         {% if can_manage_projects %}
           {% if is_member_view %}
           <a class="btn-link" href="{{ url_for('members.commission_project_form', slug=commission.slug) }}">Añadir</a>
@@ -285,8 +429,7 @@
             class="item project-item"
             role="link"
             tabindex="0"
-            onclick="window.location.href='{{ url_for('members.commission_project_detail', slug=commission.slug, project_id=project.id, return_to=return_to_url) }}'"
-            onkeydown="if(event.key==='Enter' || event.key===' '){event.preventDefault(); window.location.href='{{ url_for('members.commission_project_detail', slug=commission.slug, project_id=project.id, return_to=return_to_url) }}';}"
+            data-href="{{ url_for('members.commission_project_detail', slug=commission.slug, project_id=project.id, return_to=return_to_url) }}"
           >
             <div class="item-top">
               <div class="meta">
@@ -297,9 +440,19 @@
               </div>
               {% if can_manage_projects %}
                 {% if is_member_view %}
-                <a class="btn-link" onclick="event.stopPropagation();" href="{{ url_for('members.commission_project_form', slug=commission.slug, project_id=project.id) }}">Editar</a>
+                <a class="icon-square" onclick="event.stopPropagation();" href="{{ url_for('members.commission_project_form', slug=commission.slug, project_id=project.id) }}" aria-label="Editar proyecto">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="M12 20h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </a>
                 {% else %}
-                <a class="btn-link" onclick="event.stopPropagation();" href="{{ url_for('admin.commission_project_edit', commission_id=commission.id, project_id=project.id) }}">Editar</a>
+                <a class="icon-square" onclick="event.stopPropagation();" href="{{ url_for('admin.commission_project_edit', commission_id=commission.id, project_id=project.id) }}" aria-label="Editar proyecto">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="M12 20h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </a>
                 {% endif %}
               {% endif %}
             </div>
@@ -319,6 +472,69 @@
     </div>
     </div>
   </div>
-</section>
-{% endblock %}
 
+  <div class="member-modal" id="members-modal" aria-hidden="true">
+    <div class="member-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="members-modal-title">
+      <div class="member-modal__header">
+        <h3 id="members-modal-title">Miembros</h3>
+        <button class="member-modal__close" type="button" data-close-members-modal aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="member-modal__body">
+        <ul class="member-list">
+          {% for member in members_list %}
+            <li class="member-row">
+              <span>{{ member.name }}</span>
+              <span class="member-role">{{ member.role }}</span>
+            </li>
+          {% else %}
+            <li class="member-row">
+              <span class="muted">No hay miembros registrados.</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+  (function () {
+    const modal = document.getElementById('members-modal');
+    const openBtn = document.getElementById('open-members-modal');
+    if (!modal || !openBtn) return;
+    const closeBtn = modal.querySelector('[data-close-members-modal]');
+    const toggle = (show) => {
+      modal.classList.toggle('open', show);
+      modal.setAttribute('aria-hidden', show ? 'false' : 'true');
+    };
+
+    openBtn.addEventListener('click', () => toggle(true));
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => toggle(false));
+    }
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) toggle(false);
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && modal.classList.contains('open')) toggle(false);
+    });
+  })();
+
+  (function () {
+    const items = document.querySelectorAll('.item[data-href]');
+    if (!items.length) return;
+    items.forEach((item) => {
+      const href = item.getAttribute('data-href');
+      if (!href) return;
+      item.addEventListener('click', () => {
+        window.location.href = href;
+      });
+      item.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          window.location.href = href;
+        }
+      });
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "public/layout.html" %}
+
+{% block title %}Gestionar discusion | {{ commission.name }}{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  <style>
+    .admin-kicker-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .admin-kicker-row .nav-auth-btn {
+      min-width: 0;
+    }
+    .admin-actions__form { margin: 0; }
+    .btn-danger {
+      background: #fff1f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      border-radius: 999px;
+      padding: 0.6rem 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .btn-danger:hover { background: #ffe4e6; }
+  </style>
+{% endblock %}
+
+{% block content %}
+<section class="admin-wrapper">
+  <div class="admin-header">
+    <div class="admin-kicker-row">
+      <p class="admin-kicker">Comisiones</p>
+      {% if back_href %}
+      <a class="nav-auth-btn nav-auth-btn--logout" href="{{ back_href }}">{{ back_label }}</a>
+      {% endif %}
+    </div>
+    <h1 class="admin-title">Gestionar discusion</h1>
+    <p class="admin-subtitle">{{ suggestion.title }}</p>
+  </div>
+
+  <div class="admin-card">
+    <p class="muted" style="margin-top:0;">Estado actual: <strong>{{ suggestion.status }}</strong></p>
+
+    <div class="admin-actions">
+      <form method="post" class="admin-actions__form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="close">
+        <button type="submit" class="btn-primary">Marcar como finalizada</button>
+      </form>
+      <form
+        method="post"
+        class="admin-actions__form"
+        data-confirm="?Eliminar esta discusion? Esta accion no se puede deshacer."
+        data-confirm-title="Eliminar discusion"
+        data-confirm-accept="Eliminar"
+        data-confirm-variant="danger"
+      >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="delete">
+        <button type="submit" class="btn-danger">Eliminar conversacion</button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}
