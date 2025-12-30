@@ -500,6 +500,10 @@
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
   }
 
+  function formatDateDMY(d) {
+    return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+  }
+
   function formatTimeHM(d) {
     return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   }
@@ -510,14 +514,28 @@
     return new Date(y, m - 1, day, 0, 0, 0, 0);
   }
 
+  function parseDMY(dmy) {
+    const [day, m, y] = (dmy || '').split('/').map(Number);
+    if (!y || !m || !day) return null;
+    return new Date(y, m - 1, day, 0, 0, 0, 0);
+  }
+
+  function parseDate(dateStr) {
+    // Intenta parsear tanto formato yyyy-mm-dd como dd/mm/yyyy
+    if ((dateStr || '').includes('/')) {
+      return parseDMY(dateStr);
+    }
+    return parseYMD(dateStr);
+  }
+
   function parseHM(hm) {
     const [h, m] = (hm || '').split(':').map(Number);
     if (Number.isNaN(h) || Number.isNaN(m)) return null;
     return { h, m };
   }
 
-  function buildLocalDateTime(ymd, hm) {
-    const base = parseYMD(ymd);
+  function buildLocalDateTime(dateStr, hm) {
+    const base = parseDate(dateStr);
     const t = parseHM(hm);
     if (!base || !t) return null;
     base.setHours(t.h, t.m, 0, 0);
@@ -537,21 +555,17 @@
     }
   }
 
-  function clampEndTo15Minutes() {
+  function validateEndTime() {
     const startDT = buildLocalDateTime(startDateInput.value, startTimeInput.value);
     if (!startDT) return;
 
     const minEnd = new Date(startDT.getTime() + 60 * 1000);
-    const maxEndByRule = new Date(startDT.getTime() + 15 * 60 * 1000);
-
-    // Forzar que la reunión termine el MISMO día.
-    const endOfDay = new Date(startDT.getFullYear(), startDT.getMonth(), startDT.getDate(), 23, 59, 0, 0);
-    const maxEnd = maxEndByRule > endOfDay ? endOfDay : maxEndByRule;
-
-    // Si no hay fin o está fuera de rango, forzar a +15 por defecto
     let endDT = buildLocalDateTime(startDateInput.value, endTimeInput.value);
-    if (!endDT || endDT < minEnd || endDT > maxEnd) {
-      endTimeInput.value = formatTimeHM(maxEnd);
+    
+    // Si no hay hora de fin o es anterior al inicio, sugerir una hora 1 hora después
+    if (!endDT || endDT < minEnd) {
+      const suggestedEnd = new Date(startDT.getTime() + 60 * 60 * 1000);
+      endTimeInput.value = formatTimeHM(suggestedEnd);
     }
   }
 
@@ -596,7 +610,7 @@
     try {
     updateStartTimeMinByDate();
     enforceStartAfterNow();
-    clampEndTo15Minutes();
+    validateEndTime();
     setHiddenFromVisible();
     } finally {
       __syncInProgress = false;
@@ -609,7 +623,10 @@
     const initialEnd = endAtHidden?.value || "";
     if (initialStart.includes('T')) {
       const [d, t] = initialStart.split('T');
-      startDateInput.value = d;
+      const dateObj = parseYMD(d);
+      if (dateObj) {
+        startDateInput.value = formatDateDMY(dateObj);
+      }
       startTimeInput.value = t;
     }
     if (initialEnd.includes('T')) {
@@ -617,11 +634,11 @@
       endTimeInput.value = t;
     }
 
-    // Si es nueva reunión, preseleccionar ahora+1min y fin=+15
+    // Si es nueva reunión, preseleccionar ahora+1min y fin=+1hora
     if (!startDateInput.value || !startTimeInput.value) {
       const base = new Date(nowStr);
       base.setMinutes(base.getMinutes() + 1);
-      startDateInput.value = formatDateYMD(base);
+      startDateInput.value = formatDateDMY(base);
       startTimeInput.value = formatTimeHM(base);
     }
     syncAll();
@@ -633,9 +650,19 @@
     const minDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     $('#startDate').pickadate({
-      format: 'yyyy-mm-dd',
+      format: 'dd/mm/yyyy',
+      formatSubmit: 'yyyy-mm-dd',
+      hiddenName: true,
       editable: true,
       min: minDate,
+      monthsFull: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+      monthsShort: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+      weekdaysFull: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+      weekdaysShort: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
+      today: 'Hoy',
+      clear: 'Limpiar',
+      close: 'Cerrar',
+      firstDay: 1,
       onSet: function() {
         syncAll();
       }
@@ -721,7 +748,7 @@
       window.__startDatePicker.set('select', [startDT.getFullYear(), startDT.getMonth(), startDT.getDate()], { muted: true });
     }
 
-    clampEndTo15Minutes();
+    validateEndTime();
     const endDT = buildLocalDateTime(startDateInput.value, endTimeInput.value);
     setHiddenFromVisible();
 
@@ -756,13 +783,6 @@
     if (startDT <= now) {
       e.preventDefault();
       window.ampaAlert('La fecha de inicio debe ser posterior a la fecha y hora actual');
-      return false;
-    }
-
-    const maxEnd = new Date(startDT.getTime() + 15 * 60 * 1000);
-    if (endDT > maxEnd) {
-      e.preventDefault();
-      window.ampaAlert('La fecha de fin no puede ser más de 15 minutos después de la fecha de inicio');
       return false;
     }
 

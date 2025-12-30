@@ -289,15 +289,12 @@ class CommissionMeetingForm(FlaskForm):
             raise ValidationError("Formato de fecha inválido")
     
     def validate_end_at(self, field):
-        """Valida que la fecha de fin sea máximo 15 minutos después del inicio"""
+        """Valida que la fecha de fin sea posterior a la fecha de inicio"""
         try:
             if not self.start_at.data:
                 return
             start_dt = datetime.fromisoformat(self.start_at.data)
             end_dt = datetime.fromisoformat(field.data)
-            max_end = start_dt + timedelta(minutes=15)
-            if end_dt > max_end:
-                raise ValidationError("La fecha de fin no puede ser más de 15 minutos después de la fecha de inicio")
             if end_dt <= start_dt:
                 raise ValidationError("La fecha de fin debe ser posterior a la fecha de inicio")
         except (ValueError, TypeError):
