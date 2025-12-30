@@ -203,11 +203,22 @@ function renderMonthView() {
       const maxVisible = 3;
       dayEvents.slice(0, maxVisible).forEach(event => {
         const eventType = categorizeEvent(event);
+        let displayTitle = event.titulo;
+        
+        // Mejorar título para reuniones de comisión/proyecto
+        if (event.es_comision) {
+          if (event.es_proyecto && event.project_name) {
+            displayTitle = `Proyecto: ${event.project_name}`;
+          } else if (event.commission_name) {
+            displayTitle = `Comisión: ${event.commission_name}`;
+          }
+        }
+        
         eventsHtml += `
           <div class="day-event event-type-${eventType}" 
                onclick="openEventModal('${event.id}')" 
-               title="${escapeHtml(event.titulo)}">
-            ${escapeHtml(event.titulo)}
+               title="${escapeHtml(displayTitle)}">
+            ${escapeHtml(displayTitle)}
           </div>
         `;
       });
@@ -335,9 +346,10 @@ function renderUpcomingEvents() {
     const day = date.getDate();
     const month = MONTHS_ES[date.getMonth()].substring(0, 3).toUpperCase();
     const time = event.todo_el_dia ? 'Todo el día' : formatTime(date);
+    const eventType = categorizeEvent(event);
     
     html += `
-      <div class="upcoming-event" onclick="openEventModal('${event.id}')">
+      <div class="upcoming-event upcoming-event-${eventType}" onclick="openEventModal('${event.id}')">
         <div class="upcoming-event-date">
           <div class="upcoming-event-day">${day}</div>
           <div class="upcoming-event-month">${month}</div>
@@ -425,8 +437,25 @@ function openEventModal(eventId) {
   
   // Rellenar datos del modal
   const eventType = categorizeEvent(event);
-  document.getElementById('modal-event-type').textContent = getEventTypeLabel(eventType);
-  document.getElementById('modal-event-title').textContent = event.titulo;
+  
+  // Determinar el tipo y título según sea reunión de comisión o proyecto
+  let typeLabel = getEventTypeLabel(eventType);
+  let modalTitle = event.titulo;
+  
+  if (event.es_comision) {
+    if (event.es_proyecto && event.project_name) {
+      typeLabel = 'Reunión de Proyecto';
+      modalTitle = `${event.titulo} - ${event.project_name}`;
+    } else if (event.commission_name) {
+      typeLabel = `Reunión de Comisión ${event.commission_name}`;
+      modalTitle = event.titulo;
+    } else {
+      typeLabel = 'Reunión de Comisión';
+    }
+  }
+  
+  document.getElementById('modal-event-type').textContent = typeLabel;
+  document.getElementById('modal-event-title').textContent = modalTitle;
   
   // Fecha
   const startDate = new Date(event.inicio);
@@ -455,15 +484,6 @@ function openEventModal(eventId) {
   // Descripción
   const description = document.getElementById('modal-event-description');
   description.textContent = event.descripcion || '';
-  
-  // Enlace a Google Calendar
-  const link = document.getElementById('modal-event-link');
-  if (event.url) {
-    link.href = event.url;
-    link.style.display = 'inline-flex';
-  } else {
-    link.style.display = 'none';
-  }
   
   // Mostrar modal
   modal.classList.remove('hidden');
@@ -526,6 +546,11 @@ function categorizeEvent(event) {
   const text = title + ' ' + desc;
   const category = (event.categoria || event.category || '').toLowerCase();
 
+  // Primero verificar si es reunión de proyecto
+  if (event.es_comision && event.es_proyecto) {
+    return 'project';
+  }
+
   if (category.includes('reunion')) {
     return 'meeting';
   }
@@ -534,6 +559,10 @@ function categorizeEvent(event) {
   }
   if (category.includes('festivo') || category.includes('vacacion')) {
     return 'holiday';
+  }
+
+  if (event.es_comision) {
+    return 'meeting';
   }
   
   if (text.includes('reunión') || text.includes('reunion') || text.includes('asamblea') || text.includes('junta')) {
@@ -554,7 +583,8 @@ function categorizeEvent(event) {
 function getEventTypeLabel(type) {
   const labels = {
     'event': 'Evento',
-    'meeting': 'Reunión',
+    'meeting': 'Reunión de Comisión General',
+    'project': 'Reunión de Proyecto',
     'activity': 'Actividad',
     'holiday': 'Festivo'
   };

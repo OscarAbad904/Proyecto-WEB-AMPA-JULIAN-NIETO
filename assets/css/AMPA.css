@@ -14,7 +14,7 @@
   --hero-logo-gap-desktop: 1rem;
   --hero-logo-offset-mobile: -2rem;
   --hero-logo-float-mobile: 3rem;
-  --hero-logo-gap-mobile: 1rem;
+  --hero-logo-gap-mobile: 3rem;
   --hero-logo-float-duration: 10s;
 
   /* Hero: separación del conjunto (logo+título) respecto al footer */
@@ -418,7 +418,7 @@ footer {
 .header-logo-group {
   display: flex;
   align-items: center;
-  gap: 2.5rem;
+  gap: 1rem;
 }
 
 .logo-bg {
@@ -454,7 +454,7 @@ footer {
 }
 
 .header-title-ampa {
-  font-size: 2rem;
+  font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #1e293b;
@@ -2512,7 +2512,7 @@ section {
 
 @media (max-width: 1024px) {
   .header-flex {
-    gap: 1.25rem;
+    gap: 0.7rem;
   }
 
   .nav-desktop {

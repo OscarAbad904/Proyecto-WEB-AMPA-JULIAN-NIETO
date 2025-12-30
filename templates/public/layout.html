@@ -280,6 +280,7 @@
         {% block content %}{% endblock %}
     </main>
 
+    {% if not hide_footer %}
     <footer class="footer">
         <div class="container">
             <div class="footer-grid">
@@ -348,6 +349,7 @@
             </div>
         </div>
     </footer>
+    {% endif %}
     <div id="login-modal" class="login-modal" aria-hidden="true">
         <div class="login-modal-dialog">
             <button class="login-modal-close" type="button" aria-label="Cerrar"

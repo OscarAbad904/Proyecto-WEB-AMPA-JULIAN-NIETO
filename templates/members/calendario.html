@@ -1,5 +1,7 @@
 {% extends "public/layout.html" %}
 
+{% set hide_footer = true %}
+
 {% block title %}Calendario de socios | AMPA Julian Nieto{% endblock %}
 
 {% block head %}
@@ -57,13 +59,13 @@
     <div class="calendar-main fade-in">
       <div class="calendar-month-view" id="month-view">
         <div class="calendar-weekdays">
-          <div class="calendar-weekday">Lun</div>
-          <div class="calendar-weekday">Mar</div>
-          <div class="calendar-weekday">Mie</div>
-          <div class="calendar-weekday">Jue</div>
-          <div class="calendar-weekday">Vie</div>
-          <div class="calendar-weekday weekend">Sab</div>
-          <div class="calendar-weekday weekend">Dom</div>
+          <div class="calendar-weekday">Lunes</div>
+          <div class="calendar-weekday">Martes</div>
+          <div class="calendar-weekday">Miércoles</div>
+          <div class="calendar-weekday">Jueves</div>
+          <div class="calendar-weekday">Viernes</div>
+          <div class="calendar-weekday weekend">Sábado</div>
+          <div class="calendar-weekday weekend">Domingo</div>
         </div>
         <div class="calendar-days" id="calendar-days-grid"></div>
       </div>
@@ -73,17 +75,6 @@
       </div>
 
       <aside class="calendar-sidebar">
-        <div class="sidebar-section">
-          <h3 class="sidebar-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="12 6 12 12 16 14"></polyline>
-            </svg>
-            Proximos eventos
-          </h3>
-          <div class="upcoming-events" id="upcoming-events"></div>
-        </div>
-
         <div class="sidebar-section">
           <h3 class="sidebar-title">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -98,17 +89,28 @@
             </div>
             <div class="legend-item">
               <span class="legend-dot legend-dot--meeting"></span>
-              <span>Reunion</span>
+              <span>Reunión de Comisión General</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot legend-dot--project"></span>
+              <span>Reunión de Proyecto</span>
             </div>
             <div class="legend-item">
               <span class="legend-dot legend-dot--activity"></span>
               <span>Actividad</span>
             </div>
-            <div class="legend-item">
-              <span class="legend-dot legend-dot--holiday"></span>
-              <span>Festivo</span>
-            </div>
           </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            Proximos eventos
+          </h3>
+          <div class="upcoming-events" id="upcoming-events"></div>
         </div>
       </aside>
     </div>
@@ -181,16 +183,6 @@
           <div class="event-modal-description" id="modal-event-description">
             Descripcion del evento
           </div>
-        </div>
-        <div class="event-modal-footer">
-          <a class="btn-primary" id="modal-event-link" href="#" target="_blank" rel="noopener">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-              <polyline points="15 3 21 3 21 9"></polyline>
-              <line x1="10" y1="14" x2="21" y2="3"></line>
-            </svg>
-            Abrir en Google Calendar
-          </a>
         </div>
       </div>
     </div>
