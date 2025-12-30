@@ -405,8 +405,15 @@ def _get_calendar_timezone() -> str | None:
 def _build_commission_meeting_payload(meeting, commission) -> dict:
     description = _clean_html(getattr(meeting, "description_html", None))
     commission_name = getattr(commission, "name", None) if commission else None
+    project = getattr(meeting, "project", None)
+    project_title = getattr(project, "title", None) if project else None
+    header_parts = []
     if commission_name:
-        header = f"Comision: {commission_name}"
+        header_parts.append(f"Comision: {commission_name}")
+    if project_title:
+        header_parts.append(f"Proyecto: {project_title}")
+    if header_parts:
+        header = "\n".join(header_parts)
         description = f"{header}\n\n{description}" if description else header
 
     start_at = getattr(meeting, "start_at", None)
@@ -420,8 +427,9 @@ def _build_commission_meeting_payload(meeting, commission) -> dict:
         "visibility": "private",
         "extendedProperties": {
             "private": {
-                "type": "commission_meeting",
+                "type": "project_meeting" if project_title else "commission_meeting",
                 "commission_id": str(getattr(commission, "id", "") or ""),
+                "project_id": str(getattr(project, "id", "") or "") if project_title else "",
                 "meeting_id": str(getattr(meeting, "id", "") or ""),
             }
         },

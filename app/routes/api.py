@@ -270,6 +270,7 @@ def calendario_mis_eventos():
 
     commission_events: list[dict] = []
     for meeting in meetings_query.order_by(CommissionMeeting.start_at.asc()).all():
+        project = meeting.project
         event_payload = {
             "id": f"commission-{meeting.id}",
             "titulo": meeting.title,
@@ -282,6 +283,9 @@ def calendario_mis_eventos():
             "es_comision": True,
             "commission_name": meeting.commission.name if meeting.commission else "",
             "commission_slug": meeting.commission.slug if meeting.commission else "",
+            "es_proyecto": bool(project),
+            "project_id": project.id if project else None,
+            "project_name": project.title if project else "",
         }
         if meeting.google_event_id:
             event_payload["url"] = build_calendar_event_url(meeting.google_event_id)
@@ -381,7 +385,10 @@ def api_commission_meetings(commission_id: int):
     search_query = request.args.get("buscar", "").strip()
     
     # Consulta base
-    query = CommissionMeeting.query.filter_by(commission_id=commission_id)
+    query = CommissionMeeting.query.filter_by(
+        commission_id=commission_id,
+        project_id=None,
+    )
     
     # Búsqueda
     if search_query:

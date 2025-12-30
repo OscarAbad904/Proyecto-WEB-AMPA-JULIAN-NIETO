@@ -43,7 +43,7 @@
 .admin-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 1.1rem; padding: 1.35rem; box-shadow: 0 16px 32px rgba(15, 23, 42, 0.14); min-width: 0; }
 .admin-form { display:flex; flex-direction:column; gap: 0.9rem; }
 .field label { display:block; font-weight: 600; color: #334155; margin-bottom: 0.35rem; }
-.field input, .field textarea, .field select { width:100%; border-radius: 0.65rem; border:1px solid #cbd5e1; background: #ffffff; color: #0f172a; padding: 0.85rem 0.9rem; font-size: 0.98rem; }
+.field input, .field textarea, .field select { width:100%; border-radius: 0.65rem; border:1px solid #cbd5e1; background: #ffffff; color: #0f172a; padding: 5px; font-size: 0.98rem; }
 .field input::placeholder,
 .field textarea::placeholder,
 .ql-editor::placeholder,

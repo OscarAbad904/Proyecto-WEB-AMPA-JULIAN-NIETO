@@ -222,7 +222,12 @@ class CommissionForm(FlaskForm):
 
 
 class CommissionMemberForm(FlaskForm):
-    user_id = SelectField("Seleccionar socio", coerce=int, validators=[DataRequired()])
+    user_id = SelectField(
+        "Seleccionar socio",
+        coerce=int,
+        validators=[DataRequired()],
+        default=0,
+    )
     role = SelectField(
         "Rol en la comision",
         choices=[
@@ -230,9 +235,10 @@ class CommissionMemberForm(FlaskForm):
             ("miembro", "Miembro"),
         ],
         validators=[DataRequired()],
+        default="miembro",
     )
     is_active = BooleanField("Activo", default=True)
-    submit = SubmitField("Guardar miembro")
+    submit = SubmitField("Agregar miembro")
 
 
 class CommissionProjectForm(FlaskForm):

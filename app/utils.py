@@ -130,3 +130,27 @@ def _generate_member_number(year: int) -> str:
 
 def _send_sms_code(phone: str, code: str) -> None:
     print(f"[SMS] Enviar código {code} a {phone}")
+
+
+def build_meeting_description(commission_name: str | None, project_title: str | None = None) -> str:
+    commission_label = (commission_name or "").strip()
+    if project_title:
+        project_label = project_title.strip()
+        if commission_label:
+            return f"Reunion del {project_label} de la comision de {commission_label}"
+        return f"Reunion del {project_label}"
+    if commission_label:
+        return f"Reunion General comision de {commission_label}"
+    return "Reunion General"
+
+
+def merge_meeting_description(default_text: str | None, custom_text: str | None) -> str:
+    base = (default_text or "").strip()
+    custom = (custom_text or "").strip()
+    if not custom:
+        return base
+    if not base:
+        return custom
+    if base in custom:
+        return custom
+    return f"{base}\n\n{custom}"

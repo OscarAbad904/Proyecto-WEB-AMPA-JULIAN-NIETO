@@ -47,6 +47,8 @@ from app.utils import (
     _generate_member_number,
     _send_sms_code,
     _parse_datetime_local,
+    build_meeting_description,
+    merge_meeting_description,
 )
 from app.services.permission_registry import ensure_roles_and_permissions, DEFAULT_ROLE_NAMES
 from app.services.calendar_service import sync_commission_meeting_to_calendar
@@ -765,7 +767,7 @@ def commission_discussion_edit(slug: str, suggestion_id: int):
         suggestion=suggestion,
         return_to=return_to,
         back_href=return_to or url_for("members.commission_detail", slug=commission.slug),
-        back_label="Volver a comisiones",
+        back_label="Volver a comision",
     )
 
 
@@ -1008,7 +1010,10 @@ def commissions():
         )
         active_projects_count = commission.projects.filter(CommissionProject.status.in_(active_project_statuses)).count()
         next_meeting = (
-            commission.meetings.filter(CommissionMeeting.start_at >= now_dt)
+            commission.meetings.filter(
+                CommissionMeeting.project_id.is_(None),
+                CommissionMeeting.start_at >= now_dt,
+            )
             .order_by(CommissionMeeting.start_at.asc())
             .first()
         )
@@ -1090,12 +1095,18 @@ def commission_detail(slug: str):
     discussion_vote_counts = _vote_counts_for_suggestions([discussion.id for discussion in commission_discussions])
     now_dt = datetime.utcnow()
     upcoming_meetings = (
-        commission.meetings.filter(CommissionMeeting.end_at >= now_dt)
+        commission.meetings.filter(
+            CommissionMeeting.project_id.is_(None),
+            CommissionMeeting.end_at >= now_dt,
+        )
         .order_by(CommissionMeeting.start_at.asc())
         .all()
     )
     past_meetings = (
-        commission.meetings.filter(CommissionMeeting.end_at < now_dt)
+        commission.meetings.filter(
+            CommissionMeeting.project_id.is_(None),
+            CommissionMeeting.end_at < now_dt,
+        )
         .order_by(CommissionMeeting.start_at.desc())
         .all()
     )
@@ -1141,7 +1152,7 @@ def commission_detail(slug: str):
         can_manage_discussions=can_manage_discussions,
         header_kicker=f"Comisiones \u00b7 {commission.name}",
         back_href=url_for("members.commissions"),
-        back_label="Volver a comisiones",
+        back_label="Volver a comision",
         return_to_url=url_for("members.commission_detail", slug=commission.slug),
         member_role=membership.role if membership else None,
         can_manage_members=can_manage_members,
@@ -1178,6 +1189,25 @@ def commission_project_detail(slug: str, project_id: int):
         .all()
     )
     project_discussion_vote_counts = _vote_counts_for_suggestions([discussion.id for discussion in project_discussions])
+    now_dt = datetime.utcnow()
+    project_upcoming_meetings = (
+        CommissionMeeting.query.filter_by(
+            commission_id=commission.id,
+            project_id=project.id,
+        )
+        .filter(CommissionMeeting.end_at >= now_dt)
+        .order_by(CommissionMeeting.start_at.asc())
+        .all()
+    )
+    project_past_meetings = (
+        CommissionMeeting.query.filter_by(
+            commission_id=commission.id,
+            project_id=project.id,
+        )
+        .filter(CommissionMeeting.end_at < now_dt)
+        .order_by(CommissionMeeting.start_at.desc())
+        .all()
+    )
 
     can_create_discussions = (
         _commission_can_manage(membership, "discussions")
@@ -1186,6 +1216,11 @@ def commission_project_detail(slug: str, project_id: int):
     )
     can_manage_projects = (
         _commission_can_manage(membership, "projects")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    can_manage_meetings = (
+        _commission_can_manage(membership, "meetings")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
@@ -1211,8 +1246,11 @@ def commission_project_detail(slug: str, project_id: int):
         membership=membership,
         project_discussions=project_discussions,
         project_discussion_vote_counts=project_discussion_vote_counts,
+        project_upcoming_meetings=project_upcoming_meetings,
+        project_past_meetings=project_past_meetings,
         can_create_discussions=can_create_discussions,
         can_manage_projects=can_manage_projects,
+        can_manage_meetings=can_manage_meetings,
         return_to=return_to,
         back_url=back_url,
         back_label=back_label,
@@ -1300,7 +1338,7 @@ def commission_member_new(slug: str):
         .all()
     )
     active_users_sorted = sorted(active_users, key=lambda user: user.display_name.casefold())
-    form.user_id.choices = [(user.id, user.display_name) for user in active_users_sorted]
+    active_users_map = {user.id: user.display_name for user in active_users_sorted}
     from sqlalchemy.orm import joinedload
 
     memberships = (
@@ -1313,8 +1351,26 @@ def commission_member_new(slug: str):
         for m in memberships
         if m.is_active and m.user.is_active and m.user.deleted_at is None
     ]
+    active_member_user_ids = {m.user_id for m in members_active}
+    active_member_user_ids = {m.user_id for m in members_active}
     active_member_ids = {m.id for m in members_active}
     members_history = [m for m in memberships if m.id not in active_member_ids]
+
+    choices = [(0, "-Selecciona un miembro-")] + [
+        (user.id, user.display_name)
+        for user in active_users_sorted
+        if user.id not in active_member_user_ids
+    ]
+    if request.method == "POST":
+        selected_user_id = form.user_id.data or 0
+        if selected_user_id in active_member_user_ids:
+            if selected_user_id not in {value for value, _ in choices}:
+                choices.append((selected_user_id, active_users_map.get(selected_user_id, "Miembro")))
+    form.user_id.choices = choices
+    if request.method == "GET":
+        form.user_id.default = 0
+        form.role.default = "miembro"
+        form.process(formdata=None)
 
     if form.validate_on_submit():
         existing = CommissionMembership.query.filter_by(
@@ -1322,13 +1378,13 @@ def commission_member_new(slug: str):
         ).first()
         if existing:
             existing.role = form.role.data
-            existing.is_active = form.is_active.data
+            existing.is_active = True
         else:
             membership_obj = CommissionMembership(
                 commission_id=commission.id,
                 user_id=form.user_id.data,
                 role=form.role.data,
-                is_active=form.is_active.data,
+                is_active=True,
             )
             db.session.add(membership_obj)
         db.session.commit()
@@ -1343,7 +1399,7 @@ def commission_member_new(slug: str):
         form=form,
         is_member_view=True,
         back_href=url_for("members.commission_detail", slug=commission.slug),
-        back_label="Volver",
+        back_label="Volver a comision",
         header_kicker="Comisiones - Area privada",
     )
 
@@ -1364,6 +1420,25 @@ def commission_member_disable(slug: str, membership_id: int):
     target.is_active = False
     db.session.commit()
     flash("Miembro desactivado", "info")
+    return redirect(url_for("members.commission_member_new", slug=slug))
+
+
+@members_bp.route("/comisiones/<slug>/miembros/<int:membership_id>/reactivar", methods=["POST"])
+@login_required
+def commission_member_reactivate(slug: str, membership_id: int):
+    commission, membership = _get_commission_and_membership(slug)
+    can_manage_members = (
+        _commission_can_manage(membership, "members")
+        or current_user.has_permission("manage_commission_members")
+        or user_is_privileged(current_user)
+    )
+    if not can_manage_members:
+        abort(403)
+
+    target = CommissionMembership.query.filter_by(id=membership_id, commission_id=commission.id).first_or_404()
+    target.is_active = True
+    db.session.commit()
+    flash("Miembro reactivado", "success")
     return redirect(url_for("members.commission_member_new", slug=slug))
 
 
@@ -1442,12 +1517,24 @@ def commission_meeting_form(slug: str, meeting_id: int | None = None):
     ):
         abort(403)
 
-    meeting = CommissionMeeting.query.filter_by(id=meeting_id, commission_id=commission.id).first() if meeting_id else None
+    meeting = (
+        CommissionMeeting.query.filter_by(
+            id=meeting_id,
+            commission_id=commission.id,
+            project_id=None,
+        ).first()
+        if meeting_id
+        else None
+    )
     form = CommissionMeetingForm(obj=meeting)
     document_choices = [(0, "Sin acta")] + [
         (doc.id, doc.title or f"Documento {doc.id}") for doc in Document.query.order_by(Document.created_at.desc()).all()
     ]
     form.minutes_document_id.choices = document_choices
+    default_description = build_meeting_description(commission.name)
+    back_url = url_for("members.commission_detail", slug=commission.slug)
+    back_label = "Volver a la comisión"
+    now_str = datetime.now().strftime("%Y-%m-%dT%H:%M")
 
     if form.validate_on_submit():
         start_at = _parse_datetime_local(form.start_at.data)
@@ -1459,6 +1546,9 @@ def commission_meeting_form(slug: str, meeting_id: int | None = None):
                 form=form,
                 commission=commission,
                 meeting=meeting,
+                back_url=back_url,
+                back_label=back_label,
+                now_str=now_str,
             )
         minutes_document_id = form.minutes_document_id.data or None
         if minutes_document_id == 0:
@@ -1472,10 +1562,11 @@ def commission_meeting_form(slug: str, meeting_id: int | None = None):
             meeting.location = form.location.data
             meeting.minutes_document_id = minutes_document_id
         else:
+            description_value = merge_meeting_description(default_description, form.description.data)
             meeting = CommissionMeeting(
                 commission_id=commission.id,
                 title=form.title.data,
-                description_html=form.description.data,
+                description_html=description_value,
                 start_at=start_at,
                 end_at=end_at,
                 location=form.location.data,
@@ -1498,16 +1589,190 @@ def commission_meeting_form(slug: str, meeting_id: int | None = None):
         flash("Reunión guardada", "success")
         return redirect(url_for("members.commission_detail", slug=slug))
 
-    if request.method == "GET" and meeting:
-        form.minutes_document_id.data = meeting.minutes_document_id or 0
-        form.start_at.data = meeting.start_at.strftime("%Y-%m-%dT%H:%M")
-        form.end_at.data = meeting.end_at.strftime("%Y-%m-%dT%H:%M")
+    if request.method == "GET":
+        if meeting:
+            form.minutes_document_id.data = meeting.minutes_document_id or 0
+            form.start_at.data = meeting.start_at.strftime("%Y-%m-%dT%H:%M")
+            form.end_at.data = meeting.end_at.strftime("%Y-%m-%dT%H:%M")
+        elif not form.description.data:
+            form.description.data = default_description
 
     return render_template(
         "members/comision_reunion_form.html",
         form=form,
         commission=commission,
         meeting=meeting,
+        back_url=back_url,
+        back_label=back_label,
+        now_str=now_str,
+    )
+
+
+@members_bp.route(
+    "/comisiones/<slug>/proyectos/<int:project_id>/reuniones/nueva",
+    methods=["GET", "POST"],
+)
+@members_bp.route(
+    "/comisiones/<slug>/proyectos/<int:project_id>/reuniones/<int:meeting_id>/editar",
+    methods=["GET", "POST"],
+)
+@login_required
+def project_meeting_form(slug: str, project_id: int, meeting_id: int | None = None):
+    commission, membership = _get_commission_and_membership(slug)
+    if not (
+        _commission_can_manage(membership, "meetings")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    ):
+        abort(403)
+
+    project = CommissionProject.query.filter_by(id=project_id, commission_id=commission.id).first_or_404()
+    meeting = (
+        CommissionMeeting.query.filter_by(
+            id=meeting_id,
+            commission_id=commission.id,
+            project_id=project.id,
+        ).first()
+        if meeting_id
+        else None
+    )
+    form = CommissionMeetingForm(obj=meeting)
+    document_choices = [(0, "Sin acta")] + [
+        (doc.id, doc.title or f"Documento {doc.id}") for doc in Document.query.order_by(Document.created_at.desc()).all()
+    ]
+    form.minutes_document_id.choices = document_choices
+    default_description = build_meeting_description(commission.name, project.title)
+
+    return_to = _safe_return_to(request.args.get("return_to"))
+    project_self_url = url_for(
+        "members.commission_project_detail",
+        slug=commission.slug,
+        project_id=project.id,
+        return_to=return_to,
+    )
+    now_str = datetime.now().strftime("%Y-%m-%dT%H:%M")
+
+    if form.validate_on_submit():
+        start_at = _parse_datetime_local(form.start_at.data)
+        end_at = _parse_datetime_local(form.end_at.data)
+        if not start_at or not end_at or end_at <= start_at:
+            flash("Fechas de inicio y fin deben ser validas y fin posterior a inicio.", "warning")
+            return render_template(
+                "members/comision_reunion_form.html",
+                form=form,
+                commission=commission,
+                project=project,
+                meeting=meeting,
+                back_url=project_self_url,
+                back_label="Volver al proyecto",
+                return_to=return_to,
+                now_str=now_str,
+            )
+        minutes_document_id = form.minutes_document_id.data or None
+        if minutes_document_id == 0:
+            minutes_document_id = None
+
+        if meeting:
+            meeting.title = form.title.data
+            meeting.description_html = form.description.data
+            meeting.start_at = start_at
+            meeting.end_at = end_at
+            meeting.location = form.location.data
+            meeting.minutes_document_id = minutes_document_id
+        else:
+            description_value = merge_meeting_description(default_description, form.description.data)
+            meeting = CommissionMeeting(
+                commission_id=commission.id,
+                project_id=project.id,
+                title=form.title.data,
+                description_html=description_value,
+                start_at=start_at,
+                end_at=end_at,
+                location=form.location.data,
+                minutes_document_id=minutes_document_id,
+            )
+            db.session.add(meeting)
+        db.session.commit()
+        calendar_result = sync_commission_meeting_to_calendar(meeting, commission)
+        if calendar_result.get("ok"):
+            event_id = calendar_result.get("event_id")
+            if event_id and meeting.google_event_id != event_id:
+                meeting.google_event_id = event_id
+                db.session.commit()
+        else:
+            current_app.logger.warning(
+                "No se pudo sincronizar la reunion con Google Calendar: %s",
+                calendar_result.get("error"),
+            )
+            flash("Reunion guardada, pero no se pudo sincronizar con Google Calendar.", "warning")
+        flash("Reunion guardada", "success")
+        return redirect(project_self_url)
+
+    if request.method == "GET":
+        if meeting:
+            form.minutes_document_id.data = meeting.minutes_document_id or 0
+            form.start_at.data = meeting.start_at.strftime("%Y-%m-%dT%H:%M")
+            form.end_at.data = meeting.end_at.strftime("%Y-%m-%dT%H:%M")
+        elif not form.description.data:
+            form.description.data = default_description
+
+    return render_template(
+        "members/comision_reunion_form.html",
+        form=form,
+        commission=commission,
+        project=project,
+        meeting=meeting,
+        back_url=project_self_url,
+        back_label="Volver al proyecto",
+        return_to=return_to,
+        now_str=now_str,
+    )
+
+
+@members_bp.route(
+    "/comisiones/<slug>/proyectos/<int:project_id>/reuniones/<int:meeting_id>/eliminar",
+    methods=["POST"],
+)
+@login_required
+def project_meeting_delete(slug: str, project_id: int, meeting_id: int):
+    """Elimina una reunion de un proyecto."""
+    commission, membership = _get_commission_and_membership(slug)
+    if not (
+        _commission_can_manage(membership, "meetings")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    ):
+        abort(403)
+
+    project = CommissionProject.query.filter_by(id=project_id, commission_id=commission.id).first_or_404()
+    meeting = CommissionMeeting.query.filter_by(
+        id=meeting_id,
+        commission_id=commission.id,
+        project_id=project.id,
+    ).first_or_404()
+
+    if meeting.google_event_id:
+        from app.services.calendar_service import delete_commission_meeting_event
+        delete_result = delete_commission_meeting_event(meeting.google_event_id)
+        if not delete_result.get("ok"):
+            current_app.logger.warning(
+                "No se pudo eliminar el evento de Google Calendar: %s",
+                delete_result.get("error"),
+            )
+            flash("Reunion eliminada localmente, pero no se pudo eliminar del calendario de Google.", "warning")
+
+    db.session.delete(meeting)
+    db.session.commit()
+    flash("Reunion eliminada", "success")
+
+    return_to = _safe_return_to(request.args.get("return_to"))
+    return redirect(
+        url_for(
+            "members.commission_project_detail",
+            slug=commission.slug,
+            project_id=project.id,
+            return_to=return_to,
+        )
     )
 
 
@@ -1523,7 +1788,11 @@ def commission_meeting_delete(slug: str, meeting_id: int):
     ):
         abort(403)
 
-    meeting = CommissionMeeting.query.filter_by(id=meeting_id, commission_id=commission.id).first_or_404()
+    meeting = CommissionMeeting.query.filter_by(
+        id=meeting_id,
+        commission_id=commission.id,
+        project_id=None,
+    ).first_or_404()
     
     # Intentar eliminar del calendario de Google si existe
     if meeting.google_event_id:
@@ -1570,7 +1839,10 @@ def commission_meetings_list(slug: str):
     sort_by = request.args.get("sort", "date_desc")  # "date_asc", "date_desc", "title_asc", "title_desc"
     
     # Consulta base
-    query = CommissionMeeting.query.filter_by(commission_id=commission.id)
+    query = CommissionMeeting.query.filter_by(
+        commission_id=commission.id,
+        project_id=None,
+    )
     
     # Búsqueda por título o ubicación
     if search_query:

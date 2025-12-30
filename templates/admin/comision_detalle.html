@@ -5,7 +5,7 @@
 {% set is_member_view = is_member_view|default(false) %}
 {% set header_kicker = header_kicker|default("Comisiones · " ~ commission.name) %}
 {% set back_href = back_href|default(url_for('admin.commissions_index')) %}
-{% set back_label = back_label|default("Volver a comisiones") %}
+{% set back_label = back_label|default("Volver a comision") %}
 {% set return_to_url = return_to_url|default(url_for('admin.commission_detail', commission_id=commission.id)) %}
 {% set member_role = member_role if member_role is defined else None %}
 {% set can_edit_commission = can_edit_commission if can_edit_commission is defined else False %}
@@ -69,20 +69,20 @@
     .detail-actions { display:flex; flex-wrap:wrap; gap: 0.6rem; align-items:center; }
     .detail-actions .btn-link,
     .section-title-row .btn-link {
-      background:#f8fafc;
+      background:#f97316;
       border:1px solid #e2e8f0;
       border-radius: 999px;
       padding: 0.6rem 0.95rem;
       text-decoration:none;
       font-weight:800;
-      color:#0f172a;
+      color:#f8fafc;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       white-space: nowrap;
     }
     .detail-actions .btn-link:hover,
-    .section-title-row .btn-link:hover { background:#eef2ff; }
+    .section-title-row .btn-link:hover { background:#fb923c; }
 
     .detail-grid { display:grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1rem; align-items:start; }
     .detail-grid .admin-card { padding: 1.25rem; }
@@ -156,7 +156,7 @@
       letter-spacing: 0.01em;
     }
     .date-chip--upcoming { background:#2563eb; color:#ffffff; }
-    .date-chip--past { background:#f59e0b; color:#111827; }
+    .date-chip--past { background:#f59e0b; color:#ffffff; padding:5px 10px;}
 
     .member-modal {
       position: fixed;

@@ -44,7 +44,14 @@ from app.forms import (
     CommissionMeetingForm,
     EVENT_CATEGORY_LABELS,
 )
-from app.utils import slugify, _normalize_drive_url, _parse_datetime_local, make_lookup_hash
+from app.utils import (
+    slugify,
+    _normalize_drive_url,
+    _parse_datetime_local,
+    make_lookup_hash,
+    build_meeting_description,
+    merge_meeting_description,
+)
 from app.media_utils import upload_news_image_variants, delete_news_images
 from app.services.permission_registry import (
     DEFAULT_ROLE_NAMES,
@@ -364,7 +371,10 @@ def commissions_index():
         )
         active_projects_count = commission.projects.filter(CommissionProject.status.in_(active_project_statuses)).count()
         next_meeting = (
-            commission.meetings.filter(CommissionMeeting.start_at >= now_dt)
+            commission.meetings.filter(
+                CommissionMeeting.project_id.is_(None),
+                CommissionMeeting.start_at >= now_dt,
+            )
             .order_by(CommissionMeeting.start_at.asc())
             .first()
         )
@@ -423,17 +433,26 @@ def commission_detail(commission_id: int):
         .all()
     )
     next_meeting = (
-        commission.meetings.filter(CommissionMeeting.start_at >= now_dt)
+        commission.meetings.filter(
+            CommissionMeeting.project_id.is_(None),
+            CommissionMeeting.start_at >= now_dt,
+        )
         .order_by(CommissionMeeting.start_at.asc())
         .first()
     )
     upcoming_meetings = (
-        commission.meetings.filter(CommissionMeeting.end_at >= now_dt)
+        commission.meetings.filter(
+            CommissionMeeting.project_id.is_(None),
+            CommissionMeeting.end_at >= now_dt,
+        )
         .order_by(CommissionMeeting.start_at.asc())
         .all()
     )
     past_meetings = (
-        commission.meetings.filter(CommissionMeeting.end_at < now_dt)
+        commission.meetings.filter(
+            CommissionMeeting.project_id.is_(None),
+            CommissionMeeting.end_at < now_dt,
+        )
         .order_by(CommissionMeeting.start_at.desc())
         .all()
     )
@@ -527,7 +546,7 @@ def commission_edit(commission_id: int | None = None):
             db.session.add(commission)
         db.session.commit()
         flash("Comisión guardada correctamente.", "success")
-        return redirect(url_for("admin.commissions_index"))
+        return redirect(url_for("admin.commission_detail", commission_id=commission.id))
 
     return render_template("admin/comision_form.html", form=form, commission=commission)
 
@@ -549,7 +568,7 @@ def commission_members(commission_id: int):
         .all()
     )
     active_users_sorted = sorted(active_users, key=lambda user: user.display_name.casefold())
-    form.user_id.choices = [(user.id, user.display_name) for user in active_users_sorted]
+    active_users_map = {user.id: user.display_name for user in active_users_sorted}
     from sqlalchemy.orm import joinedload
 
     memberships = (
@@ -562,8 +581,25 @@ def commission_members(commission_id: int):
         for m in memberships
         if m.is_active and m.user.is_active and m.user.deleted_at is None
     ]
+    active_member_user_ids = {m.user_id for m in members_active}
     active_member_ids = {m.id for m in members_active}
     members_history = [m for m in memberships if m.id not in active_member_ids]
+
+    choices = [(0, "-Selecciona un miembro-")] + [
+        (user.id, user.display_name)
+        for user in active_users_sorted
+        if user.id not in active_member_user_ids
+    ]
+    if request.method == "POST":
+        selected_user_id = form.user_id.data or 0
+        if selected_user_id in active_member_user_ids:
+            if selected_user_id not in {value for value, _ in choices}:
+                choices.append((selected_user_id, active_users_map.get(selected_user_id, "Miembro")))
+    form.user_id.choices = choices
+    if request.method == "GET":
+        form.user_id.default = 0
+        form.role.default = "miembro"
+        form.process(formdata=None)
 
     if form.validate_on_submit():
         existing = CommissionMembership.query.filter_by(
@@ -571,14 +607,14 @@ def commission_members(commission_id: int):
         ).first()
         if existing:
             existing.role = form.role.data
-            existing.is_active = form.is_active.data
+            existing.is_active = True
         else:
             db.session.add(
                 CommissionMembership(
                     commission_id=commission.id,
                     user_id=form.user_id.data,
                     role=form.role.data,
-                    is_active=form.is_active.data,
+                    is_active=True,
                 )
             )
         db.session.commit()
@@ -591,7 +627,9 @@ def commission_members(commission_id: int):
         members_active=members_active,
         members_history=members_history,
         form=form,
-        header_kicker="Comisiones · Administración",
+        header_kicker=f"Comisiones · {commission.name} - Miembros",
+        back_href=url_for("admin.commission_detail", commission_id=commission.id),
+        back_label="Volver a comision",
     )
 
 
@@ -607,6 +645,21 @@ def commission_member_disable_admin(commission_id: int, membership_id: int):
     membership.is_active = False
     db.session.commit()
     flash("Miembro desactivado", "info")
+    return redirect(url_for("admin.commission_members", commission_id=commission_id))
+
+
+@admin_bp.route("/comisiones/<int:commission_id>/miembros/<int:membership_id>/reactivar", methods=["POST"])
+@login_required
+def commission_member_reactivate_admin(commission_id: int, membership_id: int):
+    if not (
+        current_user.has_permission("manage_commission_members")
+        or user_is_privileged(current_user)
+    ):
+        abort(403)
+    membership = CommissionMembership.query.filter_by(id=membership_id, commission_id=commission_id).first_or_404()
+    membership.is_active = True
+    db.session.commit()
+    flash("Miembro reactivado", "success")
     return redirect(url_for("admin.commission_members", commission_id=commission_id))
 
 
@@ -690,12 +743,21 @@ def commission_meeting_edit(commission_id: int, meeting_id: int | None = None):
     ):
         abort(403)
     commission = Commission.query.get_or_404(commission_id)
-    meeting = CommissionMeeting.query.filter_by(id=meeting_id, commission_id=commission.id).first() if meeting_id else None
+    meeting = (
+        CommissionMeeting.query.filter_by(
+            id=meeting_id,
+            commission_id=commission.id,
+            project_id=None,
+        ).first()
+        if meeting_id
+        else None
+    )
     form = CommissionMeetingForm(obj=meeting)
     document_choices = [(0, "Sin acta")] + [
         (doc.id, doc.title or f"Documento {doc.id}") for doc in Document.query.order_by(Document.created_at.desc()).all()
     ]
     form.minutes_document_id.choices = document_choices
+    default_description = build_meeting_description(commission.name)
 
     if form.validate_on_submit():
         start_at = _parse_datetime_local(form.start_at.data)
@@ -722,10 +784,11 @@ def commission_meeting_edit(commission_id: int, meeting_id: int | None = None):
             meeting.location = form.location.data
             meeting.minutes_document_id = minutes_document_id
         else:
+            description_value = merge_meeting_description(default_description, form.description.data)
             meeting = CommissionMeeting(
                 commission_id=commission.id,
                 title=form.title.data,
-                description_html=form.description.data,
+                description_html=description_value,
                 start_at=start_at,
                 end_at=end_at,
                 location=form.location.data,
@@ -748,10 +811,13 @@ def commission_meeting_edit(commission_id: int, meeting_id: int | None = None):
         flash("Reunion guardada", "success")
         return redirect(url_for("admin.commissions_index"))
 
-    if request.method == "GET" and meeting:
-        form.minutes_document_id.data = meeting.minutes_document_id or 0
-        form.start_at.data = meeting.start_at.strftime("%Y-%m-%dT%H:%M")
-        form.end_at.data = meeting.end_at.strftime("%Y-%m-%dT%H:%M")
+    if request.method == "GET":
+        if meeting:
+            form.minutes_document_id.data = meeting.minutes_document_id or 0
+            form.start_at.data = meeting.start_at.strftime("%Y-%m-%dT%H:%M")
+            form.end_at.data = meeting.end_at.strftime("%Y-%m-%dT%H:%M")
+        elif not form.description.data:
+            form.description.data = default_description
 
     now = datetime.now()
     now_str = now.strftime("%Y-%m-%dT%H:%M")

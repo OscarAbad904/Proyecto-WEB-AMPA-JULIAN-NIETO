@@ -9,12 +9,72 @@
 
 {% block head %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  <style>
+    .admin-wrapper > .admin-card {
+      margin-bottom: 1rem;
+    }
+    .admin-wrapper > .admin-card:last-of-type {
+      margin-bottom: 0;
+    }
+    .admin-kicker-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .admin-kicker-row .nav-auth-btn {
+      min-width: 0;
+    }
+    .field-row--member {
+      align-items: end;
+      grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1fr) auto;
+    }
+    .field-row--member .field--submit {
+      display: flex;
+      align-items: end;
+      justify-content: flex-end;
+    }
+    .field-row--member .field--submit .btn-primary {
+      width: auto;
+      min-width: 160px;
+    }
+    .btn-primary--member-add {
+      background: #ff8a4c;
+      color: #fff;
+      border-radius: 999px;
+      box-shadow: 0 14px 30px rgba(255, 138, 76, 0.35);
+    }
+    .field-row--member .field--submit .btn-primary--member-add {
+      background: #ff8a4c;
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      box-shadow: 0 14px 30px rgba(255, 138, 76, 0.35);
+    }
+    .btn-primary--member-add:hover {
+      opacity: 0.9;
+      transform: none;
+    }
+    .member-row-selectable {
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .member-row-selectable:hover {
+      background: #f8fafc;
+    }
+  </style>
 {% endblock %}
 
 {% block content %}
 <section class="admin-wrapper">
   <div class="admin-header">
-    <p class="admin-kicker">{{ header_kicker }}</p>
+    <div class="admin-kicker-row">
+      <p class="admin-kicker">{{ header_kicker }}</p>
+      {% if back_href %}
+      <a class="nav-auth-btn nav-auth-btn--logout" href="{{ back_href }}">{{ back_label }}</a>
+      {% endif %}
+    </div>
     <h1 class="admin-title">Miembros de {{ commission.name }}</h1>
     <p class="admin-subtitle">Añade responsables, define su rol y activa o desactiva miembros según su participación.</p>
   </div>
@@ -22,7 +82,7 @@
   <div class="admin-card">
     <form method="post" class="admin-form">
       {{ form.hidden_tag() }}
-      <div class="field-row">
+      <div class="field-row field-row--member">
         <div class="field">
           {{ form.user_id.label }}
           {{ form.user_id() }}
@@ -31,15 +91,9 @@
           {{ form.role.label }}
           {{ form.role() }}
         </div>
-      </div>
-      <div class="field">
-        <label class="checkbox-inline">
-          {{ form.is_active() }} <span>Activo</span>
-        </label>
-      </div>
-      <div class="admin-actions">
-        {{ form.submit(class="btn-primary") }}
-        <a class="btn-link" href="{{ back_href }}">{{ back_label }}</a>
+        <div class="field field--submit">
+          {{ form.submit(class="btn-primary btn-primary--member-add", id="member-submit") }}
+        </div>
       </div>
     </form>
   </div>
@@ -57,7 +111,13 @@
         </thead>
         <tbody>
           {% for member in members_active %}
-          <tr>
+          <tr
+            class="member-row-selectable"
+            data-member-row
+            data-user-id="{{ member.user.id }}"
+            data-user-name="{{ member.user.display_name }}"
+            data-role="{{ (member.role or 'miembro')|lower }}"
+          >
             <td>{{ member.user.display_name }}</td>
             <td>{{ member.role }}</td>
             <td>
@@ -70,7 +130,7 @@
               <form method="post" action="{{ url_for('admin.commission_member_disable_admin', commission_id=commission.id, membership_id=member.id) }}">
               {% endif %}
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn-link">Desactivar</button>
+                <button type="submit" class="nav-auth-btn nav-auth-btn--logout btn-mini">Desactivar</button>
               </form>
             </td>
           </tr>
@@ -93,6 +153,7 @@
             <th>Usuario</th>
             <th>Rol</th>
             <th>Estado</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -111,10 +172,22 @@
                 <span class="chip chip-live">Activo</span>
               {% endif %}
             </td>
+            <td>
+              {% if member.user and member.user.is_active and member.user.deleted_at is none and not member.is_active %}
+                {% if is_member_view %}
+                <form method="post" action="{{ url_for('members.commission_member_reactivate', slug=commission.slug, membership_id=member.id) }}">
+                {% else %}
+                <form method="post" action="{{ url_for('admin.commission_member_reactivate_admin', commission_id=commission.id, membership_id=member.id) }}">
+                {% endif %}
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="nav-auth-btn nav-auth-btn--logout btn-mini">Reactivar</button>
+                </form>
+              {% endif %}
+            </td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="3" class="muted">Sin histórico.</td>
+            <td colspan="4" class="muted">Sin histórico.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -122,4 +195,67 @@
     </div>
   </div>
 </section>
+<script>
+  (function () {
+    const form = document.querySelector('.admin-form');
+    if (!form) return;
+    const userSelect = form.querySelector('select[name="user_id"]');
+    const roleSelect = form.querySelector('select[name="role"]');
+    const submitBtn = form.querySelector('#member-submit');
+    const rows = document.querySelectorAll('[data-member-row]');
+    if (!userSelect || !roleSelect || !rows.length || !submitBtn) return;
+
+    let tempOption = userSelect.querySelector('option[data-temp="member"]');
+    const addLabel = 'Agregar miembro';
+    const updateLabel = 'Actualizar Miembro';
+
+    const setSubmitLabel = (label) => {
+      if (submitBtn.tagName === 'INPUT') {
+        submitBtn.value = label;
+      } else {
+        submitBtn.textContent = label;
+      }
+    };
+
+    const selectMember = (row) => {
+      const userId = row.dataset.userId;
+      const userName = row.dataset.userName || '';
+      const role = row.dataset.role || 'miembro';
+      if (!userId) return;
+
+      let option = Array.from(userSelect.options).find((opt) => opt.value === userId);
+      if (!option) {
+        if (!tempOption) {
+          tempOption = document.createElement('option');
+          tempOption.dataset.temp = 'member';
+          tempOption.hidden = true;
+          userSelect.appendChild(tempOption);
+        }
+        tempOption.value = userId;
+        tempOption.textContent = userName;
+        option = tempOption;
+      }
+      userSelect.value = option.value;
+      roleSelect.value = role;
+      setSubmitLabel(updateLabel);
+    };
+
+    rows.forEach((row) => {
+      row.addEventListener('click', (event) => {
+        if (event.target.closest('form') || event.target.closest('button') || event.target.closest('a')) {
+          return;
+        }
+        selectMember(row);
+      });
+    });
+
+    userSelect.addEventListener('change', () => {
+      if (tempOption && userSelect.value !== tempOption.value) {
+        tempOption.remove();
+        tempOption = null;
+      }
+      setSubmitLabel(addLabel);
+    });
+  })();
+</script>
 {% endblock %}

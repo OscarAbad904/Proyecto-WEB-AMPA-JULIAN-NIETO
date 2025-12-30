@@ -548,6 +548,12 @@ class CommissionProject(db.Model):
 
     commission = db.relationship("Commission", back_populates="projects")
     responsible = db.relationship("User")
+    meetings = db.relationship(
+        "CommissionMeeting",
+        back_populates="project",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
 
 
 class CommissionMeeting(db.Model):
@@ -555,6 +561,7 @@ class CommissionMeeting(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     commission_id = db.Column(db.Integer, db.ForeignKey("commissions.id"), nullable=False, index=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("commission_projects.id"), index=True)
     title = db.Column(db.String(255), nullable=False)
     description_html = db.Column(encrypted_text(), nullable=True)
     start_at = db.Column(db.DateTime, nullable=False, index=True)
@@ -566,6 +573,7 @@ class CommissionMeeting(db.Model):
     updated_at = db.Column(db.DateTime, server_default=func.now(), onupdate=func.now())
 
     commission = db.relationship("Commission", back_populates="meetings")
+    project = db.relationship("CommissionProject", back_populates="meetings")
     minutes_document = db.relationship("Document", back_populates="meeting_minutes")
 
 

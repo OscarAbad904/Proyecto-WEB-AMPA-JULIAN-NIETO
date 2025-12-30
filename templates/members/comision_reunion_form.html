@@ -1,111 +1,829 @@
 {% extends "public/layout.html" %}
 
-{% block title %}{{ meeting.title if meeting else "Nueva reunión" }} | {{ commission.name }}{% endblock %}
+{% block title %}{{ meeting.title if meeting else "Nueva reunión" }} | {{ project.title if project else commission.name }}{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pickadate.js/3.6.4/compressed/themes/classic.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pickadate.js/3.6.4/compressed/themes/classic.date.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/timepicker-ui@4.0.2/dist/css/main.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/timepicker-ui@4.0.2/dist/css/themes/theme-m2.css" />
+  <style>
+    .meeting-wrapper {
+      padding: 3rem 1rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .meeting-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .meeting-kicker {
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      color: var(--color-text-muted, #64748b);
+    }
+
+    .meeting-title {
+      font-size: 2rem;
+      margin: 0;
+      color: var(--color-text-base, #1e293b);
+      font-weight: 700;
+    }
+
+    .meeting-subtitle {
+      margin: 0;
+      color: var(--color-text-muted, #64748b);
+      font-size: 1rem;
+    }
+    .meeting-meta {
+      margin: 0;
+      color: var(--color-text-muted, #64748b);
+      font-size: 0.95rem;
+    }
+
+    .meeting-form-container {
+      background: var(--color-panel, rgba(255, 255, 255, 0.95));
+      border: 1px solid var(--color-border, rgba(139, 92, 246, 0.15));
+      border-radius: 1.5rem;
+      padding: 2rem;
+      box-shadow: var(--shadow-xl, 0 24px 56px rgba(0, 0, 0, 0.12));
+    }
+
+    .meeting-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .form-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .form-section-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--color-accent, #f97316);
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .form-field label {
+      display: block;
+      font-weight: 600;
+      color: var(--color-text-base, #1e293b);
+      font-size: 0.95rem;
+    }
+
+    .form-field input[type="text"],
+    .form-field textarea,
+    .form-field select {
+      width: 100%;
+      border-radius: 0.85rem;
+      border: 1.5px solid color-mix(in srgb, var(--color-border, rgba(139, 92, 246, 0.15)) 80%, #cbd5e1);
+      background: var(--color-bg-mid, #ffffff);
+      color: var(--color-text-base, #1e293b);
+      padding: 0.85rem 1rem;
+      font-size: 0.95rem;
+      transition: all 0.2s ease;
+    }
+
+    .form-field input[type="text"]:focus,
+    .form-field textarea:focus,
+    .form-field select:focus {
+      outline: none;
+      border-color: var(--color-accent, #f97316);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent, #f97316) 18%, transparent), inset 0 1px 2px rgba(15, 23, 42, 0.05);
+      background: var(--color-bg-dark, #f8fafc);
+    }
+
+    .form-field textarea {
+      min-height: 110px;
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    .form-field small {
+      color: #ef4444;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-top: 0.25rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .datetime-split {
+      display: grid;
+      grid-template-columns: 1fr 160px;
+      gap: 0.75rem;
+      align-items: start;
+    }
+
+    .time-only {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    .datetime-split input[readonly] {
+      background: rgba(248, 250, 252, 0.9);
+      color: #475569;
+    }
+
+    .picker__holder {
+      border-radius: var(--radius-xl, 24px);
+    }
+
+    .picker__frame {
+      margin-top: 0.5rem;
+    }
+
+    .picker__wrap {
+      padding: 0;
+    }
+
+    .picker__box {
+      border-radius: var(--radius-xl, 24px);
+      border: 1px solid var(--color-border, rgba(139, 92, 246, 0.15));
+      background: var(--color-panel, rgba(255, 255, 255, 0.95));
+      box-shadow: var(--shadow-xl, 0 24px 56px rgba(0, 0, 0, 0.12));
+      overflow: hidden;
+    }
+
+    .picker--date .picker__box {
+      outline: 2px solid color-mix(in srgb, var(--color-accent, #f97316) 18%, transparent);
+      outline-offset: -6px;
+    }
+
+    .picker__header {
+      padding-top: 0.75rem;
+    }
+
+    .picker__nav--prev,
+    .picker__nav--next {
+      border-radius: var(--radius-full, 9999px);
+    }
+
+    .picker__nav--prev:hover,
+    .picker__nav--next:hover {
+      background: color-mix(in srgb, var(--color-accent, #f97316) 10%, transparent);
+    }
+
+    .picker__day--selected,
+    .picker__day--selected:hover,
+    .picker__day--selected:focus {
+      background: color-mix(in srgb, var(--color-accent, #f97316) 16%, transparent);
+      border-color: color-mix(in srgb, var(--color-accent, #f97316) 55%, transparent);
+      color: var(--color-text-base, #1e293b);
+    }
+
+    .picker__day--highlighted,
+    .picker__day--highlighted:hover,
+    .picker__day--highlighted:focus {
+      border-color: color-mix(in srgb, var(--color-accent, #f97316) 45%, transparent);
+    }
+
+    .picker__button--today,
+    .picker__button--clear,
+    .picker__button--close {
+      border-radius: var(--radius-full, 9999px);
+      border-color: color-mix(in srgb, var(--color-border, rgba(139, 92, 246, 0.15)) 80%, #cbd5e1);
+      color: var(--color-text-muted, #64748b);
+      font-weight: 700;
+    }
+
+    .picker__button--today:hover,
+    .picker__button--clear:hover,
+    .picker__button--close:hover {
+      color: var(--color-text-base, #1e293b);
+      border-color: color-mix(in srgb, var(--color-accent, #f97316) 45%, transparent);
+      background: color-mix(in srgb, var(--color-accent, #f97316) 10%, transparent);
+    }
+
+    .tp-ui-modal {
+      border-radius: var(--radius-xl, 24px);
+      border: 1px solid var(--color-border, rgba(139, 92, 246, 0.15));
+      box-shadow: var(--shadow-xl, 0 24px 56px rgba(0, 0, 0, 0.12));
+      overflow: hidden;
+      background: var(--color-panel, rgba(255, 255, 255, 0.95));
+    }
+
+    .tp-ui-modal,
+    .tp-ui-modal * {
+      font-family: var(--font-sans, inherit);
+    }
+
+    .timepicker-anchor {
+      position: relative;
+    }
+
+    .timepicker-popover {
+      position: absolute;
+      top: calc(100% + 0.5rem);
+      left: 0;
+      z-index: 9999;
+      display: none;
+      width: min(360px, 92vw);
+    }
+
+    .timepicker-popover.is-open {
+      display: block;
+    }
+
+    .timepicker-popover .tp-ui-modal {
+      position: static !important;
+      margin: 0 !important;
+      width: 100% !important;
+    }
+
+    .tp-ui-wrapper {
+      --tp-primary: var(--color-accent, #f97316);
+      --tp-primary-dark: var(--color-accent, #f97316);
+      --tp-surface: var(--color-panel, rgba(255, 255, 255, 0.95));
+      --tp-text: var(--color-text-base, #1e293b);
+      --tp-muted: var(--color-text-muted, #64748b);
+    }
+
+    .tp-ui-clock-face {
+      background: rgba(15, 23, 42, 0.03);
+      background: color-mix(in srgb, var(--color-accent, #f97316) 12%, transparent);
+      border-radius: 999px;
+    }
+
+    .tp-ui-hour,
+    .tp-ui-minutes {
+      font-weight: 700;
+    }
+
+    .form-full-width {
+      grid-column: 1 / -1;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      justify-content: flex-end;
+      margin-top: 1rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(139, 92, 246, 0.1);
+    }
+
+    .btn-save {
+      background: linear-gradient(120deg, #8b5cf6, #ec4899);
+      color: #ffffff;
+      border: none;
+      border-radius: 999px;
+      padding: 0.95rem 2rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 12px 28px rgba(139, 92, 246, 0.25);
+      font-size: 1rem;
+    }
+
+    .btn-save:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 36px rgba(139, 92, 246, 0.35);
+    }
+
+    .btn-cancel {
+      color: #475569;
+      text-decoration: none;
+      font-weight: 600;
+      padding: 0.85rem 1.5rem;
+      transition: all 0.2s ease;
+      border-radius: 0.85rem;
+    }
+
+    .btn-cancel:hover {
+      color: #0f172a;
+      background: rgba(139, 92, 246, 0.08);
+    }
+
+    .meeting-delete-form {
+      margin-top: 1.5rem;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .btn-delete {
+      background: #ef4444;
+      color: #ffffff;
+      border: none;
+      border-radius: 999px;
+      padding: 0.85rem 1.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 12px 24px rgba(239, 68, 68, 0.25);
+    }
+
+    .btn-delete:hover {
+      background: #dc2626;
+      box-shadow: 0 16px 32px rgba(239, 68, 68, 0.32);
+    }
+
+    @media (max-width: 768px) {
+      .meeting-wrapper {
+        padding: 1.5rem 1rem;
+      }
+
+      .meeting-form-container {
+        padding: 1.5rem;
+        border-radius: 1.2rem;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .datetime-split {
+        grid-template-columns: 1fr;
+      }
+
+      .form-actions {
+        flex-direction: column;
+        justify-content: stretch;
+      }
+
+      .btn-save {
+        width: 100%;
+      }
+
+      .btn-cancel {
+        width: 100%;
+        text-align: center;
+      }
+
+      .meeting-delete-form {
+        justify-content: stretch;
+      }
+
+      .btn-delete {
+        width: 100%;
+      }
+    }
+  </style>
+{% endblock %}
 
 {% block content %}
-<section class="page-section">
-  <div class="container">
-    <header class="section-header">
-      <p class="eyebrow">Comisión: {{ commission.name }}</p>
-      <h1 class="section-title">{{ meeting.title if meeting else "Nueva reunión" }}</h1>
-      {% if meeting %}
-      <p class="text-muted">Creada: {{ meeting.created_at.strftime("%d/%m/%Y %H:%M") }}</p>
-      <p class="text-muted">Última actualización: {{ meeting.updated_at.strftime("%d/%m/%Y %H:%M") }}</p>
+<section class="meeting-wrapper">
+  <div class="meeting-header">
+    <p class="meeting-kicker">
+      {% if project %}
+        Proyecto · {{ project.title }} · Comisión · {{ commission.name }}
+      {% else %}
+        Comisión · {{ commission.name }}
       {% endif %}
-    </header>
-    
-    <div class="card">
-      <form method="post">
-        {{ form.hidden_tag() }}
-        
-        <div class="form-group">
-          {{ form.title.label(class="form-label") }}
-          {{ form.title(class="form-control", placeholder="p.ej. Reunión de planificación Q1") }}
+    </p>
+    <h1 class="meeting-title">{{ meeting.title if meeting else "Nueva reunión" }}</h1>
+    <p class="meeting-subtitle">
+      {% if project %}
+        Programa horarios, ubicación y documentación clave para <strong>{{ project.title }}</strong>.
+      {% else %}
+        Programa horarios, ubicación y documentación clave para <strong>{{ commission.name }}</strong>.
+      {% endif %}
+    </p>
+    {% if meeting %}
+      <p class="meeting-meta">Creada: {{ meeting.created_at.strftime("%d/%m/%Y %H:%M") }}</p>
+      <p class="meeting-meta">Última actualización: {{ meeting.updated_at.strftime("%d/%m/%Y %H:%M") }}</p>
+    {% endif %}
+  </div>
+
+  <div class="meeting-form-container">
+    <form method="post" class="meeting-form" id="meetingForm">
+      {{ form.hidden_tag() }}
+
+      <div class="form-section form-full-width">
+        <h3 class="form-section-title">📋 Información de la reunión</h3>
+        <div class="form-field">
+          {{ form.title.label }}
+          {{ form.title(placeholder="Ej: Reunión ordinaria de tecnología") }}
           {% if form.title.errors %}
-          <div class="form-error">
-            {% for error in form.title.errors %}
-            <p>{{ error }}</p>
-            {% endfor %}
-          </div>
+            <small>{{ form.title.errors[0] }}</small>
           {% endif %}
         </div>
-        
-        <div class="form-group">
-          {{ form.description.label(class="form-label") }}
-          {{ form.description(class="form-control", rows="5", placeholder="Agenda, temas a tratar, etc.") }}
-          <small class="text-muted">Puedes usar HTML básico para dar formato.</small>
+        <div class="form-field">
+          {{ form.description.label }}
+          {{ form.description(rows="4", placeholder="Temas a tratar, objetivos y puntos a discutir...") }}
           {% if form.description.errors %}
-          <div class="form-error">
-            {% for error in form.description.errors %}
-            <p>{{ error }}</p>
-            {% endfor %}
-          </div>
+            <small>{{ form.description.errors[0] }}</small>
           {% endif %}
         </div>
-        
+      </div>
+
+      <div class="form-section">
+        <h3 class="form-section-title">⏰ Horario y ubicación</h3>
         <div class="form-row">
-          <div class="form-group">
-            {{ form.start_at.label(class="form-label") }}
-            {{ form.start_at(class="form-control") }}
+          <div class="form-field">
+            {{ form.start_at.label }}
+            {{ form.start_at(id="startAt", type="hidden") }}
+            <div class="datetime-split" style="margin-top: 0.5rem;">
+              <input type="text" id="startDate" placeholder="Fecha" autocomplete="off" />
+              <div class="timepicker-anchor">
+                <input type="text" id="startTime" placeholder="Hora" autocomplete="off" />
+                <div class="timepicker-popover" id="startTimePopover" aria-hidden="true"></div>
+              </div>
+            </div>
             {% if form.start_at.errors %}
-            <div class="form-error">
-              {% for error in form.start_at.errors %}
-              <p>{{ error }}</p>
-              {% endfor %}
-            </div>
+              <small>{{ form.start_at.errors[0] }}</small>
             {% endif %}
           </div>
-          
-          <div class="form-group">
-            {{ form.end_at.label(class="form-label") }}
-            {{ form.end_at(class="form-control") }}
+          <div class="form-field">
+            {{ form.end_at.label }}
+            {{ form.end_at(id="endAt", type="hidden") }}
+            <div class="time-only" style="margin-top: 0.5rem;">
+              <div class="timepicker-anchor">
+                <input type="text" id="endTime" placeholder="Hora" autocomplete="off" />
+                <div class="timepicker-popover" id="endTimePopover" aria-hidden="true"></div>
+              </div>
+            </div>
             {% if form.end_at.errors %}
-            <div class="form-error">
-              {% for error in form.end_at.errors %}
-              <p>{{ error }}</p>
-              {% endfor %}
-            </div>
+              <small>{{ form.end_at.errors[0] }}</small>
             {% endif %}
           </div>
         </div>
-        
-        <div class="form-group">
-          {{ form.location.label(class="form-label") }}
-          {{ form.location(class="form-control", placeholder="Presencial, online, etc.") }}
+        <div class="form-field form-full-width">
+          {{ form.location.label }}
+          {{ form.location(placeholder="Ej: Sala de reuniones, Zoom, Calle Principal 123") }}
           {% if form.location.errors %}
-          <div class="form-error">
-            {% for error in form.location.errors %}
-            <p>{{ error }}</p>
-            {% endfor %}
-          </div>
+            <small>{{ form.location.errors[0] }}</small>
           {% endif %}
         </div>
-        
-        <div class="form-group">
-          {{ form.minutes_document_id.label(class="form-label") }}
-          {{ form.minutes_document_id(class="form-control") }}
-          <small class="text-muted">Vincula el acta de la reunión si está disponible.</small>
+      </div>
+
+      <div class="form-section form-full-width">
+        <h3 class="form-section-title">📄 Documentación</h3>
+        <div class="form-field">
+          {{ form.minutes_document_id.label }}
+          {{ form.minutes_document_id() }}
           {% if form.minutes_document_id.errors %}
-          <div class="form-error">
-            {% for error in form.minutes_document_id.errors %}
-            <p>{{ error }}</p>
-            {% endfor %}
-          </div>
+            <small>{{ form.minutes_document_id.errors[0] }}</small>
           {% endif %}
         </div>
-        
-        <div class="form-actions">
-          {{ form.submit(class="btn-primary", value="Guardar reunión") }}
-          <a class="btn-link" href="{{ url_for('members.commission_detail', slug=commission.slug) }}">Cancelar</a>
-          {% if meeting %}
-          <form method="post" action="{{ url_for('members.commission_meeting_delete', slug=commission.slug, meeting_id=meeting.id) }}" style="display:inline;" data-confirm="{{ '¿Estás seguro de que quieres eliminar esta reunión? Esta acción no se puede deshacer.' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn-link danger">Eliminar reunión</button>
-          </form>
-          {% endif %}
-        </div>
+      </div>
+
+      <div class="form-actions">
+        <a class="btn-cancel" href="{{ back_url or url_for('members.commission_detail', slug=commission.slug) }}">
+          {{ back_label or "Volver a la comisión" }}
+        </a>
+        {{ form.submit(class="btn-save", value="Guardar reunión") }}
+      </div>
+    </form>
+
+    {% if meeting %}
+      {% if project %}
+        {% set delete_action = url_for('members.project_meeting_delete', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) %}
+      {% else %}
+        {% set delete_action = url_for('members.commission_meeting_delete', slug=commission.slug, meeting_id=meeting.id) %}
+      {% endif %}
+      <form method="post" action="{{ delete_action }}" class="meeting-delete-form" data-confirm="{{ '¿Estás seguro de que quieres eliminar esta reunión? Esta acción no se puede deshacer.' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-delete">Eliminar reunión</button>
       </form>
-    </div>
+    {% endif %}
   </div>
 </section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pickadate.js/3.6.4/compressed/picker.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pickadate.js/3.6.4/compressed/picker.date.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/timepicker-ui@4.0.2/dist/index.umd.js"></script>
+
+<script>
+  const nowStr = "{{ now_str }}";
+
+  let __syncInProgress = false;
+
+  const startAtHidden = document.getElementById('startAt');
+  const endAtHidden = document.getElementById('endAt');
+
+  const startDateInput = document.getElementById('startDate');
+  const startTimeInput = document.getElementById('startTime');
+  const endTimeInput = document.getElementById('endTime');
+
+  const startTimePopover = document.getElementById('startTimePopover');
+  const endTimePopover = document.getElementById('endTimePopover');
+
+  function closeTimePopovers(exceptPopover) {
+    [startTimePopover, endTimePopover].forEach(function(pop) {
+      if (!pop || pop === exceptPopover) return;
+      pop.classList.remove('is-open');
+      pop.setAttribute('aria-hidden', 'true');
+    });
+  }
+
+  function dockLatestTimepickerModalInto(popoverEl) {
+    if (!popoverEl) return false;
+    const modals = document.querySelectorAll('.tp-ui-modal');
+    if (!modals || !modals.length) return false;
+
+    const modal = modals[modals.length - 1];
+    if (!popoverEl.contains(modal)) {
+      popoverEl.replaceChildren(modal);
+    }
+
+    popoverEl.classList.add('is-open');
+    popoverEl.setAttribute('aria-hidden', 'false');
+    return true;
+  }
+
+  function dockOnOpen(popoverEl) {
+    if (!popoverEl) return;
+    closeTimePopovers(popoverEl);
+
+    let tries = 0;
+    const tick = function() {
+      tries += 1;
+      if (dockLatestTimepickerModalInto(popoverEl) || tries > 12) return;
+      requestAnimationFrame(tick);
+    };
+
+    requestAnimationFrame(tick);
+  }
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  function formatDateYMD(d) {
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  }
+
+  function formatTimeHM(d) {
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+
+  function parseYMD(ymd) {
+    const [y, m, day] = (ymd || '').split('-').map(Number);
+    if (!y || !m || !day) return null;
+    return new Date(y, m - 1, day, 0, 0, 0, 0);
+  }
+
+  function parseHM(hm) {
+    const [h, m] = (hm || '').split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return { h, m };
+  }
+
+  function buildLocalDateTime(ymd, hm) {
+    const base = parseYMD(ymd);
+    const t = parseHM(hm);
+    if (!base || !t) return null;
+    base.setHours(t.h, t.m, 0, 0);
+    return base;
+  }
+
+  function setHiddenFromVisible() {
+    const startDT = buildLocalDateTime(startDateInput.value, startTimeInput.value);
+    if (startDT) {
+      startAtHidden.value = `${formatDateYMD(startDT)}T${formatTimeHM(startDT)}`;
+    }
+
+    const endDT = buildLocalDateTime(startDateInput.value, endTimeInput.value);
+    if (endDT) {
+      endAtHidden.value = `${formatDateYMD(endDT)}T${formatTimeHM(endDT)}`;
+    }
+  }
+
+  function clampEndTo15Minutes() {
+    const startDT = buildLocalDateTime(startDateInput.value, startTimeInput.value);
+    if (!startDT) return;
+
+    const minEnd = new Date(startDT.getTime() + 60 * 1000);
+    const maxEndByRule = new Date(startDT.getTime() + 15 * 60 * 1000);
+
+    const endOfDay = new Date(startDT.getFullYear(), startDT.getMonth(), startDT.getDate(), 23, 59, 0, 0);
+    const maxEnd = maxEndByRule > endOfDay ? endOfDay : maxEndByRule;
+
+    let endDT = buildLocalDateTime(startDateInput.value, endTimeInput.value);
+    if (!endDT || endDT < minEnd || endDT > maxEnd) {
+      endTimeInput.value = formatTimeHM(maxEnd);
+    }
+  }
+
+  function enforceStartAfterNow() {
+    const now = new Date(nowStr);
+    const startDT = buildLocalDateTime(startDateInput.value, startTimeInput.value);
+    if (!startDT) return;
+
+    if (startDT <= now) {
+      const fixed = new Date(now.getTime() + 60 * 1000);
+      startDateInput.value = formatDateYMD(fixed);
+      startTimeInput.value = formatTimeHM(fixed);
+      if (window.__startDatePicker) {
+        const current = window.__startDatePicker.get('select');
+        const needs = !current || current.year !== fixed.getFullYear() || current.month !== fixed.getMonth() || current.date !== fixed.getDate();
+        if (needs) {
+          window.__startDatePicker.set('select', [fixed.getFullYear(), fixed.getMonth(), fixed.getDate()], { muted: true });
+        }
+      }
+      if (window.__startTimePickerInstance) {
+        window.__startTimePickerInstance.setValue(formatTimeHM(fixed));
+      }
+    }
+  }
+
+  function updateStartTimeMinByDate() {
+    const now = new Date(nowStr);
+    const selectedDate = parseYMD(startDateInput.value);
+    if (!selectedDate) return;
+
+    const isToday =
+      selectedDate.getFullYear() === now.getFullYear() &&
+      selectedDate.getMonth() === now.getMonth() &&
+      selectedDate.getDate() === now.getDate();
+
+    void isToday;
+  }
+
+  function syncAll() {
+    if (__syncInProgress) return;
+    __syncInProgress = true;
+    try {
+      updateStartTimeMinByDate();
+      enforceStartAfterNow();
+      clampEndTo15Minutes();
+      setHiddenFromVisible();
+    } finally {
+      __syncInProgress = false;
+    }
+  }
+
+  (function initFromHidden() {
+    const initialStart = startAtHidden?.value || "";
+    const initialEnd = endAtHidden?.value || "";
+    if (initialStart.includes('T')) {
+      const [d, t] = initialStart.split('T');
+      startDateInput.value = d;
+      startTimeInput.value = t;
+    }
+    if (initialEnd.includes('T')) {
+      const [, t] = initialEnd.split('T');
+      endTimeInput.value = t;
+    }
+
+    if (!startDateInput.value || !startTimeInput.value) {
+      const base = new Date(nowStr);
+      base.setMinutes(base.getMinutes() + 1);
+      startDateInput.value = formatDateYMD(base);
+      startTimeInput.value = formatTimeHM(base);
+    }
+    syncAll();
+  })();
+
+  $(function() {
+    const now = new Date(nowStr);
+    const minDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    $('#startDate').pickadate({
+      format: 'yyyy-mm-dd',
+      editable: true,
+      min: minDate,
+      onSet: function() {
+        syncAll();
+      }
+    });
+    window.__startDatePicker = $('#startDate').pickadate('picker');
+
+    const TimepickerUI = window.TimepickerUI;
+    if (TimepickerUI) {
+      window.__startTimePickerInstance = new TimepickerUI(startTimeInput, {
+        clock: {
+          type: '24h',
+          incrementHours: 1,
+          incrementMinutes: 1,
+          autoSwitchToMinutes: true,
+        },
+        ui: {
+          theme: 'm2',
+          animation: true,
+          backdrop: false,
+          editable: false,
+        },
+        labels: {
+          time: 'Elige una hora',
+          ok: 'Aceptar',
+          cancel: 'Cancelar',
+          mobileHour: 'Hora',
+          mobileMinute: 'Minutos',
+        },
+        callbacks: {
+          onConfirm: function() { syncAll(); },
+          onUpdate: function() { setHiddenFromVisible(); },
+        }
+      });
+      window.__startTimePickerInstance.create();
+
+      window.__endTimePickerInstance = new TimepickerUI(endTimeInput, {
+        clock: {
+          type: '24h',
+          incrementHours: 1,
+          incrementMinutes: 1,
+          autoSwitchToMinutes: true,
+        },
+        ui: {
+          theme: 'm2',
+          animation: true,
+          backdrop: false,
+          editable: false,
+        },
+        labels: {
+          time: 'Elige una hora',
+          ok: 'Aceptar',
+          cancel: 'Cancelar',
+          mobileHour: 'Hora',
+          mobileMinute: 'Minutos',
+        },
+        callbacks: {
+          onConfirm: function() { syncAll(); },
+          onUpdate: function() { setHiddenFromVisible(); },
+        }
+      });
+      window.__endTimePickerInstance.create();
+    }
+
+    startTimeInput?.addEventListener('click', function() { dockOnOpen(startTimePopover); });
+    startTimeInput?.addEventListener('focus', function() { dockOnOpen(startTimePopover); });
+    endTimeInput?.addEventListener('click', function() { dockOnOpen(endTimePopover); });
+    endTimeInput?.addEventListener('focus', function() { dockOnOpen(endTimePopover); });
+
+    document.addEventListener('mousedown', function(e) {
+      const t = e.target;
+      const insideStart = (startTimePopover && startTimePopover.contains(t)) || (startTimeInput && startTimeInput.contains(t));
+      const insideEnd = (endTimePopover && endTimePopover.contains(t)) || (endTimeInput && endTimeInput.contains(t));
+      if (insideStart || insideEnd) return;
+      closeTimePopovers(null);
+    });
+
+    const startDT = buildLocalDateTime(startDateInput.value, startTimeInput.value);
+    if (startDT) {
+      window.__startDatePicker.set('select', [startDT.getFullYear(), startDT.getMonth(), startDT.getDate()], { muted: true });
+    }
+
+    clampEndTo15Minutes();
+    setHiddenFromVisible();
+
+    if (window.__startTimePickerInstance && startTimeInput.value) {
+      window.__startTimePickerInstance.setValue(startTimeInput.value);
+    }
+    if (window.__endTimePickerInstance && endTimeInput.value) {
+      window.__endTimePickerInstance.setValue(endTimeInput.value);
+    }
+  });
+
+  startDateInput?.addEventListener('change', syncAll);
+  startTimeInput?.addEventListener('change', syncAll);
+  endTimeInput?.addEventListener('change', function() {
+    setHiddenFromVisible();
+  });
+
+  document.getElementById('meetingForm')?.addEventListener('submit', function(e) {
+    setHiddenFromVisible();
+
+    const startVal = startAtHidden.value;
+    const endVal = endAtHidden.value;
+    if (!startVal || !endVal) return;
+
+    const startDT = new Date(startVal);
+    const endDT = new Date(endVal);
+    const now = new Date(nowStr);
+
+    if (startDT <= now) {
+      e.preventDefault();
+      window.ampaAlert('La fecha de inicio debe ser posterior a la fecha y hora actual');
+      return false;
+    }
+
+    const maxEnd = new Date(startDT.getTime() + 15 * 60 * 1000);
+    if (endDT > maxEnd) {
+      e.preventDefault();
+      window.ampaAlert('La fecha de fin no puede ser más de 15 minutos después de la fecha de inicio');
+      return false;
+    }
+
+    if (endDT <= startDT) {
+      e.preventDefault();
+      window.ampaAlert('La fecha de fin debe ser posterior a la fecha de inicio');
+      return false;
+    }
+  });
+</script>
 {% endblock %}
