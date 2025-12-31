@@ -104,6 +104,7 @@
       align-items: center; 
       justify-content: space-between; 
       gap: 0.5rem;
+      padding-right: 44px;
     }
 
     .commission-title { 
@@ -201,6 +202,36 @@
       margin-top: 1.25rem; 
     }
 
+    .icon-square {
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.55rem;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      color: #0f172a;
+      text-decoration: none;
+      padding: 0;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .icon-square:hover { 
+      background: #f1f5f9;
+      border-color: #8b5cf6;
+    }
+    .icon-square svg { 
+      width: 18px; 
+      height: 18px; 
+    }
+    .commission-edit-btn {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      z-index: 10;
+    }
+
     @media (max-width: 640px) {
       .commission-top { 
         flex-direction: column; 
@@ -255,41 +286,51 @@
       {% else %}
         {% set commission_href = url_for('admin.commission_detail', commission_id=commission.id) %}
       {% endif %}
-      <a class="commission-card admin-card" href="{{ commission_href }}">
-        <div class="commission-card-head">
-          <h3 class="commission-title">{{ commission.name }}</h3>
-          <div class="commission-head-right">
-            <span class="muted commission-date">{{ commission.created_at.strftime('%d/%m/%Y') if commission.created_at else "Sin fecha" }}</span>
-            <span class="chip {% if commission.is_active %}chip-live{% else %}chip-off{% endif %}">
-              {{ "✓ Activa" if commission.is_active else "✕ Inactiva" }}
-            </span>
+      <div class="commission-card admin-card">
+        <a href="{{ commission_href }}" style="text-decoration: none; color: inherit; display: block;">
+          <div class="commission-card-head">
+            <h3 class="commission-title">{{ commission.name }}</h3>
+            <div class="commission-head-right">
+              <span class="muted commission-date">{{ commission.created_at.strftime('%d/%m/%Y') if commission.created_at else "Sin fecha" }}</span>
+              <span class="chip {% if commission.is_active %}chip-live{% else %}chip-off{% endif %}">
+                {{ "✓ Activa" if commission.is_active else "✕ Inactiva" }}
+              </span>
+            </div>
           </div>
-        </div>
-        {% if commission.description_html %}
-          <p class="commission-desc">{{ commission.description_html|striptags|truncate(170) }}</p>
-        {% else %}
-          <p class="commission-desc muted">Aún no hay descripción guardada.</p>
-        {% endif %}
+          {% if commission.description_html %}
+            <p class="commission-desc">{{ commission.description_html|striptags|truncate(170) }}</p>
+          {% else %}
+            <p class="commission-desc muted">Aún no hay descripción guardada.</p>
+          {% endif %}
 
-        <div class="commission-meta-row">
-          <div class="commission-meta-item">
-            <span class="commission-meta-label">👥 Miembros</span>
-            <span class="commission-meta-value">{{ commission_stats.get("miembros", 0) }}</span>
+          <div class="commission-meta-row">
+            <div class="commission-meta-item">
+              <span class="commission-meta-label">👥 Miembros</span>
+              <span class="commission-meta-value">{{ commission_stats.get("miembros", 0) }}</span>
+            </div>
+            <div class="commission-meta-item">
+              <span class="commission-meta-label">📋 Proyectos</span>
+              <span class="commission-meta-value">{{ commission_stats.get("proyectos_activos", 0) }}</span>
+            </div>
+            <div class="commission-meta-item">
+              <span class="commission-meta-label">📅 Próxima reunión</span>
+              {% if next_meeting %}
+                <span class="commission-meta-value">{{ next_meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</span>
+              {% else %}
+                <span class="commission-meta-value muted">Sin agendar</span>
+              {% endif %}
+            </div>
           </div>
-          <div class="commission-meta-item">
-            <span class="commission-meta-label">📋 Proyectos</span>
-            <span class="commission-meta-value">{{ commission_stats.get("proyectos_activos", 0) }}</span>
-          </div>
-          <div class="commission-meta-item">
-            <span class="commission-meta-label">📅 Próxima reunión</span>
-            {% if next_meeting %}
-              <span class="commission-meta-value">{{ next_meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</span>
-            {% else %}
-              <span class="commission-meta-value muted">Sin agendar</span>
-            {% endif %}
-          </div>
-        </div>
-      </a>
+        </a>
+        {% if not is_member_view %}
+        <a class="icon-square commission-edit-btn" onclick="event.stopPropagation();" href="{{ url_for('admin.commission_edit', commission_id=commission.id) }}" aria-label="Editar comisión">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+            <path d="M12 20h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </a>
+        {% endif %}
+      </div>
     {% else %}
       <div class="commission-empty admin-card">
         <p style="margin:0; font-size: 1.1rem;">{{ empty_text }}</p>

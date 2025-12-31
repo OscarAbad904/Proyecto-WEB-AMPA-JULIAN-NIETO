@@ -486,21 +486,13 @@
         <a class="btn-cancel" href="{{ back_url or url_for('members.commission_detail', slug=commission.slug) }}">
           {{ back_label or "Volver a la comisión" }}
         </a>
-        {{ form.submit(class="btn-save", value="Guardar reunión") }}
+        {% if meeting %}
+          <button type="submit" class="btn-save">Actualizar reunión</button>
+        {% else %}
+          {{ form.submit(class="btn-save", value="Guardar reunión") }}
+        {% endif %}
       </div>
     </form>
-
-    {% if meeting %}
-      {% if project %}
-        {% set delete_action = url_for('members.project_meeting_delete', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) %}
-      {% else %}
-        {% set delete_action = url_for('members.commission_meeting_delete', slug=commission.slug, meeting_id=meeting.id) %}
-      {% endif %}
-      <form method="post" action="{{ delete_action }}" class="meeting-delete-form" data-confirm="{{ '¿Estás seguro de que quieres eliminar esta reunión? Esta acción no se puede deshacer.' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn-delete">Eliminar reunión</button>
-      </form>
-    {% endif %}
   </div>
 </section>
 

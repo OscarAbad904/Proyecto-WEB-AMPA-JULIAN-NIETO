@@ -109,9 +109,13 @@ def send_email_gmail_api(
     reply_to: str | None = None,
     body_html: str | None = None,
     inline_images: list[dict[str, str]] | None = None,
+    attachments: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """
     Envía un correo usando Gmail API (RFC822 raw).
+    
+    Args:
+        attachments: Lista de diccionarios con 'data' (bytes o str), 'filename', 'maintype', 'subtype'
 
     Returns:
         {"ok": bool, "provider": "gmail_api", "id": str|None, "error": str|None}
@@ -179,6 +183,23 @@ def send_email_gmail_api(
                         )
                     except Exception as e:
                         current_app.logger.error(f"Error adjuntando imagen inline {img.get('path')}: {e}")
+        
+        # Añadir adjuntos generales (ej: archivos .ics)
+        if attachments:
+            for attachment in attachments:
+                try:
+                    data = attachment.get("data")
+                    if isinstance(data, str):
+                        data = data.encode("utf-8")
+                    
+                    msg.add_attachment(
+                        data,
+                        maintype=attachment.get("maintype", "application"),
+                        subtype=attachment.get("subtype", "octet-stream"),
+                        filename=attachment.get("filename", "attachment")
+                    )
+                except Exception as e:
+                    current_app.logger.error(f"Error adjuntando archivo {attachment.get('filename')}: {e}")
 
         raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
 
@@ -495,6 +516,511 @@ def send_member_approval_email(
         body_text=body_text,
         body_html=body_html,
         inline_images=inline_images,
+        recipient=recipient_email,
+        app_config=app_config,
+    )
+
+
+def _detect_email_provider(email: str) -> str:
+    """
+    Detecta el proveedor de correo basándose en el dominio del email.
+    
+    Retorna: 'google', 'outlook', 'yahoo', 'apple' u 'other'
+    """
+    if not email or "@" not in email:
+        return "other"
+    
+    domain = email.split("@")[1].lower()
+    
+    # Dominios de Google
+    if domain in ["gmail.com", "googlemail.com"]:
+        return "google"
+    
+    # Dominios de Microsoft/Outlook
+    if domain in ["outlook.com", "hotmail.com", "live.com", "msn.com", "hotmail.es", "outlook.es"]:
+        return "outlook"
+    
+    # Dominios de Yahoo
+    if domain in ["yahoo.com", "yahoo.es", "ymail.com"]:
+        return "yahoo"
+    
+    # Dominios de Apple
+    if domain in ["icloud.com", "me.com", "mac.com"]:
+        return "apple"
+    
+    return "other"
+
+
+def _generate_google_calendar_url(
+    title: str,
+    start_datetime,
+    end_datetime,
+    description: str = "",
+    location: str = ""
+) -> str:
+    """
+    Genera un enlace para agregar un evento a Google Calendar.
+    
+    Formato: https://calendar.google.com/calendar/render?action=TEMPLATE&text=...&dates=...
+    """
+    from urllib.parse import quote
+    
+    # Formatear fechas en formato YYYYMMDDTHHMMSSZ (UTC) o YYYYMMDDTHHMMSS (local)
+    start_str = start_datetime.strftime("%Y%m%dT%H%M%S")
+    end_str = end_datetime.strftime("%Y%m%dT%H%M%S")
+    
+    params = {
+        "action": "TEMPLATE",
+        "text": title,
+        "dates": f"{start_str}/{end_str}",
+    }
+    
+    if description:
+        params["details"] = description
+    
+    if location:
+        params["location"] = location
+    
+    # Construir URL manualmente
+    base_url = "https://calendar.google.com/calendar/render"
+    query_parts = [f"{key}={quote(str(value))}" for key, value in params.items()]
+    return f"{base_url}?{'&'.join(query_parts)}"
+
+
+def _generate_outlook_calendar_url(
+    title: str,
+    start_datetime,
+    end_datetime,
+    description: str = "",
+    location: str = ""
+) -> str:
+    """
+    Genera un enlace para agregar un evento a Outlook Calendar.
+    
+    Formato: https://outlook.live.com/calendar/0/deeplink/compose?...
+    """
+    from urllib.parse import quote
+    
+    # Outlook usa ISO 8601
+    start_str = start_datetime.strftime("%Y-%m-%dT%H:%M:%S")
+    end_str = end_datetime.strftime("%Y-%m-%dT%H:%M:%S")
+    
+    params = {
+        "subject": title,
+        "startdt": start_str,
+        "enddt": end_str,
+        "path": "/calendar/action/compose",
+        "rru": "addevent"
+    }
+    
+    if description:
+        params["body"] = description
+    
+    if location:
+        params["location"] = location
+    
+    base_url = "https://outlook.live.com/calendar/0/deeplink/compose"
+    query_parts = [f"{key}={quote(str(value))}" for key, value in params.items()]
+    return f"{base_url}?{'&'.join(query_parts)}"
+
+
+def _generate_yahoo_calendar_url(
+    title: str,
+    start_datetime,
+    end_datetime,
+    description: str = "",
+    location: str = ""
+) -> str:
+    """
+    Genera un enlace para agregar un evento a Yahoo Calendar.
+    """
+    from urllib.parse import quote
+    
+    start_str = start_datetime.strftime("%Y%m%dT%H%M%S")
+    end_str = end_datetime.strftime("%Y%m%dT%H%M%S")
+    
+    params = {
+        "v": "60",
+        "title": title,
+        "st": start_str,
+        "et": end_str,
+    }
+    
+    if description:
+        params["desc"] = description
+    
+    if location:
+        params["in_loc"] = location
+    
+    base_url = "https://calendar.yahoo.com/"
+    query_parts = [f"{key}={quote(str(value))}" for key, value in params.items()]
+    return f"{base_url}?{'&'.join(query_parts)}"
+
+
+def _generate_ics_calendar_data(
+    title: str,
+    start_datetime,
+    end_datetime,
+    description: str = "",
+    location: str = "",
+    uid: str = "",
+    sequence: int = 0,
+    method: str = "REQUEST"
+) -> str:
+    """
+    Genera datos iCalendar (.ics) compatibles con RFC 5545.
+    
+    Args:
+        title: Título del evento
+        start_datetime: Fecha y hora de inicio
+        end_datetime: Fecha y hora de fin
+        description: Descripción (puede incluir HTML, se limpiará)
+        location: Ubicación del evento
+        uid: UID único del evento (si no se proporciona, se genera uno)
+        sequence: Número de secuencia (incrementa con cada actualización)
+        method: Método iCalendar (REQUEST para invitación, CANCEL para cancelación)
+    
+    Returns:
+        Contenido del archivo .ics como string
+    """
+    from datetime import datetime
+    from html import unescape
+    import re
+    
+    # Limpiar HTML de la descripción
+    description_clean = re.sub(r'<[^>]+>', '', description)
+    description_clean = unescape(description_clean)
+    
+    # Formato iCalendar: YYYYMMDDTHHMMSS
+    start_str = start_datetime.strftime("%Y%m%dT%H%M%S")
+    end_str = end_datetime.strftime("%Y%m%dT%H%M%S")
+    now_str = datetime.now().strftime("%Y%m%dT%H%M%SZ")
+    
+    # Generar UID único si no se proporciona
+    uid_str = uid or f"meeting-{hash(title)}-{start_str}@ampajuliannieto.es"
+    
+    # Escapar caracteres especiales en iCalendar
+    def escape_ics(text):
+        return text.replace('\\', '\\\\').replace(',', '\\,').replace(';', '\\;').replace('\n', '\\n')
+    
+    title_escaped = escape_ics(title)
+    description_escaped = escape_ics(description_clean)
+    location_escaped = escape_ics(location)
+    
+    # Construir contenido iCalendar
+    ics_lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//AMPA Julian Nieto Tapia//Meeting Notification//ES",
+        "CALSCALE:GREGORIAN",
+        f"METHOD:{method}",
+        "BEGIN:VEVENT",
+        f"UID:{uid_str}",
+        f"DTSTAMP:{now_str}",
+        f"DTSTART:{start_str}",
+        f"DTEND:{end_str}",
+        f"SUMMARY:{title_escaped}",
+    ]
+    
+    if description_escaped:
+        ics_lines.append(f"DESCRIPTION:{description_escaped}")
+    
+    if location_escaped:
+        ics_lines.append(f"LOCATION:{location_escaped}")
+    
+    ics_lines.extend([
+        "STATUS:CONFIRMED",
+        f"SEQUENCE:{sequence}",
+        "TRANSP:OPAQUE",
+        "END:VEVENT",
+        "END:VCALENDAR"
+    ])
+    
+    return "\r\n".join(ics_lines)
+
+
+def send_meeting_notification(
+    *,
+    meeting,
+    commission,
+    recipient_email: str,
+    recipient_name: str,
+    app_config: Any,
+    is_update: bool = False,
+) -> dict[str, Any]:
+    """
+    Envía una notificación por correo sobre una nueva reunión de comisión.
+    
+    Args:
+        meeting: Objeto CommissionMeeting
+        commission: Objeto Commission
+        recipient_email: Email del destinatario
+        recipient_name: Nombre del destinatario
+        app_config: Configuración de la aplicación
+        is_update: Si es una actualización (incrementa SEQUENCE en .ics)
+    
+    Returns:
+        dict con 'ok' (bool) y 'error' (str) si corresponde
+    """
+    commission_name = getattr(commission, "name", "Comisión")
+    meeting_title = getattr(meeting, "title", "Reunión")
+    meeting_description = getattr(meeting, "description_html", "")
+    meeting_location = getattr(meeting, "location", "")
+    start_at = getattr(meeting, "start_at", None)
+    end_at = getattr(meeting, "end_at", None)
+    meeting_id = getattr(meeting, "id", None)
+    
+    if not start_at or not end_at:
+        return {"ok": False, "error": "Fechas de reunión no válidas"}
+    
+    # Formatear fecha y hora para mostrar
+    meeting_date = start_at.strftime("%d/%m/%Y")
+    meeting_time = f"{start_at.strftime('%H:%M')} - {end_at.strftime('%H:%M')}"
+    
+    # Generar UID único consistente basado en el ID de la reunión
+    # Esto permite que las actualizaciones se sincronicen correctamente
+    meeting_uid = f"commission-meeting-{meeting_id}@ampajuliannieto.es" if meeting_id else None
+    
+    # Generar archivo iCalendar (.ics)
+    sequence = 1 if is_update else 0
+    ics_content = _generate_ics_calendar_data(
+        title=meeting_title,
+        start_datetime=start_at,
+        end_datetime=end_at,
+        description=meeting_description,
+        location=meeting_location,
+        uid=meeting_uid,
+        sequence=sequence,
+        method="REQUEST"
+    )
+    
+    # Detectar el proveedor de correo
+    provider = _detect_email_provider(recipient_email)
+    
+    # Generar URLs de calendario (como alternativa al archivo .ics)
+    google_url = _generate_google_calendar_url(
+        meeting_title, start_at, end_at, meeting_description, meeting_location
+    )
+    outlook_url = _generate_outlook_calendar_url(
+        meeting_title, start_at, end_at, meeting_description, meeting_location
+    )
+    yahoo_url = _generate_yahoo_calendar_url(
+        meeting_title, start_at, end_at, meeting_description, meeting_location
+    )
+    
+    # URL principal según el proveedor
+    calendar_url = google_url  # Por defecto Google
+    if provider == "outlook":
+        calendar_url = outlook_url
+    elif provider == "yahoo":
+        calendar_url = yahoo_url
+    elif provider == "apple":
+        calendar_url = google_url
+    
+    # Información del proyecto si existe
+    project = getattr(meeting, "project", None)
+    project_title = getattr(project, "title", None) if project else None
+    
+    # Asunto del correo
+    subject = _build_web_subject(
+        meeting_title,
+        section="Comisiones",
+        category="Actualización de Reunión" if is_update else "Nueva Reunión",
+    )
+    
+    # Ruta física del logo para incrustarlo (CID)
+    logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")
+    
+    # Renderizar HTML
+    body_html = render_template(
+        "email/meeting_notification.html",
+        recipient_name=recipient_name,
+        commission_name=commission_name,
+        project_title=project_title,
+        meeting_title=meeting_title,
+        meeting_description=meeting_description,
+        meeting_date=meeting_date,
+        meeting_time=meeting_time,
+        meeting_location=meeting_location,
+        calendar_url=calendar_url,
+        google_calendar_url=google_url,
+        outlook_calendar_url=outlook_url,
+        apple_calendar_url=google_url,
+        is_update=is_update,
+    )
+    
+    # Definir la imagen inline
+    inline_images = [
+        {
+            "cid": "logo_ampa",
+            "path": logo_path,
+            "subtype": "png"
+        }
+    ]
+    
+    # Texto plano como fallback
+    update_text = "Se ha actualizado" if is_update else "Se ha programado"
+    body_text = (
+        f"Hola {recipient_name},\n\n"
+        f"{update_text} una reunión para {commission_name}.\n\n"
+        f"Título: {meeting_title}\n"
+        f"Fecha: {meeting_date}\n"
+        f"Hora: {meeting_time}\n"
+    )
+    
+    if meeting_location:
+        body_text += f"Ubicación: {meeting_location}\n"
+    
+    body_text += (
+        f"\nSe adjunta un archivo de calendario (.ics) que puedes abrir para añadir "
+        f"o actualizar automáticamente el evento en tu calendario.\n\n"
+        f"También puedes añadirlo manualmente: {calendar_url}\n"
+    )
+    
+    # Preparar archivo .ics como adjunto
+    attachments = [
+        {
+            "data": ics_content,
+            "filename": f"reunion-{meeting_id}.ics" if meeting_id else "reunion.ics",
+            "maintype": "text",
+            "subtype": "calendar"
+        }
+    ]
+    
+    return send_email_gmail_api(
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        inline_images=inline_images,
+        attachments=attachments,
+        recipient=recipient_email,
+        app_config=app_config,
+    )
+
+
+def send_meeting_cancellation_notification(
+    *,
+    meeting,
+    commission,
+    recipient_email: str,
+    recipient_name: str,
+    app_config: Any,
+) -> dict[str, Any]:
+    """
+    Envía una notificación por correo sobre la cancelación de una reunión.
+    
+    Args:
+        meeting: Objeto CommissionMeeting
+        commission: Objeto Commission
+        recipient_email: Email del destinatario
+        recipient_name: Nombre del destinatario
+        app_config: Configuración de la aplicación
+    
+    Returns:
+        dict con 'ok' (bool) y 'error' (str) si corresponde
+    """
+    commission_name = getattr(commission, "name", "Comisión")
+    meeting_title = getattr(meeting, "title", "Reunión")
+    meeting_description = getattr(meeting, "description_html", "")
+    meeting_location = getattr(meeting, "location", "")
+    start_at = getattr(meeting, "start_at", None)
+    end_at = getattr(meeting, "end_at", None)
+    meeting_id = getattr(meeting, "id", None)
+    
+    if not start_at or not end_at:
+        return {"ok": False, "error": "Fechas de reunión no válidas"}
+    
+    # Formatear fecha y hora para mostrar
+    meeting_date = start_at.strftime("%d/%m/%Y")
+    meeting_time = f"{start_at.strftime('%H:%M')} - {end_at.strftime('%H:%M')}"
+    
+    # Generar UID único consistente basado en el ID de la reunión
+    # Debe ser el MISMO UID que se usó al crear/actualizar para que se cancele correctamente
+    meeting_uid = f"commission-meeting-{meeting_id}@ampajuliannieto.es" if meeting_id else None
+    
+    # Generar archivo iCalendar (.ics) con METHOD:CANCEL
+    # SEQUENCE debe ser mayor que cualquier actualización previa
+    ics_content = _generate_ics_calendar_data(
+        title=meeting_title,
+        start_datetime=start_at,
+        end_datetime=end_at,
+        description=meeting_description,
+        location=meeting_location,
+        uid=meeting_uid,
+        sequence=99,  # Alto número para asegurar que se aplique la cancelación
+        method="CANCEL"
+    )
+    
+    # Información del proyecto si existe
+    project = getattr(meeting, "project", None)
+    project_title = getattr(project, "title", None) if project else None
+    
+    # Asunto del correo
+    subject = _build_web_subject(
+        meeting_title,
+        section="Comisiones",
+        category="Cancelación de Reunión",
+    )
+    
+    # Ruta física del logo para incrustarlo (CID)
+    logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")
+    
+    # Renderizar HTML
+    body_html = render_template(
+        "email/meeting_cancellation.html",
+        recipient_name=recipient_name,
+        commission_name=commission_name,
+        project_title=project_title,
+        meeting_title=meeting_title,
+        meeting_description=meeting_description,
+        meeting_date=meeting_date,
+        meeting_time=meeting_time,
+        meeting_location=meeting_location,
+    )
+    
+    # Definir la imagen inline
+    inline_images = [
+        {
+            "cid": "logo_ampa",
+            "path": logo_path,
+            "subtype": "png"
+        }
+    ]
+    
+    # Texto plano como fallback
+    body_text = (
+        f"Hola {recipient_name},\n\n"
+        f"Se ha cancelado la siguiente reunión de {commission_name}:\n\n"
+        f"Título: {meeting_title}\n"
+        f"Fecha: {meeting_date}\n"
+        f"Hora: {meeting_time}\n"
+    )
+    
+    if meeting_location:
+        body_text += f"Ubicación: {meeting_location}\n"
+    
+    body_text += (
+        f"\nSe adjunta un archivo de calendario (.ics) que puedes abrir para eliminar "
+        f"automáticamente el evento de tu calendario.\n\n"
+        f"Si añadiste el evento manualmente, por favor elimínalo de tu calendario.\n"
+    )
+    
+    # Preparar archivo .ics como adjunto
+    attachments = [
+        {
+            "data": ics_content,
+            "filename": f"cancelacion-reunion-{meeting_id}.ics" if meeting_id else "cancelacion-reunion.ics",
+            "maintype": "text",
+            "subtype": "calendar"
+        }
+    ]
+    
+    return send_email_gmail_api(
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        inline_images=inline_images,
+        attachments=attachments,
         recipient=recipient_email,
         app_config=app_config,
     )

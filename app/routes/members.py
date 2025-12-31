@@ -1152,7 +1152,7 @@ def commission_detail(slug: str):
         can_manage_discussions=can_manage_discussions,
         header_kicker=f"Comisiones \u00b7 {commission.name}",
         back_href=url_for("members.commissions"),
-        back_label="Volver a comision",
+        back_label="Volver a comisiones",
         return_to_url=url_for("members.commission_detail", slug=commission.slug),
         member_role=membership.role if membership else None,
         can_manage_members=can_manage_members,
@@ -1227,10 +1227,10 @@ def commission_project_detail(slug: str, project_id: int):
 
     if return_to:
         back_url = return_to
-        back_label = "Volver al panel"
+        back_label = "Volver a comisión"
     else:
         back_url = url_for("members.commission_detail", slug=commission.slug)
-        back_label = "Volver a la comisión"
+        back_label = "Volver a comisión"
 
     project_self_url = url_for(
         "members.commission_project_detail",
@@ -1526,11 +1526,28 @@ def commission_meeting_form(slug: str, meeting_id: int | None = None):
         if meeting_id
         else None
     )
-    form = CommissionMeetingForm(obj=meeting)
+    
+    # Preparar los datos iniciales del formulario si es una edición
+    if meeting and request.method == "GET":
+        form = CommissionMeetingForm(
+            title=meeting.title,
+            description=meeting.description_html,
+            location=meeting.location,
+            start_at=meeting.start_at.strftime("%Y-%m-%dT%H:%M"),
+            end_at=meeting.end_at.strftime("%Y-%m-%dT%H:%M"),
+        )
+    else:
+        form = CommissionMeetingForm()
+    
     document_choices = [(0, "Sin acta")] + [
         (doc.id, doc.title or f"Documento {doc.id}") for doc in Document.query.order_by(Document.created_at.desc()).all()
     ]
     form.minutes_document_id.choices = document_choices
+    
+    # Asignar el valor del select después de definir las opciones
+    if meeting and request.method == "GET":
+        form.minutes_document_id.data = meeting.minutes_document_id or 0
+    
     default_description = build_meeting_description(commission.name)
     back_url = url_for("members.commission_detail", slug=commission.slug)
     back_label = "Volver a la comisión"
@@ -1561,6 +1578,7 @@ def commission_meeting_form(slug: str, meeting_id: int | None = None):
             meeting.end_at = end_at
             meeting.location = form.location.data
             meeting.minutes_document_id = minutes_document_id
+            is_new_meeting = False
         else:
             description_value = merge_meeting_description(default_description, form.description.data)
             meeting = CommissionMeeting(
@@ -1573,6 +1591,8 @@ def commission_meeting_form(slug: str, meeting_id: int | None = None):
                 minutes_document_id=minutes_document_id,
             )
             db.session.add(meeting)
+            is_new_meeting = True
+        
         db.session.commit()
         calendar_result = sync_commission_meeting_to_calendar(meeting, commission)
         if calendar_result.get("ok"):
@@ -1586,16 +1606,67 @@ def commission_meeting_form(slug: str, meeting_id: int | None = None):
                 calendar_result.get("error"),
             )
             flash("Reunión guardada, pero no se pudo sincronizar con Google Calendar.", "warning")
-        flash("Reunión guardada", "success")
+        
+        # Enviar notificaciones por correo (tanto para nuevas como para ediciones)
+        from app.services.mail_service import send_meeting_notification
+        
+        # Obtener todos los miembros activos de la comisión
+        active_members = CommissionMembership.query.filter_by(
+            commission_id=commission.id,
+            is_active=True
+        ).all()
+        
+        notifications_sent = 0
+        notifications_failed = 0
+        
+        for membership in active_members:
+            user = membership.user
+            if user and user.email and user.is_active:
+                try:
+                    result = send_meeting_notification(
+                        meeting=meeting,
+                        commission=commission,
+                        recipient_email=user.email,
+                        recipient_name=user.full_name or user.username,
+                        app_config=current_app.config,
+                        is_update=not is_new_meeting,
+                    )
+                    if result.get("ok"):
+                        notifications_sent += 1
+                    else:
+                        notifications_failed += 1
+                        current_app.logger.warning(
+                            "No se pudo enviar notificación de reunión a %s: %s",
+                            user.email,
+                            result.get("error"),
+                        )
+                except Exception as e:
+                    notifications_failed += 1
+                    current_app.logger.error(
+                        "Error enviando notificación de reunión a %s: %s",
+                        user.email,
+                        str(e),
+                    )
+        
+        if is_new_meeting:
+            if notifications_sent > 0:
+                flash(f"Reunión guardada y {notifications_sent} notificación(es) enviada(s)", "success")
+            else:
+                flash("Reunión guardada", "success")
+        else:
+            if notifications_sent > 0:
+                flash(f"Reunión actualizada y {notifications_sent} notificación(es) de actualización enviada(s)", "success")
+            else:
+                flash("Reunión actualizada", "success")
+        
+        if notifications_failed > 0:
+            flash(f"No se pudieron enviar {notifications_failed} notificación(es)", "warning")
+        
         return redirect(url_for("members.commission_detail", slug=slug))
 
-    if request.method == "GET":
-        if meeting:
-            form.minutes_document_id.data = meeting.minutes_document_id or 0
-            form.start_at.data = meeting.start_at.strftime("%Y-%m-%dT%H:%M")
-            form.end_at.data = meeting.end_at.strftime("%Y-%m-%dT%H:%M")
-        elif not form.description.data:
-            form.description.data = default_description
+    # Para reuniones nuevas, asignar descripción por defecto
+    if request.method == "GET" and not meeting and not form.description.data:
+        form.description.data = default_description
 
     return render_template(
         "members/comision_reunion_form.html",
@@ -1636,11 +1707,28 @@ def project_meeting_form(slug: str, project_id: int, meeting_id: int | None = No
         if meeting_id
         else None
     )
-    form = CommissionMeetingForm(obj=meeting)
+    
+    # Preparar los datos iniciales del formulario si es una edición
+    if meeting and request.method == "GET":
+        form = CommissionMeetingForm(
+            title=meeting.title,
+            description=meeting.description_html,
+            location=meeting.location,
+            start_at=meeting.start_at.strftime("%Y-%m-%dT%H:%M"),
+            end_at=meeting.end_at.strftime("%Y-%m-%dT%H:%M"),
+        )
+    else:
+        form = CommissionMeetingForm()
+    
     document_choices = [(0, "Sin acta")] + [
         (doc.id, doc.title or f"Documento {doc.id}") for doc in Document.query.order_by(Document.created_at.desc()).all()
     ]
     form.minutes_document_id.choices = document_choices
+    
+    # Asignar el valor del select después de definir las opciones
+    if meeting and request.method == "GET":
+        form.minutes_document_id.data = meeting.minutes_document_id or 0
+    
     default_description = build_meeting_description(commission.name, project.title)
 
     return_to = _safe_return_to(request.args.get("return_to"))
@@ -1679,6 +1767,7 @@ def project_meeting_form(slug: str, project_id: int, meeting_id: int | None = No
             meeting.end_at = end_at
             meeting.location = form.location.data
             meeting.minutes_document_id = minutes_document_id
+            is_new_meeting = False
         else:
             description_value = merge_meeting_description(default_description, form.description.data)
             meeting = CommissionMeeting(
@@ -1692,6 +1781,8 @@ def project_meeting_form(slug: str, project_id: int, meeting_id: int | None = No
                 minutes_document_id=minutes_document_id,
             )
             db.session.add(meeting)
+            is_new_meeting = True
+        
         db.session.commit()
         calendar_result = sync_commission_meeting_to_calendar(meeting, commission)
         if calendar_result.get("ok"):
@@ -1705,16 +1796,67 @@ def project_meeting_form(slug: str, project_id: int, meeting_id: int | None = No
                 calendar_result.get("error"),
             )
             flash("Reunion guardada, pero no se pudo sincronizar con Google Calendar.", "warning")
-        flash("Reunion guardada", "success")
+        
+        # Enviar notificaciones por correo (tanto para nuevas como para ediciones)
+        from app.services.mail_service import send_meeting_notification
+        
+        # Obtener todos los miembros activos de la comisión
+        active_members = CommissionMembership.query.filter_by(
+            commission_id=commission.id,
+            is_active=True
+        ).all()
+        
+        notifications_sent = 0
+        notifications_failed = 0
+        
+        for membership in active_members:
+            user = membership.user
+            if user and user.email and user.is_active:
+                try:
+                    result = send_meeting_notification(
+                        meeting=meeting,
+                        commission=commission,
+                        recipient_email=user.email,
+                        recipient_name=user.full_name or user.username,
+                        app_config=current_app.config,
+                        is_update=not is_new_meeting,
+                    )
+                    if result.get("ok"):
+                        notifications_sent += 1
+                    else:
+                        notifications_failed += 1
+                        current_app.logger.warning(
+                            "No se pudo enviar notificación de reunión a %s: %s",
+                            user.email,
+                            result.get("error"),
+                        )
+                except Exception as e:
+                    notifications_failed += 1
+                    current_app.logger.error(
+                        "Error enviando notificación de reunión a %s: %s",
+                        user.email,
+                        str(e),
+                    )
+        
+        if is_new_meeting:
+            if notifications_sent > 0:
+                flash(f"Reunión guardada y {notifications_sent} notificación(es) enviada(s)", "success")
+            else:
+                flash("Reunión guardada", "success")
+        else:
+            if notifications_sent > 0:
+                flash(f"Reunión actualizada y {notifications_sent} notificación(es) de actualización enviada(s)", "success")
+            else:
+                flash("Reunión actualizada", "success")
+        
+        if notifications_failed > 0:
+            flash(f"No se pudieron enviar {notifications_failed} notificación(es)", "warning")
+        
         return redirect(project_self_url)
 
-    if request.method == "GET":
-        if meeting:
-            form.minutes_document_id.data = meeting.minutes_document_id or 0
-            form.start_at.data = meeting.start_at.strftime("%Y-%m-%dT%H:%M")
-            form.end_at.data = meeting.end_at.strftime("%Y-%m-%dT%H:%M")
-        elif not form.description.data:
-            form.description.data = default_description
+    # Para reuniones nuevas, asignar descripción por defecto
+    if request.method == "GET" and not meeting and not form.description.data:
+        form.description.data = default_description
 
     return render_template(
         "members/comision_reunion_form.html",
@@ -1751,6 +1893,30 @@ def project_meeting_delete(slug: str, project_id: int, meeting_id: int):
         project_id=project.id,
     ).first_or_404()
 
+    # Enviar correos de cancelación a todos los miembros activos de la comisión
+    active_members = CommissionMembership.query.filter_by(
+        commission_id=commission.id,
+        is_active=True
+    ).all()
+    
+    from app.services.mail_service import send_meeting_cancellation_notification
+    
+    for member in active_members:
+        user = member.user
+        if user and user.email:
+            try:
+                send_meeting_cancellation_notification(
+                    meeting=meeting,
+                    commission=commission,
+                    recipient_email=user.email,
+                    recipient_name=user.full_name or user.username,
+                    app_config=current_app.config,
+                )
+            except Exception as e:
+                current_app.logger.error(
+                    f"Error enviando correo de cancelación a {user.email}: {str(e)}"
+                )
+
     if meeting.google_event_id:
         from app.services.calendar_service import delete_commission_meeting_event
         delete_result = delete_commission_meeting_event(meeting.google_event_id)
@@ -1763,7 +1929,7 @@ def project_meeting_delete(slug: str, project_id: int, meeting_id: int):
 
     db.session.delete(meeting)
     db.session.commit()
-    flash("Reunion eliminada", "success")
+    flash("Reunion eliminada y notificaciones de cancelación enviadas", "success")
 
     return_to = _safe_return_to(request.args.get("return_to"))
     return redirect(
@@ -1794,6 +1960,30 @@ def commission_meeting_delete(slug: str, meeting_id: int):
         project_id=None,
     ).first_or_404()
     
+    # Enviar correos de cancelación a todos los miembros activos de la comisión
+    active_members = CommissionMembership.query.filter_by(
+        commission_id=commission.id,
+        is_active=True
+    ).all()
+    
+    from app.services.mail_service import send_meeting_cancellation_notification
+    
+    for member in active_members:
+        user = member.user
+        if user and user.email:
+            try:
+                send_meeting_cancellation_notification(
+                    meeting=meeting,
+                    commission=commission,
+                    recipient_email=user.email,
+                    recipient_name=user.full_name or user.username,
+                    app_config=current_app.config,
+                )
+            except Exception as e:
+                current_app.logger.error(
+                    f"Error enviando correo de cancelación a {user.email}: {str(e)}"
+                )
+    
     # Intentar eliminar del calendario de Google si existe
     if meeting.google_event_id:
         from app.services.calendar_service import delete_commission_meeting_event
@@ -1809,7 +1999,7 @@ def commission_meeting_delete(slug: str, meeting_id: int):
     db.session.delete(meeting)
     db.session.commit()
     
-    flash("Reunión eliminada", "success")
+    flash("Reunión eliminada y notificaciones de cancelación enviadas", "success")
     return redirect(url_for("members.commission_detail", slug=slug))
 
 

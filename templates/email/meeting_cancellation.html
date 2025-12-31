@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reunión Cancelada - {{ commission_name }}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+            <td style="padding: 20px 0 30px 0;">
+                <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="border-collapse: collapse; border: 1px solid #cccccc; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" bgcolor="#ffffff" style="padding: 40px 0 30px 0; border-bottom: 1px solid #eeeeee;">
+                            <img src="cid:logo_ampa" alt="AMPA Julián Nieto" width="150" style="display: block;" />
+                        </td>
+                    </tr>
+                    <!-- Body -->
+                    <tr>
+                        <td bgcolor="#ffffff" style="padding: 40px 30px 40px 30px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td style="color: #dc3545; font-size: 24px; font-weight: bold; text-align: center;">
+                                        ❌ Reunión Cancelada
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 20px 0 10px 0; color: #333333; font-size: 16px; line-height: 24px;">
+                                        Hola <strong>{{ recipient_name }}</strong>,
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px 0 20px 0; color: #555555; font-size: 16px; line-height: 24px;">
+                                        Te informamos que se ha <strong style="color: #dc3545;">cancelado</strong> la siguiente reunión de <strong>{{ commission_name }}</strong>{% if project_title %} relacionada con el proyecto <strong>{{ project_title }}</strong>{% endif %}:
+                                    </td>
+                                </tr>
+                                <!-- Meeting Details Card -->
+                                <tr>
+                                    <td style="padding: 20px 0;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #fff5f5; border-radius: 8px; border-left: 4px solid #dc3545;">
+                                            <tr>
+                                                <td style="padding: 20px;">
+                                                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                        <tr>
+                                                            <td style="color: #333333; font-size: 18px; font-weight: bold; padding-bottom: 15px; text-decoration: line-through; opacity: 0.7;">
+                                                                {{ meeting_title }}
+                                                            </td>
+                                                        </tr>
+                                                        {% if meeting_description %}
+                                                        <tr>
+                                                            <td style="color: #666666; font-size: 14px; line-height: 20px; padding-bottom: 15px; opacity: 0.7;">
+                                                                {{ meeting_description|safe }}
+                                                            </td>
+                                                        </tr>
+                                                        {% endif %}
+                                                        <tr>
+                                                            <td style="padding: 5px 0;">
+                                                                <span style="color: #666666; font-size: 14px; opacity: 0.7;">
+                                                                    <strong>📆 Fecha:</strong> {{ meeting_date }}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td style="padding: 5px 0;">
+                                                                <span style="color: #666666; font-size: 14px; opacity: 0.7;">
+                                                                    <strong>🕐 Hora:</strong> {{ meeting_time }}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        {% if meeting_location %}
+                                                        <tr>
+                                                            <td style="padding: 5px 0;">
+                                                                <span style="color: #666666; font-size: 14px; opacity: 0.7;">
+                                                                    <strong>📍 Ubicación:</strong> {{ meeting_location }}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        {% endif %}
+                                                        <tr>
+                                                            <td style="padding: 15px 0 0 0;">
+                                                                <div style="background-color: #dc3545; color: white; padding: 10px; border-radius: 5px; text-align: center; font-weight: bold; font-size: 14px;">
+                                                                    ⚠️ ESTA REUNIÓN HA SIDO CANCELADA
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <!-- Instructions for calendar removal -->
+                                <tr>
+                                    <td style="padding: 20px 0 10px 0; color: #333333; font-size: 16px; font-weight: bold; text-align: center;">
+                                        📎 Cómo eliminar esta reunión de tu calendario
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 0 0 15px 0; color: #555555; font-size: 14px; line-height: 22px; background-color: #f8f9fa; border-radius: 8px; padding: 20px;">
+                                        <p style="margin: 0 0 15px 0;">
+                                            <strong style="color: #007bff;">📧 Si usas Gmail:</strong><br>
+                                            • Gmail detectará automáticamente este correo de cancelación<br>
+                                            • El evento se ha <strong>eliminado automáticamente</strong> de tu Google Calendar<br>
+                                            • También puedes abrir el archivo adjunto <code style="background-color: #e9ecef; padding: 2px 6px; border-radius: 3px;">cancelacion-reunion-XX.ics</code> si es necesario
+                                        </p>
+                                        
+                                        <p style="margin: 15px 0;">
+                                            <strong style="color: #007bff;">📧 Si usas Outlook o Apple Mail:</strong><br>
+                                            • Abre el archivo adjunto <code style="background-color: #e9ecef; padding: 2px 6px; border-radius: 3px;">cancelacion-reunion-XX.ics</code><br>
+                                            • Tu aplicación de calendario <strong>eliminará automáticamente</strong> el evento<br>
+                                            • No necesitas hacer nada más, el proceso es automático
+                                        </p>
+                                        
+                                        <p style="margin: 15px 0 0 0;">
+                                            <strong style="color: #007bff;">🗑️ Eliminación manual:</strong><br>
+                                            Si añadiste el evento manualmente a tu calendario o si la eliminación automática no funciona, por favor:<br>
+                                            • Abre tu aplicación de calendario<br>
+                                            • Busca el evento: <strong>{{ meeting_title }}</strong><br>
+                                            • Elimínalo manualmente
+                                        </p>
+                                    </td>
+                                </tr>
+                                <!-- Important notice -->
+                                <tr>
+                                    <td style="padding: 20px 0 0 0; color: #dc3545; font-size: 14px; line-height: 22px; background-color: #fff5f5; border-radius: 8px; padding: 20px; border-left: 4px solid #dc3545; text-align: center;">
+                                        <strong>⚠️ IMPORTANTE</strong><br>
+                                        Si el evento se reprogramará en el futuro, recibirás un nuevo correo con los detalles actualizados.
+                                    </td>
+                                </tr>
+                                <!-- Contact Info -->
+                                <tr>
+                                    <td style="padding: 30px 0 20px 0; color: #666666; font-size: 14px; line-height: 20px; text-align: center; border-top: 1px solid #eeeeee;">
+                                        <p style="margin: 0;">
+                                            Si tienes alguna duda o pregunta, no dudes en contactarnos.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td bgcolor="#007bff" style="padding: 30px 30px; color: #ffffff; text-align: center;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td style="color: #ffffff; font-size: 14px; line-height: 20px;">
+                                        <strong>AMPA Julián Nieto Tapia</strong><br>
+                                        CEIP Julián Nieto Tapia<br>
+                                        Barrio la Iglesia s/n<br>
+                                        Rucandio - 39718 Cantabria
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 15px 0 0 0;">
+                                        <a href="mailto:ampajuliannieto@gmail.com" style="color: #ffffff; text-decoration: none; font-size: 14px;">
+                                            ✉️ ampajuliannieto@gmail.com
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

@@ -155,7 +155,7 @@
       font-weight: 800;
       letter-spacing: 0.01em;
     }
-    .date-chip--upcoming { background:#2563eb; color:#ffffff; }
+    .date-chip--upcoming { background:#2563eb; color:#ffffff; padding:5px 10px;}
     .date-chip--past { background:#f59e0b; color:#ffffff; padding:5px 10px;}
 
     .member-modal {
@@ -265,11 +265,6 @@
           {% endif %}
         </div>
       </div>
-      {% if can_edit_commission %}
-      <div class="detail-actions">
-        <a class="btn-link" href="{{ url_for('admin.commission_edit', commission_id=commission.id) }}">Editar</a>
-      </div>
-      {% endif %}
     </div>
   </div>
 

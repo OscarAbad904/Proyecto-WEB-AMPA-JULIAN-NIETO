@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nueva Reunión - {{ commission_name }}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+            <td style="padding: 20px 0 30px 0;">
+                <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="border-collapse: collapse; border: 1px solid #cccccc; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" bgcolor="#ffffff" style="padding: 40px 0 30px 0; border-bottom: 1px solid #eeeeee;">
+                            <img src="cid:logo_ampa" alt="AMPA Julián Nieto" width="150" style="display: block;" />
+                        </td>
+                    </tr>
+                    <!-- Body -->
+                    <tr>
+                        <td bgcolor="#ffffff" style="padding: 40px 30px 40px 30px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td style="color: #007bff; font-size: 24px; font-weight: bold; text-align: center;">
+                                        📅 {{ "Reunión Actualizada" if is_update else "Nueva Reunión Programada" }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 20px 0 10px 0; color: #333333; font-size: 16px; line-height: 24px;">
+                                        Hola <strong>{{ recipient_name }}</strong>,
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px 0 20px 0; color: #555555; font-size: 16px; line-height: 24px;">
+                                        {% if is_update %}
+                                        Se ha actualizado la reunión para <strong>{{ commission_name }}</strong>{% if project_title %} relacionada con el proyecto <strong>{{ project_title }}</strong>{% endif %}.
+                                        {% else %}
+                                        Se ha programado una nueva reunión para <strong>{{ commission_name }}</strong>{% if project_title %} relacionada con el proyecto <strong>{{ project_title }}</strong>{% endif %}.
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <!-- Meeting Details Card -->
+                                <tr>
+                                    <td style="padding: 20px 0;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;">
+                                            <tr>
+                                                <td style="padding: 20px;">
+                                                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                        <tr>
+                                                            <td style="color: #333333; font-size: 18px; font-weight: bold; padding-bottom: 15px;">
+                                                                {{ meeting_title }}
+                                                            </td>
+                                                        </tr>
+                                                        {% if meeting_description %}
+                                                        <tr>
+                                                            <td style="color: #666666; font-size: 14px; line-height: 20px; padding-bottom: 15px;">
+                                                                {{ meeting_description|safe }}
+                                                            </td>
+                                                        </tr>
+                                                        {% endif %}
+                                                        <tr>
+                                                            <td style="padding: 5px 0;">
+                                                                <span style="color: #666666; font-size: 14px;">
+                                                                    <strong>📆 Fecha:</strong> {{ meeting_date }}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td style="padding: 5px 0;">
+                                                                <span style="color: #666666; font-size: 14px;">
+                                                                    <strong>🕐 Hora:</strong> {{ meeting_time }}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        {% if meeting_location %}
+                                                        <tr>
+                                                            <td style="padding: 5px 0;">
+                                                                <span style="color: #666666; font-size: 14px;">
+                                                                    <strong>📍 Ubicación:</strong> {{ meeting_location }}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        {% endif %}
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <!-- Calendar Button and ICS Instructions -->
+                                <tr>
+                                    <td style="padding: 20px 0 10px 0; color: #333333; font-size: 16px; font-weight: bold; text-align: center;">
+                                        📎 Cómo {{ "actualizar" if is_update else "añadir" }} esta reunión en tu calendario
+                                    </td>
+                                </tr>
+                                {% if is_update %}
+                                <tr>
+                                    <td style="padding: 0 0 15px 0; color: #ff8c00; font-size: 14px; line-height: 22px; background-color: #fff3e0; border-radius: 8px; padding: 20px; border-left: 4px solid #ff8c00;">
+                                        <strong style="color: #e65100;">⚠️ Esta reunión ha sido modificada</strong><br><br>
+                                        <strong style="color: #007bff;">📧 Si usas Gmail:</strong>
+                                        <ul style="margin: 10px 0; padding-left: 20px; line-height: 24px;">
+                                            <li>Verás botones arriba del correo: <strong>"Sí / Indicaciones / Proponer otra hora / Añadir nota"</strong></li>
+                                            <li>Tu evento guardado se <strong>actualiza automáticamente</strong> con la nueva fecha/hora al abrir este correo</li>
+                                            <li><strong>Solo debes cambiar</strong> tu selección del desplegable del <strong>"Sí"</strong> si debido al cambio de fecha/hora <strong>ya no puedes asistir</strong></li>
+                                            <li>El botón <strong>"Indicaciones"</strong> abre Google Maps para mostrar la <strong>ubicación</strong> donde se celebrará la reunión</li>
+                                            <li><em>Nota: "Proponer otra hora" y "Añadir nota" son funciones de Google Calendar que no están integradas con nuestro sistema</em></li>
+                                            <li>También puedes abrir el archivo adjunto <strong>"reunion-XX.ics"</strong> para actualizar manualmente</li>
+                                        </ul>
+                                        
+                                        <strong style="color: #007bff;">📱 Si usas Outlook / Apple Mail:</strong>
+                                        <ul style="margin: 10px 0; padding-left: 20px; line-height: 24px;">
+                                            <li>Abre el archivo adjunto <strong>"reunion-XX.ics"</strong></li>
+                                            <li>Tu aplicación detectará que es una actualización y <strong>reemplazará automáticamente</strong> el evento anterior</li>
+                                        </ul>
+                                        
+                                        <strong style="color: #28a745;">✅ No te preocupes:</strong> No se creará un evento duplicado, se actualizará el existente gracias al identificador único del archivo.
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td style="padding: 0 0 15px 0; color: #555555; font-size: 14px; line-height: 22px; background-color: #f8f9fa; border-radius: 8px; padding: 20px;">
+                                        <strong style="color: #007bff;">📧 Si usas Gmail:</strong>
+                                        <ul style="margin: 10px 0; padding-left: 20px; line-height: 24px;">
+                                            <li>Verás botones <strong>"Sí / No / Quizás / Indicaciones"</strong> arriba del correo</li>
+                                            <li>Haz clic en <strong>"Sí"</strong> si vas a asistir → se añadirá automáticamente a tu Google Calendar</li>
+                                            <li>El botón <strong>"Indicaciones"</strong> abre Google Maps para mostrar la <strong>ubicación</strong> donde se celebrará la reunión</li>
+                                            <li>También puedes descargar el archivo adjunto <strong>"reunion-XX.ics"</strong> y abrirlo</li>
+                                        </ul>
+                                        
+                                        <strong style="color: #007bff;">📱 Si usas Outlook / Apple Mail:</strong>
+                                        <ul style="margin: 10px 0; padding-left: 20px; line-height: 24px;">
+                                            <li>Busca el archivo adjunto <strong>"reunion-XX.ics"</strong> al final del correo</li>
+                                            <li>Haz clic o tócalo para abrirlo</li>
+                                            <li>Se abrirá tu aplicación de calendario y podrás guardarlo</li>
+                                        </ul>
+                                        
+                                        <strong style="color: #28a745;">✅ Ventaja:</strong> Si la reunión cambia de fecha u hora, te enviaremos otro correo y tu calendario <strong>se actualizará automáticamente</strong> al abrir el nuevo archivo.
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                <tr>
+                                    <td style="padding: 10px 0 5px 0; color: #555555; font-size: 13px; text-align: center;">
+                                        ¿Prefieres añadirlo manualmente? Usa estos enlaces:
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="padding: 10px 0 20px 0;">
+                                        <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate;">
+                                            <tr>
+                                                <td align="center" style="border-radius: 50px; background-color: #6c757d;">
+                                                    <a href="{{ calendar_url }}" target="_blank" style="font-size: 14px; font-family: Helvetica, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 10px 25px; border-radius: 50px; border: 1px solid #6c757d; display: inline-block; font-weight: bold;">
+                                                        🔗 Añadir manualmente
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <!-- Alternative calendar links -->
+                                <tr>
+                                    <td style="padding: 10px 0 0 0; color: #888888; font-size: 12px; line-height: 18px; text-align: center;">
+                                        ¿No funciona? Prueba con: 
+                                        {% if google_calendar_url %}<a href="{{ google_calendar_url }}" style="color: #007bff; text-decoration: none;">Google Calendar</a>{% endif %}
+                                        {% if outlook_calendar_url %} | <a href="{{ outlook_calendar_url }}" style="color: #007bff; text-decoration: none;">Outlook</a>{% endif %}
+                                        {% if apple_calendar_url %} | <a href="{{ apple_calendar_url }}" style="color: #007bff; text-decoration: none;">Apple Calendar</a>{% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 30px 0 0 0; color: #888888; font-size: 14px; line-height: 20px; text-align: center;">
+                                        Te esperamos en la reunión
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td bgcolor="#f8f9fa" style="padding: 30px 30px 30px 30px; border-top: 1px solid #eeeeee;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td style="color: #999999; font-size: 12px; text-align: center; line-height: 18px;">
+                                        &copy; 2025 AMPA Julián Nieto. Todos los derechos reservados.<br>
+                                        Has recibido este correo porque eres miembro de {{ commission_name }}.
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

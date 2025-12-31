@@ -154,6 +154,9 @@
                         {% if can_view_events %}
                         <a href="{{ url_for('public.eventos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.eventos') %} active{% endif %}">Eventos</a>
                         {% endif %}
+                        {% if can_view_commissions %}
+                        <a href="{{ commissions_href }}" class="nav-link{% if request.endpoint and (request.endpoint.startswith('admin.commissions') or request.endpoint.startswith('admin.commission') or request.endpoint.startswith('members.commissions') or request.endpoint.startswith('members.commission')) %} active{% endif %}">Comisiones</a>
+                        {% endif %}
                         {% if can_view_calendar %}
                         <a href="{{ calendar_href }}" class="nav-link{% if request.endpoint in ['public.calendario', 'members.calendar'] %} active{% endif %}">Calendario</a>
                         {% endif %}
@@ -169,9 +172,6 @@
                         {% endif %}
                         {% if can_manage_members %}
                         <a href="{{ url_for('admin.usuarios') }}" class="nav-link nav-link--with-badge{% if request.endpoint == 'admin.usuarios' %} active{% endif %}">Usuarios <span class="nav-badge" data-pending-users-badge style="display:none;"></span></a>
-                        {% endif %}
-                        {% if can_view_commissions %}
-                        <a href="{{ commissions_href }}" class="nav-link{% if request.endpoint and (request.endpoint.startswith('admin.commissions') or request.endpoint.startswith('admin.commission') or request.endpoint.startswith('members.commissions') or request.endpoint.startswith('members.commission')) %} active{% endif %}">Comisiones</a>
                         {% endif %}
                          {% if can_manage_permissions %}
                          <a href="{{ url_for('admin.permissions') }}" class="nav-link{% if request.endpoint == 'admin.permissions' %} active{% endif %}">Permisos</a>
@@ -216,6 +216,9 @@
                     {% if can_view_events %}
                     <a href="{{ url_for('public.eventos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.eventos') %} active{% endif %}" onclick="toggleMobileMenu()">Eventos</a>
                     {% endif %}
+                    {% if can_view_commissions %}
+                    <a href="{{ commissions_href }}" class="nav-link{% if request.endpoint and (request.endpoint.startswith('admin.commissions') or request.endpoint.startswith('admin.commission') or request.endpoint.startswith('members.commissions') or request.endpoint.startswith('members.commission')) %} active{% endif %}" onclick="toggleMobileMenu()">Comisiones</a>
+                    {% endif %}
                     {% if can_view_calendar %}
                     <a href="{{ calendar_href }}" class="nav-link{% if request.endpoint in ['public.calendario', 'members.calendar'] %} active{% endif %}"
                         onclick="toggleMobileMenu()">Calendario</a>
@@ -235,9 +238,6 @@
                     {% endif %}
                     {% if can_manage_members %}
                     <a href="{{ url_for('admin.usuarios') }}" class="nav-link nav-link--with-badge{% if request.endpoint == 'admin.usuarios' %} active{% endif %}" onclick="toggleMobileMenu()">Usuarios <span class="nav-badge" data-pending-users-badge style="display:none;"></span></a>
-                    {% endif %}
-                    {% if can_view_commissions %}
-                    <a href="{{ commissions_href }}" class="nav-link{% if request.endpoint and (request.endpoint.startswith('admin.commissions') or request.endpoint.startswith('admin.commission') or request.endpoint.startswith('members.commissions') or request.endpoint.startswith('members.commission')) %} active{% endif %}" onclick="toggleMobileMenu()">Comisiones</a>
                     {% endif %}
                      {% if can_manage_permissions %}
                      <a href="{{ url_for('admin.permissions') }}" class="nav-link{% if request.endpoint == 'admin.permissions' %} active{% endif %}" onclick="toggleMobileMenu()">Permisos</a>
