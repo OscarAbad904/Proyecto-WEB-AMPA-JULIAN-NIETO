@@ -7,6 +7,7 @@ from urllib.parse import urlparse, parse_qs
 from flask import current_app
 from itsdangerous import URLSafeTimedSerializer
 from typing import Any
+import pytz
 
 def normalize_lookup(value: str | None) -> str:
     if not value:
@@ -62,6 +63,17 @@ def _parse_datetime_local(value: str | None) -> datetime | None:
         return datetime.fromisoformat(value)
     except ValueError:
         return None
+
+
+def get_local_now() -> datetime:
+    """
+    Obtiene la hora actual en la zona horaria local de la aplicación (Europe/Madrid).
+    Retorna un datetime naive para compatibilidad con las fechas guardadas en la base de datos.
+    """
+    tz = pytz.timezone("Europe/Madrid")
+    now_aware = datetime.now(tz)
+    # Convertir a naive eliminando la info de timezone pero manteniendo la hora local
+    return now_aware.replace(tzinfo=None)
 
 
 def generate_confirmation_token(email: str) -> str:

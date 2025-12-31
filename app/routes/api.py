@@ -11,6 +11,7 @@ from app.models import (
     Commission,
     Event,
 )
+from app.utils import get_local_now
 
 api_bp = Blueprint("api", __name__)
 
@@ -104,7 +105,7 @@ def calendario_eventos():
             }), 400
 
     if range_start is None:
-        range_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        range_start = get_local_now().replace(hour=0, minute=0, second=0, microsecond=0)
         time_min = time_min or range_start.isoformat() + "Z"
     if range_end is None:
         range_end = range_start + timedelta(days=180)
@@ -216,7 +217,7 @@ def calendario_mis_eventos():
             )
 
     if range_start is None:
-        range_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        range_start = get_local_now().replace(hour=0, minute=0, second=0, microsecond=0)
         time_min = time_min or range_start.isoformat() + "Z"
     if range_end is None:
         range_end = range_start + timedelta(days=180)
@@ -398,7 +399,7 @@ def api_commission_meetings(commission_id: int):
         )
     
     # Filtrado
-    now_dt = datetime.now()
+    now_dt = get_local_now()
     if meeting_type == "upcoming":
         query = query.filter(CommissionMeeting.end_at >= now_dt)
     elif meeting_type == "past":

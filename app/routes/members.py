@@ -49,6 +49,7 @@ from app.utils import (
     _parse_datetime_local,
     build_meeting_description,
     merge_meeting_description,
+    get_local_now,
 )
 from app.services.permission_registry import ensure_roles_and_permissions, DEFAULT_ROLE_NAMES
 from app.services.calendar_service import sync_commission_meeting_to_calendar
@@ -996,7 +997,7 @@ def commissions():
 
     commissions = query.order_by(Commission.name.asc()).all()
     stats: dict[int, dict[str, object]] = {}
-    now_dt = datetime.now()
+    now_dt = get_local_now()
     active_project_statuses = ("pendiente", "en_progreso")
     for commission in commissions:
         members_count = (
@@ -1093,7 +1094,7 @@ def commission_detail(slug: str):
         .all()
     )
     discussion_vote_counts = _vote_counts_for_suggestions([discussion.id for discussion in commission_discussions])
-    now_dt = datetime.now()
+    now_dt = get_local_now()
     upcoming_meetings = (
         commission.meetings.filter(
             CommissionMeeting.project_id.is_(None),
@@ -1189,7 +1190,7 @@ def commission_project_detail(slug: str, project_id: int):
         .all()
     )
     project_discussion_vote_counts = _vote_counts_for_suggestions([discussion.id for discussion in project_discussions])
-    now_dt = datetime.now()
+    now_dt = get_local_now()
     project_upcoming_meetings = (
         CommissionMeeting.query.filter_by(
             commission_id=commission.id,
@@ -2042,7 +2043,7 @@ def commission_meetings_list(slug: str):
         )
     
     # Filtrado por tipo
-    now_dt = datetime.now()
+    now_dt = get_local_now()
     if meeting_type == "upcoming":
         query = query.filter(CommissionMeeting.end_at >= now_dt)
     elif meeting_type == "past":

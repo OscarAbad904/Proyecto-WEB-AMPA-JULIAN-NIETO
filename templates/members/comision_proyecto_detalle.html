@@ -89,6 +89,151 @@
     .meeting-actions .btn-link { padding: 0.35rem 0.85rem; font-size: 0.85rem; }
     .meeting-actions .btn-link.danger { background: #ef4444; border-color: #ef4444; color: #ffffff; }
 
+    /* Meeting item styles */
+    .meeting-item-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .meeting-date-chip {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 90px;
+      padding: 0.5rem 0.6rem;
+      border-radius: 0.75rem;
+      background: #2563eb;
+      color: #ffffff;
+      font-weight: 800;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .meeting-date-chip--past {
+      background: #f59e0b;
+    }
+    .meeting-date-chip__date {
+      font-size: 0.9rem;
+      line-height: 1.2;
+    }
+    .meeting-date-chip__time {
+      font-size: 0.85rem;
+      opacity: 0.9;
+      margin-top: 0.15rem;
+    }
+    .meeting-date-chip__actions {
+      display: flex;
+      gap: 0.3rem;
+      margin-top: 0.4rem;
+      padding-top: 0.4rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .meeting-date-chip__actions .icon-square {
+      width: 28px;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: #ffffff;
+    }
+    .meeting-date-chip__actions .icon-square:hover {
+      background: rgba(255, 255, 255, 0.35);
+    }
+    .meeting-date-chip__actions .icon-square svg {
+      width: 14px;
+      height: 14px;
+    }
+    .meeting-date-chip__actions .icon-square--danger:hover {
+      background: rgba(239, 68, 68, 0.8);
+      border-color: rgba(239, 68, 68, 0.9);
+    }
+    .meeting-date-chip--empty {
+      font-size: 0.85rem;
+      padding: 0.6rem 1rem;
+    }
+
+    /* Meeting detail modal */
+    .meeting-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 1200;
+    }
+    .meeting-modal.open { opacity: 1; pointer-events: auto; }
+    .meeting-modal__dialog {
+      background: #ffffff;
+      border-radius: 1rem;
+      width: min(92vw, 520px);
+      max-height: 80vh;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .meeting-modal__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid #e2e8f0;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    }
+    .meeting-modal__header h3 { margin: 0; color:#0f172a; }
+    .meeting-modal__close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+      color: #64748b;
+    }
+    .meeting-modal__close:hover { color: #0f172a; }
+    .meeting-modal__body {
+      padding: 1rem 1.25rem 1.25rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .meeting-modal__field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .meeting-modal__label {
+      font-weight: 700;
+      color: #64748b;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .meeting-modal__value {
+      color: #0f172a;
+      line-height: 1.5;
+    }
+    .meeting-modal__docs {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .meeting-modal__doc-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #3b82f6;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .meeting-modal__doc-link:hover {
+      text-decoration: underline;
+    }
+
     @media (max-width: 720px) {
       .detail-grid { grid-template-columns: 1fr; }
       .project-sections,
@@ -176,73 +321,79 @@
           <div class="stack">
           <div class="meeting-row">
             <h4>Próximas</h4>
-            <div class="meeting-dates">
-              {% if project_upcoming_meetings %}
-                {% for meeting in project_upcoming_meetings %}
-                  <span class="date-chip date-chip--upcoming">{{ meeting.start_at.strftime("%d/%m/%Y") }}</span>
-                {% endfor %}
-              {% else %}
-                <span class="date-chip date-chip--upcoming">📭 No hay reuniones próximas.</span>
-              {% endif %}
+          </div>
+          {% if project_upcoming_meetings %}
+          {% for meeting in project_upcoming_meetings %}
+          <div class="meeting-item-container">
+            <div class="meeting-date-chip">
+              <span class="meeting-date-chip__date">{{ meeting.start_at.strftime("%d/%m/%Y") }}</span>
+              <span class="meeting-date-chip__time">{{ meeting.start_at.strftime("%H:%M") }}</span>
+              <div class="meeting-date-chip__actions">
+                <button type="button" class="icon-square" aria-label="Ver detalles" onclick="openProjectMeetingModal({{ meeting.id }})">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="M2.5 12s3.8-6.5 9.5-6.5S21.5 12 21.5 12s-3.8 6.5-9.5 6.5S2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                    <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8" />
+                  </svg>
+                </button>
+                {% if can_manage_meetings %}
+                <a class="icon-square" href="{{ url_for('members.project_meeting_form', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) }}" aria-label="Editar reunión">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="M12 20h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </a>
+                <button type="button" class="icon-square icon-square--danger" aria-label="Eliminar reunión" onclick="confirmDeleteProjectMeeting({{ meeting.id }}, '{{ meeting.title | e }}')">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+                {% endif %}
+              </div>
             </div>
           </div>
-          {% for meeting in project_upcoming_meetings %}
-          <article style="border: 2px solid #ef4444; padding: 1rem; border-radius: 8px; margin-bottom: 0.75rem;">
-            <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; color: #64748b; font-weight: 700; font-size: 0.9rem;">
-              <span class="chip">Próxima</span>
-              <span><strong>📅 {{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</strong></span>
-              {% if meeting.location %}<span>📍 {{ meeting.location }}</span>{% endif %}
-            </div>
-            <h4 style="margin: 0.5rem 0;">{{ meeting.title }}</h4>
-            {% if meeting.description_html %}
-            <p style="font-size: 0.9rem; color: #666; margin: 0.5rem 0;">{{ meeting.description_html | striptags | truncate(200) }}</p>
-            {% endif %}
-            {% if can_manage_meetings %}
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb;">
-              <a href="{{ url_for('members.project_meeting_form', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) }}" style="background-color: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">✏️ Editar</a>
-              <form method="post" action="{{ url_for('members.project_meeting_delete', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) }}" style="display:inline;" data-confirm="{{ '⚠️ ¿Estás seguro de que quieres eliminar esta reunión? Esta acción no se puede deshacer.' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" style="background-color: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 4px; border: none; font-size: 0.9rem; cursor: pointer;">🗑️ Eliminar</button>
-              </form>
-            </div>
-            {% endif %}
-          </article>
           {% endfor %}
+          {% else %}
+          <div class="meeting-date-chip meeting-date-chip--empty">📭 No hay reuniones próximas.</div>
+          {% endif %}
 
           <div class="meeting-row" style="margin-top: 0.6rem;">
             <h4>Historial</h4>
-            <div class="meeting-dates">
-              {% if project_past_meetings %}
-                {% for meeting in project_past_meetings %}
-                  <span class="date-chip date-chip--past">{{ meeting.start_at.strftime("%d/%m/%Y") }}</span>
-                {% endfor %}
-              {% else %}
-                <span class="date-chip date-chip--past">📭 No hay reuniones previas.</span>
-              {% endif %}
+          </div>
+          {% if project_past_meetings %}
+          {% for meeting in project_past_meetings %}
+          <div class="meeting-item-container">
+            <div class="meeting-date-chip meeting-date-chip--past">
+              <span class="meeting-date-chip__date">{{ meeting.start_at.strftime("%d/%m/%Y") }}</span>
+              <span class="meeting-date-chip__time">{{ meeting.start_at.strftime("%H:%M") }}</span>
+              <div class="meeting-date-chip__actions">
+                <button type="button" class="icon-square" aria-label="Ver detalles" onclick="openProjectMeetingModal({{ meeting.id }})">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="M2.5 12s3.8-6.5 9.5-6.5S21.5 12 21.5 12s-3.8 6.5-9.5 6.5S2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                    <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8" />
+                  </svg>
+                </button>
+                {% if can_manage_meetings %}
+                <a class="icon-square" href="{{ url_for('members.project_meeting_form', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) }}" aria-label="Editar reunión">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="M12 20h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </a>
+                <button type="button" class="icon-square icon-square--danger" aria-label="Eliminar reunión" onclick="confirmDeleteProjectMeeting({{ meeting.id }}, '{{ meeting.title | e }}')">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                    <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+                {% endif %}
+              </div>
             </div>
           </div>
-          {% for meeting in project_past_meetings %}
-          <article style="opacity: 0.8; border-left: 4px solid #9ca3af; padding: 1rem; border-radius: 4px; margin-bottom: 0.75rem;">
-            <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; color: #64748b; font-weight: 700; font-size: 0.9rem;">
-              <span class="chip" style="background-color: #f3f4f6; color: #6b7280;">Pasada</span>
-              <span>📅 {{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</span>
-              {% if meeting.location %}<span>📍 {{ meeting.location }}</span>{% endif %}
-            </div>
-            <h4 style="margin: 0.5rem 0;">{{ meeting.title }}</h4>
-            {% if meeting.minutes_document %}
-            <a href="{{ meeting.minutes_document.file_path }}" target="_blank" style="color: #3b82f6; text-decoration: none; font-size: 0.9rem;">📄 Ver Acta</a>
-            {% endif %}
-            {% if can_manage_meetings %}
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb;">
-              <a href="{{ url_for('members.project_meeting_form', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) }}" style="background-color: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">✏️ Editar</a>
-              <form method="post" action="{{ url_for('members.project_meeting_delete', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) }}" style="display:inline;" data-confirm="{{ '⚠️ ¿Estás seguro? Esta acción no se puede deshacer.' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" style="background-color: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 4px; border: none; font-size: 0.9rem; cursor: pointer;">🗑️ Eliminar</button>
-              </form>
-            </div>
-            {% endif %}
-          </article>
           {% endfor %}
+          {% else %}
+          <div class="meeting-date-chip meeting-date-chip--past meeting-date-chip--empty">📭 No hay reuniones pasadas.</div>
+          {% endif %}
         </div>
       </div>
       </div>
@@ -319,53 +470,81 @@
           </div>
 
           <div class="stack">
-            <div>
-              <h4 style="margin:0 0 0.5rem;">Próximas</h4>
-              {% if project_upcoming_meetings %}
-                {% for meeting in project_upcoming_meetings %}
-                <div class="card" style="margin-bottom:0.75rem;">
-                  <p class="small" style="margin:0;"><strong>{{ meeting.title }}</strong> ? {{ meeting.start_at.strftime('%d/%m/%Y %H:%M') }}</p>
-                  {% if meeting.location %}<p class="small" style="margin:0.25rem 0 0;">Ubicación: {{ meeting.location }}</p>{% endif %}
-                  {% if meeting.description_html %}<p class="small" style="margin:0.35rem 0 0;">{{ meeting.description_html | striptags | truncate(160) }}</p>{% endif %}
-                  {% if can_manage_meetings %}
-                  <div class="meeting-actions">
-                    <a class="btn-link" href="{{ url_for('members.project_meeting_form', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) }}">Editar</a>
-                    <form method="post" action="{{ url_for('members.project_meeting_delete', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) }}" data-confirm="{{ '¿Estás seguro de que quieres eliminar esta reunión? Esta acción no se puede deshacer.' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                      <button type="submit" class="btn-link danger">Eliminar</button>
-                    </form>
-                  </div>
-                  {% endif %}
-                </div>
-                {% endfor %}
-              {% else %}
-                <p style="margin:0;">No hay reuniones próximas.</p>
-              {% endif %}
+            <div class="meeting-row">
+              <h4>Próximas</h4>
             </div>
+            {% if project_upcoming_meetings %}
+              {% for meeting in project_upcoming_meetings %}
+              <div class="meeting-item-container">
+                <div class="meeting-date-chip">
+                  <span class="meeting-date-chip__date">{{ meeting.start_at.strftime("%d/%m/%Y") }}</span>
+                  <span class="meeting-date-chip__time">{{ meeting.start_at.strftime("%H:%M") }}</span>
+                  <div class="meeting-date-chip__actions">
+                    <button type="button" class="icon-square" aria-label="Ver detalles" onclick="openProjectMeetingModal({{ meeting.id }})">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                        <path d="M2.5 12s3.8-6.5 9.5-6.5S21.5 12 21.5 12s-3.8 6.5-9.5 6.5S2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                        <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8" />
+                      </svg>
+                    </button>
+                    {% if can_manage_meetings %}
+                    <a class="icon-square" href="{{ url_for('members.project_meeting_form', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) }}" aria-label="Editar reunión">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                        <path d="M12 20h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </a>
+                    <button type="button" class="icon-square icon-square--danger" aria-label="Eliminar reunión" onclick="confirmDeleteProjectMeeting({{ meeting.id }}, '{{ meeting.title | e }}')">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                        <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </button>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div class="meeting-date-chip meeting-date-chip--empty">📭 No hay reuniones próximas.</div>
+            {% endif %}
 
-            <div>
-              <h4 style="margin:0 0 0.5rem;">Historial</h4>
-              {% if project_past_meetings %}
-                {% for meeting in project_past_meetings %}
-                <div class="card" style="margin-bottom:0.75rem; opacity:0.85;">
-                  <p class="small" style="margin:0;"><strong>{{ meeting.title }}</strong> ? {{ meeting.start_at.strftime('%d/%m/%Y %H:%M') }}</p>
-                  {% if meeting.location %}<p class="small" style="margin:0.25rem 0 0;">Ubicación: {{ meeting.location }}</p>{% endif %}
-                  {% if meeting.description_html %}<p class="small" style="margin:0.35rem 0 0;">{{ meeting.description_html | striptags | truncate(160) }}</p>{% endif %}
-                  {% if can_manage_meetings %}
-                  <div class="meeting-actions">
-                    <a class="btn-link" href="{{ url_for('members.project_meeting_form', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) }}">Editar</a>
-                    <form method="post" action="{{ url_for('members.project_meeting_delete', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) }}" data-confirm="{{ '¿Estás seguro de que quieres eliminar esta reunión? Esta acción no se puede deshacer.' | e }}" data-confirm-title="Eliminar reunión" data-confirm-accept="Eliminar" data-confirm-variant="danger">
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                      <button type="submit" class="btn-link danger">Eliminar</button>
-                    </form>
-                  </div>
-                  {% endif %}
-                </div>
-                {% endfor %}
-              {% else %}
-                <p style="margin:0;">No hay reuniones previas.</p>
-              {% endif %}
+            <div class="meeting-row" style="margin-top: 0.6rem;">
+              <h4>Historial</h4>
             </div>
+            {% if project_past_meetings %}
+              {% for meeting in project_past_meetings %}
+              <div class="meeting-item-container">
+                <div class="meeting-date-chip meeting-date-chip--past">
+                  <span class="meeting-date-chip__date">{{ meeting.start_at.strftime("%d/%m/%Y") }}</span>
+                  <span class="meeting-date-chip__time">{{ meeting.start_at.strftime("%H:%M") }}</span>
+                  <div class="meeting-date-chip__actions">
+                    <button type="button" class="icon-square" aria-label="Ver detalles" onclick="openProjectMeetingModal({{ meeting.id }})">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                        <path d="M2.5 12s3.8-6.5 9.5-6.5S21.5 12 21.5 12s-3.8 6.5-9.5 6.5S2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                        <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8" />
+                      </svg>
+                    </button>
+                    {% if can_manage_meetings %}
+                    <a class="icon-square" href="{{ url_for('members.project_meeting_form', slug=commission.slug, project_id=project.id, meeting_id=meeting.id, return_to=return_to) }}" aria-label="Editar reunión">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                        <path d="M12 20h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </a>
+                    <button type="button" class="icon-square icon-square--danger" aria-label="Eliminar reunión" onclick="confirmDeleteProjectMeeting({{ meeting.id }}, '{{ meeting.title | e }}')">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                        <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </button>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div class="meeting-date-chip meeting-date-chip--past meeting-date-chip--empty">📭 No hay reuniones pasadas.</div>
+            {% endif %}
           </div>
         </div>
         </div>
@@ -400,4 +579,133 @@
     </div>
   </section>
 {% endif %}
+
+<!-- Modal de detalles de reunión de proyecto -->
+<div class="meeting-modal" id="project-meeting-detail-modal" aria-hidden="true">
+  <div class="meeting-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="project-meeting-modal-title">
+    <div class="meeting-modal__header">
+      <h3 id="project-meeting-modal-title">Detalles de la reunión</h3>
+      <button class="meeting-modal__close" type="button" data-close-meeting-modal aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="meeting-modal__body" id="project-meeting-modal-body">
+      <!-- El contenido se carga dinámicamente -->
+    </div>
+  </div>
+</div>
+
+<!-- Formulario oculto para eliminar reuniones de proyecto -->
+<form id="delete-project-meeting-form" method="post" action="" style="display:none;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+
+<script>
+  // Datos de reuniones de proyecto para el modal
+  window.projectMeetingsData = {
+    {% for meeting in project_upcoming_meetings %}
+    {{ meeting.id }}: {
+      title: "{{ meeting.title | e }}",
+      date: "{{ meeting.start_at.strftime('%d/%m/%Y %H:%M') }}",
+      location: "{{ meeting.location | e if meeting.location else '' }}",
+      description: "{{ meeting.description_html | striptags | e if meeting.description_html else '' }}",
+      documents: [
+        {% if meeting.minutes_document %}
+        { name: "Acta", url: "{{ meeting.minutes_document.file_path }}" }
+        {% endif %}
+      ]
+    },
+    {% endfor %}
+    {% for meeting in project_past_meetings %}
+    {{ meeting.id }}: {
+      title: "{{ meeting.title | e }}",
+      date: "{{ meeting.start_at.strftime('%d/%m/%Y %H:%M') }}",
+      location: "{{ meeting.location | e if meeting.location else '' }}",
+      description: "{{ meeting.description_html | striptags | e if meeting.description_html else '' }}",
+      documents: [
+        {% if meeting.minutes_document %}
+        { name: "Acta", url: "{{ meeting.minutes_document.file_path }}" }
+        {% endif %}
+      ]
+    },
+    {% endfor %}
+  };
+
+  // Funcionalidad del modal de detalles de reunión de proyecto
+  (function () {
+    const meetingModal = document.getElementById('project-meeting-detail-modal');
+    if (!meetingModal) return;
+    
+    const closeBtn = meetingModal.querySelector('[data-close-meeting-modal]');
+    
+    const toggleMeetingModal = (show) => {
+      meetingModal.classList.toggle('open', show);
+      meetingModal.setAttribute('aria-hidden', show ? 'false' : 'true');
+    };
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => toggleMeetingModal(false));
+    }
+    meetingModal.addEventListener('click', (event) => {
+      if (event.target === meetingModal) toggleMeetingModal(false);
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && meetingModal.classList.contains('open')) toggleMeetingModal(false);
+    });
+
+    // Exponer función global para abrir el modal
+    window.openProjectMeetingModal = function(meetingId) {
+      const meetingsData = window.projectMeetingsData || {};
+      const meeting = meetingsData[meetingId];
+      if (!meeting) return;
+
+      const body = document.getElementById('project-meeting-modal-body');
+      let html = '';
+      
+      html += `<div class="meeting-modal__field">
+        <span class="meeting-modal__label">Título</span>
+        <span class="meeting-modal__value">${meeting.title}</span>
+      </div>`;
+      
+      html += `<div class="meeting-modal__field">
+        <span class="meeting-modal__label">Fecha y hora</span>
+        <span class="meeting-modal__value">📅 ${meeting.date}</span>
+      </div>`;
+      
+      if (meeting.location) {
+        html += `<div class="meeting-modal__field">
+          <span class="meeting-modal__label">Ubicación</span>
+          <span class="meeting-modal__value">📍 ${meeting.location}</span>
+        </div>`;
+      }
+      
+      if (meeting.description) {
+        html += `<div class="meeting-modal__field">
+          <span class="meeting-modal__label">Descripción</span>
+          <span class="meeting-modal__value">${meeting.description}</span>
+        </div>`;
+      }
+      
+      if (meeting.documents && meeting.documents.length > 0) {
+        html += `<div class="meeting-modal__field">
+          <span class="meeting-modal__label">Documentos adjuntos</span>
+          <div class="meeting-modal__docs">`;
+        meeting.documents.forEach(doc => {
+          html += `<a href="${doc.url}" target="_blank" class="meeting-modal__doc-link">📄 ${doc.name}</a>`;
+        });
+        html += `</div></div>`;
+      }
+
+      body.innerHTML = html;
+      toggleMeetingModal(true);
+    };
+
+    // Función global para confirmar eliminación de reunión de proyecto
+    window.confirmDeleteProjectMeeting = function(meetingId, meetingTitle) {
+      if (confirm(`⚠️ ¿Estás seguro de que quieres eliminar la reunión "${meetingTitle}"? Esta acción no se puede deshacer.`)) {
+        const form = document.getElementById('delete-project-meeting-form');
+        form.action = "{{ url_for('members.project_meeting_delete', slug=commission.slug, project_id=project.id, meeting_id=0, return_to=return_to) }}".replace('/0/', '/' + meetingId + '/');
+        form.submit();
+      }
+    };
+  })();
+</script>
 {% endblock %}

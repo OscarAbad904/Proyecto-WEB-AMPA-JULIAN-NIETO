@@ -51,6 +51,7 @@ from app.utils import (
     make_lookup_hash,
     build_meeting_description,
     merge_meeting_description,
+    get_local_now,
 )
 from app.media_utils import upload_news_image_variants, delete_news_images
 from app.services.permission_registry import (
@@ -356,7 +357,7 @@ def commissions_index():
 
     commissions = Commission.query.order_by(Commission.created_at.desc()).all()
     stats: dict[int, dict[str, object]] = {}
-    now_dt = datetime.now()
+    now_dt = get_local_now()
     active_project_statuses = ("pendiente", "en_progreso")
 
     for commission in commissions:
@@ -400,7 +401,7 @@ def commission_detail(commission_id: int):
         abort(403)
 
     commission = Commission.query.get_or_404(commission_id)
-    now_dt = datetime.now()
+    now_dt = get_local_now()
     active_project_statuses = ("pendiente", "en_progreso")
 
     members_active = (
