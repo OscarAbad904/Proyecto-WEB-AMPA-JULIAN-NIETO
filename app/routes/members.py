@@ -768,7 +768,7 @@ def commission_discussion_edit(slug: str, suggestion_id: int):
         suggestion=suggestion,
         return_to=return_to,
         back_href=return_to or url_for("members.commission_detail", slug=commission.slug),
-        back_label="Volver a comision",
+        back_label="Volver a comisiones",
     )
 
 
@@ -1400,7 +1400,7 @@ def commission_member_new(slug: str):
         form=form,
         is_member_view=True,
         back_href=url_for("members.commission_detail", slug=commission.slug),
-        back_label="Volver a comision",
+        back_label="Volver a comisiones",
         header_kicker="Comisiones - Area privada",
     )
 

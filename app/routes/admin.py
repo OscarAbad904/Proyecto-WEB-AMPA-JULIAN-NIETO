@@ -487,6 +487,7 @@ def commission_detail(commission_id: int):
         or user_is_privileged(current_user)
     )
     can_manage_projects = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+    can_delete_projects = current_user.has_permission("delete_commission_projects_permanently") or user_is_privileged(current_user)
     can_manage_meetings = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
     can_edit_commission = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
     can_create_discussions = can_manage_discussions
@@ -505,6 +506,7 @@ def commission_detail(commission_id: int):
         can_manage_members=can_manage_members,
         can_manage_discussions=can_manage_discussions,
         can_manage_projects=can_manage_projects,
+        can_delete_projects=can_delete_projects,
         can_manage_meetings=can_manage_meetings,
         can_edit_commission=can_edit_commission,
         can_create_discussions=can_create_discussions,
@@ -622,15 +624,21 @@ def commission_members(commission_id: int):
         flash("Miembro actualizado", "success")
         return redirect(url_for("admin.commission_members", commission_id=commission.id))
 
+    can_delete_members = (
+        current_user.has_permission("delete_commission_members_permanently")
+        or user_is_privileged(current_user)
+    )
+
     return render_template(
         "admin/comision_miembros.html",
         commission=commission,
         members_active=members_active,
         members_history=members_history,
         form=form,
+        can_delete_members=can_delete_members,
         header_kicker=f"Comisiones · {commission.name} - Miembros",
         back_href=url_for("admin.commission_detail", commission_id=commission.id),
-        back_label="Volver a comision",
+        back_label="Volver a comisiones",
     )
 
 
@@ -661,6 +669,23 @@ def commission_member_reactivate_admin(commission_id: int, membership_id: int):
     membership.is_active = True
     db.session.commit()
     flash("Miembro reactivado", "success")
+    return redirect(url_for("admin.commission_members", commission_id=commission_id))
+
+
+@admin_bp.route("/comisiones/<int:commission_id>/miembros/<int:membership_id>/eliminar", methods=["POST"])
+@login_required
+def commission_member_delete_admin(commission_id: int, membership_id: int):
+    """Elimina permanentemente el registro de membresía de una comisión."""
+    if not (
+        current_user.has_permission("delete_commission_members_permanently")
+        or user_is_privileged(current_user)
+    ):
+        abort(403)
+    membership = CommissionMembership.query.filter_by(id=membership_id, commission_id=commission_id).first_or_404()
+    member_name = membership.user.display_name if membership.user else "Miembro"
+    db.session.delete(membership)
+    db.session.commit()
+    flash(f"Miembro '{member_name}' eliminado permanentemente de la comisión.", "success")
     return redirect(url_for("admin.commission_members", commission_id=commission_id))
 
 
@@ -732,6 +757,47 @@ def commission_project_edit(
         back_href=url_for("admin.commissions_index"),
         back_label="Volver",
     )
+
+
+@admin_bp.route("/comisiones/<int:commission_id>/proyectos/<int:project_id>/eliminar", methods=["POST"])
+@login_required
+def commission_project_delete(commission_id: int, project_id: int):
+    """Elimina permanentemente un proyecto de una comisión, incluyendo reuniones y discusiones asociadas."""
+    if not (
+        current_user.has_permission("delete_commission_projects_permanently")
+        or user_is_privileged(current_user)
+    ):
+        abort(403)
+    commission = Commission.query.get_or_404(commission_id)
+    project = CommissionProject.query.filter_by(id=project_id, commission_id=commission.id).first_or_404()
+    
+    project_title = project.title
+    
+    # Eliminar eventos de Google Calendar de las reuniones del proyecto
+    from app.services.calendar_service import delete_commission_meeting_event
+    for meeting in project.meetings.all():
+        if meeting.google_event_id:
+            try:
+                delete_commission_meeting_event(meeting.google_event_id)
+            except Exception as e:
+                current_app.logger.warning(f"No se pudo eliminar evento de Google Calendar {meeting.google_event_id}: {e}")
+    
+    # Eliminar comentarios y discusiones (Suggestion) asociadas al proyecto
+    project_category = f"proyecto:{project.id}"
+    project_suggestions = Suggestion.query.filter_by(category=project_category).all()
+    for suggestion in project_suggestions:
+        # Eliminar votos de la discusión
+        Vote.query.filter_by(suggestion_id=suggestion.id).delete(synchronize_session=False)
+        # Eliminar comentarios de la discusión
+        Comment.query.filter_by(suggestion_id=suggestion.id).delete(synchronize_session=False)
+    # Eliminar las discusiones
+    Suggestion.query.filter_by(category=project_category).delete(synchronize_session=False)
+    
+    # Eliminar el proyecto (las reuniones se eliminan automáticamente por cascade)
+    db.session.delete(project)
+    db.session.commit()
+    flash(f"Proyecto '{project_title}' eliminado permanentemente junto con sus reuniones, discusiones y conversaciones.", "success")
+    return redirect(url_for("admin.commission_detail", commission_id=commission.id))
 
 
 @admin_bp.route("/comisiones/<int:commission_id>/reuniones/nueva", methods=["GET", "POST"])

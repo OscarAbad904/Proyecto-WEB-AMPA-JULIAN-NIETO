@@ -11,6 +11,7 @@
 {% set header_subtitle = header_subtitle|default("Define fechas, responsable y estado del proyecto para " ~ commission.name ~ ".") %}
 {% set back_href = back_href|default(url_for('admin.commissions_index')) %}
 {% set back_label = back_label|default("Volver") %}
+{% set is_admin_view = 'Administracion' in header_kicker %}
 <section class="admin-wrapper">
   <div class="admin-header">
     <p class="admin-kicker">{{ header_kicker }}</p>

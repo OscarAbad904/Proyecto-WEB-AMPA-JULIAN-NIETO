@@ -260,6 +260,8 @@
 .admin-actions { display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap; margin-top: 0.5rem; }
 .admin-actions .btn-primary { width: auto; min-width: 160px; }
 .admin-actions .btn-link { font-weight: 700; color:#0f172a; }
+.admin-actions .btn-link.danger { background: rgba(239,68,68,0.12); color:#b91c1c; border:1px solid rgba(239,68,68,0.25); border-radius: 999px; padding: 0.45rem 0.9rem; cursor:pointer; transition: transform .12s ease, box-shadow .2s ease, opacity .15s ease; }
+.admin-actions .btn-link.danger:hover { opacity:0.9; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(239,68,68,0.28); }
 .admin-table { width: 100%; border-collapse: collapse; }
 .admin-table th, .admin-table td { padding: 0.75rem 0.85rem; text-align: left; border-bottom: 1px solid #e2e8f0; color:#0f172a; font-size: 0.95rem; }
 .admin-table th { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color:#64748b; }

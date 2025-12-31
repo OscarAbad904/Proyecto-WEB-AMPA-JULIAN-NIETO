@@ -15,6 +15,22 @@
   <style>
     .commission-admin { padding-bottom: 4rem; }
 
+    .admin-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .admin-title-row .admin-title {
+      margin: 0;
+    }
+    .btn-primary--new-commission {
+      width: auto;
+      min-width: 180px;
+      white-space: nowrap;
+    }
+
     .commission-top { 
       display: flex; 
       gap: 1rem; 
@@ -57,7 +73,7 @@
     .commission-grid { 
       margin-top: 1rem; 
       display: grid; 
-      grid-template-columns: 1fr; 
+      grid-template-columns: repeat(4, 1fr); 
       gap: 0.85rem;
     }
 
@@ -232,7 +248,28 @@
       z-index: 10;
     }
 
+    /* Responsive: 3 columnas en pantallas medianas-grandes */
+    @media (max-width: 1400px) {
+      .commission-grid { 
+        grid-template-columns: repeat(3, 1fr); 
+      }
+    }
+
+    /* Responsive: 2 columnas en tablets */
+    @media (max-width: 1024px) {
+      .commission-grid { 
+        grid-template-columns: repeat(2, 1fr); 
+      }
+    }
+
     @media (max-width: 640px) {
+      .admin-title-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .btn-primary--new-commission {
+        width: 100%;
+      }
       .commission-top { 
         flex-direction: column; 
         align-items: stretch;
@@ -257,23 +294,23 @@
 <section class="admin-wrapper commission-admin">
   <div class="admin-header">
     <p class="admin-kicker">{{ header_kicker }}</p>
-    <h1 class="admin-title">{{ header_title }}</h1>
+    <div class="admin-title-row">
+      <h1 class="admin-title">{{ header_title }}</h1>
+      {% if not is_member_view and show_create_button %}
+      <a class="btn-primary btn-primary--new-commission" href="{{ url_for('admin.commission_edit') }}">✨ Nueva comisión</a>
+      {% endif %}
+    </div>
     <p class="admin-subtitle">{{ header_subtitle }}</p>
   </div>
 
   {# flashes rendered globally in layout #}
 
-  {% if (is_member_view and can_view_all) or (not is_member_view and show_create_button) %}
+  {% if is_member_view and can_view_all %}
   <div class="commission-top">
-    {% if is_member_view %}
-      <div class="commission-top-links">
-        <a class="btn-link {% if scope != 'todas' %}active{% endif %}" href="{{ url_for('members.commissions', scope='mis') }}">Mis comisiones</a>
-        <a class="btn-link {% if scope == 'todas' %}active{% endif %}" href="{{ url_for('members.commissions', scope='todas') }}">Todas</a>
-      </div>
-    {% else %}
-      <div style="flex: 1;"></div>
-      <a class="btn-primary" href="{{ url_for('admin.commission_edit') }}">✨ Nueva comisión</a>
-    {% endif %}
+    <div class="commission-top-links">
+      <a class="btn-link {% if scope != 'todas' %}active{% endif %}" href="{{ url_for('members.commissions', scope='mis') }}">Mis comisiones</a>
+      <a class="btn-link {% if scope == 'todas' %}active{% endif %}" href="{{ url_for('members.commissions', scope='todas') }}">Todas</a>
+    </div>
   </div>
   {% endif %}
 

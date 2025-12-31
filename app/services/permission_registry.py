@@ -155,10 +155,24 @@ PERMISSION_DEFINITIONS = [
         "section": "Comisiones",
     },
     {
+        "key": "delete_commission_members_permanently",
+        "name": "Eliminar miembros de comisiones permanentemente",
+        "description": "Borrar definitivamente el registro de membresía de una comisión.",
+        "section": "Comisiones",
+        "grant_to_roles": ["Administrador"],
+    },
+    {
         "key": "manage_commission_projects",
         "name": "Gestionar proyectos de comisiones",
         "description": "Crear y actualizar proyectos asociados a una comisión.",
         "section": "Comisiones",
+    },
+    {
+        "key": "delete_commission_projects_permanently",
+        "name": "Eliminar proyectos permanentemente",
+        "description": "Borrar definitivamente proyectos de comisiones junto con sus reuniones y discusiones.",
+        "section": "Comisiones",
+        "grant_to_roles": ["Administrador"],
     },
     {
         "key": "manage_commission_meetings",

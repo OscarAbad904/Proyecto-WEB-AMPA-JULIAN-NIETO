@@ -6,6 +6,7 @@
 {% set back_href = back_href|default(url_for('admin.commissions_index')) %}
 {% set back_label = back_label|default("Volver") %}
 {% set header_kicker = header_kicker|default("Comisiones") %}
+{% set can_delete_members = can_delete_members if can_delete_members is defined else False %}
 
 {% block head %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
@@ -62,6 +63,28 @@
     }
     .member-row-selectable:hover {
       background: #f8fafc;
+    }
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.12) !important;
+      color: #b91c1c !important;
+      border: 1px solid rgba(239, 68, 68, 0.25) !important;
+    }
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.2) !important;
+    }
+
+    /* Responsive: formulario en filas en móvil */
+    @media (max-width: 640px) {
+      .field-row--member {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      .field-row--member .field--submit {
+        justify-content: stretch;
+      }
+      .field-row--member .field--submit .btn-primary {
+        width: 100%;
+      }
     }
   </style>
 {% endblock %}
@@ -175,13 +198,16 @@
             <td>
               {% if member.user and member.user.is_active and member.user.deleted_at is none and not member.is_active %}
                 {% if is_member_view %}
-                <form method="post" action="{{ url_for('members.commission_member_reactivate', slug=commission.slug, membership_id=member.id) }}">
+                <form method="post" action="{{ url_for('members.commission_member_reactivate', slug=commission.slug, membership_id=member.id) }}" style="display:inline;">
                 {% else %}
-                <form method="post" action="{{ url_for('admin.commission_member_reactivate_admin', commission_id=commission.id, membership_id=member.id) }}">
+                <form method="post" action="{{ url_for('admin.commission_member_reactivate_admin', commission_id=commission.id, membership_id=member.id) }}" style="display:inline;">
                 {% endif %}
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button type="submit" class="nav-auth-btn nav-auth-btn--logout btn-mini">Reactivar</button>
                 </form>
+              {% endif %}
+              {% if can_delete_members and not is_member_view %}
+                <button type="button" class="nav-auth-btn nav-auth-btn--logout btn-mini btn-danger" onclick="confirmDeleteMember({{ member.id }}, '{{ member.user.display_name | e }}')">Eliminar</button>
               {% endif %}
             </td>
           </tr>
@@ -194,8 +220,34 @@
       </table>
     </div>
   </div>
+
+  {% if can_delete_members and not is_member_view %}
+  <!-- Formulario oculto para eliminar miembros permanentemente -->
+  <form id="delete-member-form" method="post" action="" style="display:none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  </form>
+  {% endif %}
 </section>
 <script>
+  {% if can_delete_members and not is_member_view %}
+  // Función global para confirmar eliminación de miembro
+  window.confirmDeleteMember = function(membershipId, memberName) {
+    window.ampaConfirm({
+      title: 'Eliminar miembro permanentemente',
+      message: `¿Estás seguro de que quieres eliminar permanentemente a "${memberName}" de esta comisión? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'danger'
+    }).then(function(confirmed) {
+      if (confirmed) {
+        const form = document.getElementById('delete-member-form');
+        form.action = "{{ url_for('admin.commission_member_delete_admin', commission_id=commission.id, membership_id=0) }}".replace('/0', '/' + membershipId);
+        form.submit();
+      }
+    });
+  };
+  {% endif %}
+
   (function () {
     const form = document.querySelector('.admin-form');
     if (!form) return;
