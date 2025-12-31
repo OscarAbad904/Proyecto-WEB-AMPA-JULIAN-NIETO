@@ -104,7 +104,7 @@ def calendario_eventos():
             }), 400
 
     if range_start is None:
-        range_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        range_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         time_min = time_min or range_start.isoformat() + "Z"
     if range_end is None:
         range_end = range_start + timedelta(days=180)
@@ -216,7 +216,7 @@ def calendario_mis_eventos():
             )
 
     if range_start is None:
-        range_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        range_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         time_min = time_min or range_start.isoformat() + "Z"
     if range_end is None:
         range_end = range_start + timedelta(days=180)
@@ -398,7 +398,7 @@ def api_commission_meetings(commission_id: int):
         )
     
     # Filtrado
-    now_dt = datetime.utcnow()
+    now_dt = datetime.now()
     if meeting_type == "upcoming":
         query = query.filter(CommissionMeeting.end_at >= now_dt)
     elif meeting_type == "past":

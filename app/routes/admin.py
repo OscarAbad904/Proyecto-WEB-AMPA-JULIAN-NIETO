@@ -356,7 +356,7 @@ def commissions_index():
 
     commissions = Commission.query.order_by(Commission.created_at.desc()).all()
     stats: dict[int, dict[str, object]] = {}
-    now_dt = datetime.utcnow()
+    now_dt = datetime.now()
     active_project_statuses = ("pendiente", "en_progreso")
 
     for commission in commissions:
@@ -400,7 +400,7 @@ def commission_detail(commission_id: int):
         abort(403)
 
     commission = Commission.query.get_or_404(commission_id)
-    now_dt = datetime.utcnow()
+    now_dt = datetime.now()
     active_project_statuses = ("pendiente", "en_progreso")
 
     members_active = (
