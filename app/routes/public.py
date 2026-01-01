@@ -1,8 +1,9 @@
 from flask import Blueprint, render_template, request, current_app, flash, redirect, url_for, abort
 from flask_login import current_user, login_required
 import re
+from sqlalchemy.exc import ProgrammingError
 from app.extensions import db
-from app.models import Post, Permission, User, user_is_privileged, Commission, CommissionMembership
+from app.models import Post, Permission, User, user_is_privileged, Commission, CommissionMembership, UserSeenItem
 from app.forms import ResendVerificationForm, SetPasswordForm
 from app.utils import (
     _normalize_drive_url,
@@ -106,9 +107,40 @@ def noticias():
     )
     posts = [_normalize_post_images(post) for post in posts]
 
+    unseen_post_ids: set[int] = set()
+    if current_user.is_authenticated:
+        latest_nine = (
+            Post.query.filter_by(status="published")
+            .order_by(Post.published_at.desc().nullslast(), Post.created_at.desc())
+            .limit(9)
+            .all()
+        )
+        latest_nine_ids = [p.id for p in latest_nine]
+        if latest_nine_ids:
+            try:
+                seen_ids = {
+                    row.item_id
+                    for row in (
+                        UserSeenItem.query.filter_by(user_id=current_user.id, item_type="post")
+                        .filter(UserSeenItem.item_id.in_(latest_nine_ids))
+                        .all()
+                    )
+                }
+                unseen_post_ids = set(latest_nine_ids) - seen_ids
+            except ProgrammingError:
+                db.session.rollback()
+                # BD sin migrar: tratamos el top 9 como no visto.
+                unseen_post_ids = set(latest_nine_ids)
+
     # Siempre obtener las 3 noticias m?s recientes (por published_at descendente)
     latest_three = _get_latest_three_posts()
-    return render_template("public/noticias.html", query=query, posts=posts, latest_three=latest_three)
+    return render_template(
+        "public/noticias.html",
+        query=query,
+        posts=posts,
+        latest_three=latest_three,
+        unseen_post_ids=unseen_post_ids,
+    )
 
 @public_bp.route("/noticias/<slug>")
 def noticia_detalle(slug):

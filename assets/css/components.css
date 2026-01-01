@@ -244,6 +244,14 @@
     border-color: var(--color-info);
 }
 
+.chip--new {
+    background: var(--color-accent);
+    color: var(--color-bg-mid);
+    border-color: transparent;
+    font-weight: var(--font-semibold);
+    font-size: var(--text-xs);
+}
+
 /* ========================================
    MODALES
    ======================================== */

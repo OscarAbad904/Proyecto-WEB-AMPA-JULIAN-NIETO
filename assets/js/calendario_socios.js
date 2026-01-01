@@ -31,6 +31,30 @@ document.addEventListener('DOMContentLoaded', () => {
   initCalendar();
 });
 
+async function markSeenEventId(eventId) {
+  if (!eventId || typeof eventId !== 'string' || !eventId.startsWith('event-')) return;
+  const raw = eventId.slice('event-'.length);
+  const id = Number.parseInt(raw, 10);
+  if (!Number.isFinite(id) || id <= 0) return;
+  try {
+    const res = await fetch('/api/me/seen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ item_type: 'event', item_id: id }),
+    });
+    if (!res.ok) return;
+    const ev = CalendarState.events.find(e => e.id === eventId);
+    if (ev) ev.is_new = false;
+    renderUpcomingEvents();
+    if (typeof window.refreshUnreadCounts === 'function') {
+      window.refreshUnreadCounts();
+    }
+  } catch (_) {
+    // Silencioso.
+  }
+}
+
 /**
  * Inicializa el calendario
  */
@@ -295,7 +319,7 @@ function renderListView() {
             ${event.todo_el_dia ? '<span>Todo el día</span>' : `<span>${timeStr.start}</span>${timeStr.end ? `<span class="time-end">– ${timeStr.end}</span>` : ''}`}
           </div>
           <div class="event-list-content">
-            <h4 class="event-list-title">${escapeHtml(event.titulo)}</h4>
+            <h4 class="event-list-title"><span class="event-title-text">${escapeHtml(event.titulo)}</span>${event.is_new ? ' <span class="chip chip--new">Nuevo</span>' : ''}</h4>
             ${event.es_comision ? `<span class="badge">Comisión</span>` : ''}
             ${event.ubicacion ? `
               <div class="event-list-location">
@@ -356,7 +380,7 @@ function renderUpcomingEvents() {
           <div class="upcoming-event-month">${month}</div>
         </div>
         <div class="upcoming-event-info">
-          <h4 class="upcoming-event-title">${escapeHtml(event.titulo)}</h4>
+          <h4 class="upcoming-event-title"><span class="event-title-text">${escapeHtml(event.titulo)}</span>${event.is_new ? ' <span class="chip chip--new">Nuevo</span>' : ''}</h4>
           <div class="upcoming-event-time">${time}</div>
         </div>
       </div>
@@ -489,6 +513,11 @@ function openEventModal(eventId) {
   // Mostrar modal
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+
+  // Marcar como visto SOLO al abrir detalle (modal) y solo para eventos (no comisiones)
+  if (!event.es_comision) {
+    markSeenEventId(eventId);
+  }
   
   // Focus trap para accesibilidad
   modal.querySelector('.event-modal-close')?.focus();

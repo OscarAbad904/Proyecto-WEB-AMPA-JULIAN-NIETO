@@ -32,7 +32,7 @@
             referrerpolicy="no-referrer" />
         </div>
         <div class="news-card-body">
-          <h3 class="news-card-title">{{ post.title }}</h3>
+          <h3 class="news-card-title news-title-with-chip"><span class="news-title-text">{{ post.title }}</span>{% if post.id in (unseen_post_ids or []) %}<span class="chip chip--new" data-new-label="post-{{ post.id }}">Nueva</span>{% endif %}</h3>
           <p class="news-card-desc">{{ (post.excerpt or '')[:200] }}{% if (post.excerpt or '')|length > 200 %}…{% endif
             %}</p>
           <span class="news-card-date">{{ post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha'
@@ -62,7 +62,7 @@
         data-layout="{{ post.tags or 'full' }}" data-content='{{ post.body_html|tojson }}'>
         <div class="news-article-header">
           <div>
-            <h3 class="news-article-title">{{ post.title }}</h3>
+            <h3 class="news-article-title news-title-with-chip"><span class="news-title-text">{{ post.title }}</span>{% if post.id in (unseen_post_ids or []) %}<span class="chip chip--new" data-new-label="post-{{ post.id }}">Nueva</span>{% endif %}</h3>
             <span class="news-article-category">{{ post.category or 'General' }} · {{
               post.published_at.strftime('%d/%m/%Y') if post.published_at else 'Sin fecha' }}</span>
           </div>
@@ -98,6 +98,13 @@
     flex-direction: column;
     gap: 0.6rem;
     height: 100%;
+    box-shadow: 0 12px 32px rgba(3, 7, 18, 0.45);
+    transition: transform 0.25s, box-shadow 0.25s;
+  }
+
+  .news-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 56px rgba(3, 7, 18, 0.75);
   }
 
   .news-card.layout-bottom {
@@ -108,14 +115,27 @@
     width: 100%;
     aspect-ratio: 4 / 3;
     border-radius: 0.8rem;
+    box-sizing: border-box;
     background: linear-gradient(145deg, rgba(150, 164, 178, 0.3), rgba(7, 17, 31, 0.95));
+    background-clip: padding-box;
     margin: 0;
-    border: 1px solid var(--color-border);
-    box-shadow: 0 10px 22px rgba(3, 7, 18, 0.28);
+    border: 2px solid rgba(100, 116, 139, 0.5);
+    box-shadow: 0 8px 24px rgba(3, 7, 18, 0.45);
     overflow: hidden;
     display: flex;
     flex: 1 1 auto;
     min-height: 11rem;
+    position: relative;
+  }
+
+  /* Efecto tipo "Eventos": degradado suave sobre la imagen */
+  .news-card-cover::after {
+    content: "";
+    position: absolute;
+    inset: 2px;
+    border-radius: 0.6rem;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent 30%, rgba(7, 17, 31, 0.25) 100%);
   }
 
   .news-card-cover img {
@@ -123,6 +143,8 @@
     height: 100%;
     object-fit: cover;
     display: block;
+    position: relative;
+    z-index: 0;
   }
 
   .news-card-body {
@@ -130,6 +152,17 @@
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+  }
+
+  .news-title-with-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .news-title-text {
+    min-width: 0;
+    flex: 1 1 auto;
   }
 
   @media (min-width: 768px) {
@@ -516,6 +549,27 @@
       document.body.classList.add('modal-open');
     }
 
+    const seenEndpoint = {{ url_for('api.me_mark_seen') | tojson }};
+    async function markSeenPost(postId) {
+      const id = Number(postId);
+      if (!Number.isFinite(id) || id <= 0) return;
+      try {
+        const res = await fetch(seenEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ item_type: 'post', item_id: id }),
+        });
+        if (!res.ok) return;
+        document.querySelectorAll(`[data-new-label="post-${id}"]`).forEach((el) => el.remove());
+        if (typeof window.refreshUnreadCounts === 'function') {
+          window.refreshUnreadCounts();
+        }
+      } catch (_) {
+        // Silencioso.
+      }
+    }
+
     function closeModal() {
       modal.classList.remove('open');
       modal.setAttribute('aria-hidden', 'true');
@@ -526,6 +580,7 @@
       el.addEventListener('click', () => {
         if (isDraggingCard) return;
         const data = el.dataset;
+        markSeenPost(data.id);
         openModal({
           cover: data.cover,
           modalcover: data.modalcover,

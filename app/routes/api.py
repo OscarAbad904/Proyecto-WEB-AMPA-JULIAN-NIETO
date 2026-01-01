@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 import sqlalchemy as sa
+from sqlalchemy.exc import ProgrammingError
 
 from app.models import (
     Permission,
@@ -10,10 +11,137 @@ from app.models import (
     CommissionMembership,
     Commission,
     Event,
+    Post,
+    UserSeenItem,
 )
+from app.extensions import db
+from app.extensions import csrf
 from app.utils import get_local_now
 
 api_bp = Blueprint("api", __name__)
+
+
+def _get_latest_nine_post_ids() -> list[int]:
+    posts = (
+        Post.query.filter_by(status="published")
+        .order_by(Post.published_at.desc().nullslast(), Post.created_at.desc())
+        .limit(9)
+        .all()
+    )
+    return [p.id for p in posts]
+
+
+def _get_upcoming_nine_event_ids(now_dt: datetime) -> list[int]:
+    events = (
+        Event.query.filter(Event.status == "published")
+        .filter(Event.end_at >= now_dt)
+        .order_by(Event.start_at.asc())
+        .limit(9)
+        .all()
+    )
+    return [e.id for e in events]
+
+
+@api_bp.route("/me/unread-counts")
+@login_required
+def me_unread_counts():
+    now_dt = get_local_now()
+
+    post_ids = _get_latest_nine_post_ids()
+    event_ids = _get_upcoming_nine_event_ids(now_dt)
+
+    posts_unread = 0
+    events_unread = 0
+
+    if post_ids:
+        try:
+            seen_post_ids = {
+                row.item_id
+                for row in (
+                    UserSeenItem.query.filter_by(user_id=current_user.id, item_type="post")
+                    .filter(UserSeenItem.item_id.in_(post_ids))
+                    .all()
+                )
+            }
+            posts_unread = len(set(post_ids) - seen_post_ids)
+        except ProgrammingError:
+            db.session.rollback()
+            posts_unread = len(post_ids)
+
+    if event_ids:
+        try:
+            seen_event_ids = {
+                row.item_id
+                for row in (
+                    UserSeenItem.query.filter_by(user_id=current_user.id, item_type="event")
+                    .filter(UserSeenItem.item_id.in_(event_ids))
+                    .all()
+                )
+            }
+            events_unread = len(set(event_ids) - seen_event_ids)
+        except ProgrammingError:
+            db.session.rollback()
+            events_unread = len(event_ids)
+
+    return jsonify(
+        {
+            "ok": True,
+            "posts_unread": int(posts_unread),
+            "events_unread": int(events_unread),
+            "limit": 9,
+        }
+    ), 200
+
+
+@api_bp.route("/me/seen", methods=["POST"])
+@csrf.exempt
+@login_required
+def me_mark_seen():
+    payload = request.get_json(silent=True) or {}
+    item_type = str(payload.get("item_type") or "").strip().lower()
+    item_id = payload.get("item_id")
+
+    if item_type not in {"post", "event"}:
+        return jsonify({"ok": False, "error": "item_type inválido"}), 400
+    try:
+        item_id_int = int(item_id)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "item_id inválido"}), 400
+    if item_id_int <= 0:
+        return jsonify({"ok": False, "error": "item_id inválido"}), 400
+
+    if item_type == "post":
+        exists = Post.query.filter_by(id=item_id_int, status="published").first()
+        if not exists:
+            return jsonify({"ok": False, "error": "Noticia no encontrada"}), 404
+    if item_type == "event":
+        exists = Event.query.filter_by(id=item_id_int, status="published").first()
+        if not exists:
+            return jsonify({"ok": False, "error": "Evento no encontrado"}), 404
+
+    now_dt = get_local_now()
+    try:
+        existing = UserSeenItem.query.filter_by(
+            user_id=current_user.id,
+            item_type=item_type,
+            item_id=item_id_int,
+        ).first()
+        if existing:
+            existing.seen_at = now_dt
+        else:
+            db.session.add(
+                UserSeenItem(
+                    user_id=current_user.id,
+                    item_type=item_type,
+                    item_id=item_id_int,
+                    seen_at=now_dt,
+                )
+            )
+        db.session.commit()
+        return jsonify({"ok": True}), 200
+    except ProgrammingError:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": "Migración pendiente: ejecuta flask db upgrade"}), 409
 
 
 @api_bp.route("/status")
@@ -111,6 +239,25 @@ def calendario_eventos():
         range_end = range_start + timedelta(days=180)
         time_max = time_max or range_end.isoformat() + "Z"
 
+    now_dt = get_local_now()
+    newest_event_ids: set[int] = set()
+    seen_event_ids: set[int] = set()
+    if current_user.is_authenticated:
+        newest_event_ids = set(_get_upcoming_nine_event_ids(now_dt))
+        if newest_event_ids:
+            try:
+                seen_event_ids = {
+                    row.item_id
+                    for row in (
+                        UserSeenItem.query.filter_by(user_id=current_user.id, item_type="event")
+                        .filter(UserSeenItem.item_id.in_(list(newest_event_ids)))
+                        .all()
+                    )
+                }
+            except ProgrammingError:
+                db.session.rollback()
+                seen_event_ids = set()
+
     events_query = (
         Event.query
         .filter(Event.end_at >= range_start)
@@ -125,6 +272,11 @@ def calendario_eventos():
 
     eventos: list[dict] = []
     for event in events_query.limit(limite).all():
+        is_new = bool(
+            current_user.is_authenticated
+            and event.id in newest_event_ids
+            and event.id not in seen_event_ids
+        )
         eventos.append({
             "id": f"event-{event.id}",
             "titulo": event.title,
@@ -135,6 +287,7 @@ def calendario_eventos():
             "url": None,
             "todo_el_dia": False,
             "categoria": event.category or "general",
+            "is_new": is_new,
         })
 
     respuesta = {
@@ -230,6 +383,23 @@ def calendario_mis_eventos():
         or user_is_privileged(current_user)
     )
     if include_general_events:
+        now_dt = get_local_now()
+        newest_event_ids: set[int] = set(_get_upcoming_nine_event_ids(now_dt)) if current_user.is_authenticated else set()
+        seen_event_ids: set[int] = set()
+        if newest_event_ids:
+            try:
+                seen_event_ids = {
+                    row.item_id
+                    for row in (
+                        UserSeenItem.query.filter_by(user_id=current_user.id, item_type="event")
+                        .filter(UserSeenItem.item_id.in_(list(newest_event_ids)))
+                        .all()
+                    )
+                }
+            except ProgrammingError:
+                db.session.rollback()
+                seen_event_ids = set()
+
         events_query = (
             Event.query
             .filter(Event.end_at >= range_start)
@@ -239,6 +409,11 @@ def calendario_mis_eventos():
             events_query = events_query.filter(Event.status == "published")
 
         for event in events_query.order_by(Event.start_at.asc()).all():
+            is_new = bool(
+                current_user.is_authenticated
+                and event.id in newest_event_ids
+                and event.id not in seen_event_ids
+            )
             general_events.append({
                 "id": f"event-{event.id}",
                 "titulo": event.title,
@@ -249,6 +424,7 @@ def calendario_mis_eventos():
                 "url": None,
                 "todo_el_dia": False,
                 "categoria": event.category or "general",
+                "is_new": is_new,
             })
 
     membership_query = (

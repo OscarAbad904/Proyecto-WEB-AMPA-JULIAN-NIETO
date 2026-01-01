@@ -429,6 +429,21 @@ class Suggestion(db.Model):
     votes = db.relationship("Vote", back_populates="suggestion", lazy="dynamic")
 
 
+class UserSeenItem(db.Model):
+    __tablename__ = "user_seen_items"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    item_type = db.Column(db.String(16), nullable=False, index=True)  # 'post' | 'event'
+    item_id = db.Column(db.Integer, nullable=False, index=True)
+    seen_at = db.Column(db.DateTime, server_default=func.now())
+    created_at = db.Column(db.DateTime, server_default=func.now())
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "item_type", "item_id", name="uq_user_seen_items"),
+    )
+
+
 class Comment(db.Model):
     __tablename__ = "comments"
 
