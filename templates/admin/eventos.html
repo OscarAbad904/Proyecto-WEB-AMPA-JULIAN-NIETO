@@ -256,7 +256,11 @@
         </div>
       </div>
       <div class="event-hero-cta">
+        {% if can_edit_events %}
         <button class="btn-primary open-event-modal-btn" id="open-event-modal" type="button">Crear Evento</button>
+        {% else %}
+        <p class="muted" style="margin: 0; text-align: center;">Solo lectura</p>
+        {% endif %}
       </div>
     </div>
     {% set total_events = events|length %}

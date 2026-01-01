@@ -178,8 +178,8 @@ def eventos():
     return render_template(
         "public/eventos.html",
         featured_events=featured_events,
-        can_view_calendar=_can_view_calendar(),
-        calendar_href=url_for("public.calendario") if _can_view_calendar() else None
+        can_view_calendar=_can_view_events(),
+        calendar_href=url_for("public.calendario")
     )
 
 
