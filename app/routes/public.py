@@ -1,9 +1,10 @@
 from flask import Blueprint, render_template, request, current_app, flash, redirect, url_for, abort
 from flask_login import current_user, login_required
 import re
+from datetime import datetime
 from sqlalchemy.exc import ProgrammingError
 from app.extensions import db
-from app.models import Post, Permission, User, user_is_privileged, Commission, CommissionMembership, UserSeenItem
+from app.models import Post, Permission, User, user_is_privileged, Commission, CommissionMembership, UserSeenItem, Event
 from app.forms import ResendVerificationForm, SetPasswordForm
 from app.utils import (
     _normalize_drive_url,
@@ -153,7 +154,33 @@ def noticia_detalle(slug):
 def eventos():
     if not _can_view_events():
         abort(403)
-    return render_template("public/eventos.html")
+    
+    # Obtener los próximos 3 eventos para las tarjetas destacadas
+    now_dt = datetime.utcnow()
+    eventos_query = Event.query.filter(
+        Event.status == "published",
+        Event.end_at >= now_dt
+    ).order_by(Event.start_at.asc())
+    
+    # Filtrar por visibilidad según autenticación
+    if not current_user.is_authenticated:
+        eventos_query = eventos_query.filter(Event.is_public.is_(True))
+    elif not getattr(current_user, "registration_approved", False):
+        eventos_query = eventos_query.filter(Event.is_public.is_(True))
+    
+    featured_events = eventos_query.limit(3).all()
+    
+    # Normalizar URLs de imágenes
+    for event in featured_events:
+        from app.routes.admin import _normalize_drive_url
+        event.cover_image = _normalize_drive_url(event.cover_image) if event.cover_image else None
+    
+    return render_template(
+        "public/eventos.html",
+        featured_events=featured_events,
+        can_view_calendar=_can_view_calendar(),
+        calendar_href=url_for("public.calendario") if _can_view_calendar() else None
+    )
 
 
 @public_bp.route("/calendario")

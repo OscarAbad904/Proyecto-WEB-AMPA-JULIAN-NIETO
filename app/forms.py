@@ -206,6 +206,12 @@ class EventForm(FlaskForm):
         "Imagen destacada (URL)",
         validators=[Optional(), URL(message="Introduce una URL válida"), Length(max=255)],
     )
+    cover_image_file = FileField("Imagen original (subir archivo)", validators=[Optional()])
+    is_public = BooleanField(
+        "Evento público",
+        default=True,
+        description="Si está desmarcado, solo lo verán socios aprobados",
+    )
     status = SelectField(
         "Estado",
         choices=[("draft", "Borrador"), ("published", "Publicada")],

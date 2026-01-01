@@ -342,7 +342,7 @@
         <h2 id="modal-title" class="modal-title">Nuevo evento</h2>
         <button type="button" class="modal-close" id="close-event-modal" aria-label="Cerrar">&times;</button>
       </div>
-      <form method="post" class="admin-form event-modal-form" novalidate>
+      <form method="post" enctype="multipart/form-data" class="admin-form event-modal-form" novalidate>
         {% if not can_edit_events %}
         <p class="muted" style="margin-top:0;">Solo lectura. Solicita permiso para editar eventos.</p>
         {% endif %}
@@ -384,6 +384,24 @@
         <div class="field">
           {{ form.cover_image.label }}
           {{ form.cover_image(placeholder="https://drive.google.com/...") }}
+        </div>
+        <div class="field">
+          {{ form.cover_image_file.label }}
+          {{ form.cover_image_file() }}
+          <small style="display: block; margin-top: 0.25rem; color: var(--color-text-secondary);">
+            Sube una imagen o proporciona una URL de Drive arriba. La imagen subida tendrá prioridad.
+          </small>
+        </div>
+        <div class="field">
+          <label class="checkbox-label">
+            {{ form.is_public() }}
+            <span>{{ form.is_public.label.text }}</span>
+          </label>
+          {% if form.is_public.description %}
+          <small style="display: block; margin-top: 0.25rem; color: var(--color-text-secondary);">
+            {{ form.is_public.description }}
+          </small>
+          {% endif %}
         </div>
         <div class="field">
           {{ form.status.label }}

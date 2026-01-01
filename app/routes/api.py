@@ -269,6 +269,15 @@ def calendario_eventos():
     )
     if not can_manage:
         events_query = events_query.filter(Event.status == "published")
+        
+        # Filtrar por visibilidad: solo públicos si no es socio aprobado
+        if not current_user.is_authenticated:
+            # No autenticado: solo eventos públicos
+            events_query = events_query.filter(Event.is_public.is_(True))
+        elif not getattr(current_user, "registration_approved", False):
+            # Autenticado pero no aprobado: solo eventos públicos
+            events_query = events_query.filter(Event.is_public.is_(True))
+        # Si es socio aprobado, puede ver todos los eventos (públicos + privados)
 
     eventos: list[dict] = []
     for event in events_query.limit(limite).all():
@@ -407,6 +416,9 @@ def calendario_mis_eventos():
         )
         if not (current_user.has_permission("manage_events") or user_is_privileged(current_user)):
             events_query = events_query.filter(Event.status == "published")
+            # Filtrar por visibilidad según estado de aprobación
+            if not getattr(current_user, "registration_approved", False):
+                events_query = events_query.filter(Event.is_public.is_(True))
 
         for event in events_query.order_by(Event.start_at.asc()).all():
             is_new = bool(

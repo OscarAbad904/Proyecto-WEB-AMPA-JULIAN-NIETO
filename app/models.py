@@ -355,6 +355,7 @@ class Event(db.Model):
     cover_image = db.Column(db.String(255))
     category = db.Column(db.String(64), default="actividades", nullable=True, index=True)
     status = db.Column(db.String(32), default="draft", nullable=False, index=True)
+    is_public = db.Column(db.Boolean, default=True, nullable=False, index=True)
     organizer_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     created_at = db.Column(db.DateTime, server_default=func.now())
     updated_at = db.Column(db.DateTime, server_default=func.now(), onupdate=func.now())

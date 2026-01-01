@@ -315,8 +315,30 @@ def admin_eventos():
             capacity_value = form.capacity.data
             if capacity_value is not None and capacity_value <= 0:
                 capacity_value = None
+            
+            # Manejo de imagen: subir archivo o usar URL
             cover_raw = (form.cover_image.data or "").strip()
-            cover_value = _normalize_drive_url(cover_raw) if cover_raw else None
+            normalized_cover = _normalize_drive_url(cover_raw) if cover_raw else None
+            image_file = request.files.get("cover_image_file")
+            variants_urls: dict[str, str] = {}
+            
+            if image_file and image_file.filename:
+                try:
+                    # Subir variantes de imagen a Drive
+                    variants_urls = upload_news_image_variants(
+                        image_file,
+                        base_name=slug_value,
+                        shared_drive_id=current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID", "") or None,
+                    )
+                except Exception as exc:
+                    current_app.logger.exception("Error generando/subiendo variantes de imagen para evento", exc_info=exc)
+                    flash(
+                        "No se pudieron generar ni subir las variantes en Drive. Revisa la configuración.",
+                        "danger",
+                    )
+            
+            cover_value = variants_urls.get("latest") or normalized_cover
+            
             event = Event(
                 title=form.title.data.strip(),
                 slug=slug_value,
@@ -328,6 +350,7 @@ def admin_eventos():
                 capacity=capacity_value,
                 cover_image=cover_value,
                 status=form.status.data,
+                is_public=form.is_public.data,
                 organizer_id=current_user.id,
             )
             db.session.add(event)
