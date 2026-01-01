@@ -971,11 +971,7 @@ def votar_sugerencia(suggestion_id: int):
 @login_required
 def commissions():
     scope = request.args.get("scope", "mis")
-    can_view_all = (
-        current_user.has_permission("manage_commission_members")
-        or current_user.has_permission("manage_commissions")
-        or user_is_privileged(current_user)
-    )
+    can_view_all = current_user.has_permission("view_commissions")
     member_memberships = (
         CommissionMembership.query.filter_by(user_id=current_user.id, is_active=True)
         .join(Commission)
@@ -987,11 +983,9 @@ def commissions():
     if not can_view_all and not memberships_map:
         abort(403)
 
-    if scope == "todas" and not can_view_all:
-        scope = "mis"
-
+    # Los usuarios sin permiso view_commissions solo pueden ver sus comisiones
     query = Commission.query.filter_by(is_active=True)
-    if scope != "todas" or not can_view_all:
+    if not can_view_all:
         commission_ids = list(memberships_map.keys())
         query = query.filter(Commission.id.in_(commission_ids)) if commission_ids else query.filter(Commission.id == -1)
 
@@ -1033,8 +1027,8 @@ def commissions():
         is_member_view=True,
         header_kicker="Área privada",
         header_title="Comisiones del AMPA",
-        header_subtitle="Consulta tus comisiones activas o todas las disponibles.",
-        empty_text="No hay comisiones disponibles en este momento.",
+        header_subtitle="Consulta las comisiones en las que participas.",
+        empty_text="No perteneces a ninguna comisión activa.",
         show_create_button=False,
         show_empty_action=False,
     )

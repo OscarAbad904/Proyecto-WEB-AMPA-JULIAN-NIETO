@@ -238,7 +238,7 @@ def register_context(app: Flask) -> None:
             current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
         )
         can_view_commissions_all = current_user.is_authenticated and (
-            current_user.has_permission("manage_commission_members")
+            current_user.has_permission("view_commissions")
             or can_view_commissions_admin
         )
         can_view_commissions = current_user.is_authenticated and (

@@ -305,15 +305,6 @@
 
   {# flashes rendered globally in layout #}
 
-  {% if is_member_view and can_view_all %}
-  <div class="commission-top">
-    <div class="commission-top-links">
-      <a class="btn-link {% if scope != 'todas' %}active{% endif %}" href="{{ url_for('members.commissions', scope='mis') }}">Mis comisiones</a>
-      <a class="btn-link {% if scope == 'todas' %}active{% endif %}" href="{{ url_for('members.commissions', scope='todas') }}">Todas</a>
-    </div>
-  </div>
-  {% endif %}
-
   <div class="commission-grid">
     {% for commission in commissions %}
       {% set commission_stats = stats.get(commission.id, {}) %}

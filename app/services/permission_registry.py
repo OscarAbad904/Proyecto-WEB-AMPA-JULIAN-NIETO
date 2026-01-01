@@ -138,8 +138,8 @@ PERMISSION_DEFINITIONS = [
     },
     {
         "key": "view_commissions",
-        "name": "Ver sección de comisiones",
-        "description": "Permite acceder al listado y ficha de comisiones.",
+        "name": "Ver todas las comisiones",
+        "description": "Permite visualizar todas las comisiones existentes (listado y fichas completas). Los usuarios sin este permiso solo pueden ver las comisiones en las que están inscritos.",
         "section": "Comisiones",
     },
     {
@@ -151,7 +151,7 @@ PERMISSION_DEFINITIONS = [
     {
         "key": "manage_commission_members",
         "name": "Gestionar miembros de comisiones",
-        "description": "Añadir o quitar miembros en una comisión.",
+        "description": "Añadir o quitar miembros en cualquier comisión, incluso sin estar inscrito en ella. Los coordinadores de comisión ya tienen este permiso por defecto dentro de su propia comisión.",
         "section": "Comisiones",
     },
     {
