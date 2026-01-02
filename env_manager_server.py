@@ -291,6 +291,30 @@ ENV_VARIABLES = {
                     "warning": "Si cambias este nombre y no existe una carpeta con ese nombre, se creará una nueva carpeta raíz."
                 }
             },
+            "GOOGLE_DRIVE_COMMISSIONS_FOLDER_ID": {
+                "label": "ID Carpeta Comisiones",
+                "sensitive": False,
+                "required": False,
+                "default": "",
+                "help": {
+                    "description": "ID de la carpeta de Drive donde se crean las subcarpetas de cada comision.",
+                    "how_to_get": "Ejecuta: flask setup-drive-folders",
+                    "example": "1a2b3c4d...",
+                    "warning": ""
+                }
+            },
+            "GOOGLE_DRIVE_COMMISSIONS_FOLDER_NAME": {
+                "label": "Nombre Carpeta Comisiones",
+                "sensitive": False,
+                "required": False,
+                "default": "Comisiones",
+                "help": {
+                    "description": "Nombre de la carpeta base para comisiones.",
+                    "how_to_get": "Por defecto es 'Comisiones'.",
+                    "example": "Comisiones",
+                    "warning": ""
+                }
+            },
             "GOOGLE_DRIVE_NEWS_FOLDER_ID": {
                 "label": "ID Carpeta Noticias",
                 "sensitive": False,
@@ -941,11 +965,13 @@ def setup_drive_folders():
                     root_id = ensure_folder(root_name, parent_id=None, drive_id=shared_drive_id)
                     selected_root_reason = selected_root_reason or "No existía carpeta; se creó una nueva."
 
+            commissions_name = (app.config.get("GOOGLE_DRIVE_COMMISSIONS_FOLDER_NAME") or "Comisiones").strip()
             news_name = (app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_NAME") or "Noticias").strip()
             events_name = (app.config.get("GOOGLE_DRIVE_EVENTS_FOLDER_NAME") or "Eventos").strip()
             docs_name = (app.config.get("GOOGLE_DRIVE_DOCS_FOLDER_NAME") or "Documentos").strip()
             backup_name = (app.config.get("GOOGLE_DRIVE_DB_BACKUP_FOLDER_NAME") or "Backup DB_WEB").strip()
 
+            commissions_id = ensure_folder(commissions_name, parent_id=root_id, drive_id=shared_drive_id)
             news_id = ensure_folder(news_name, parent_id=root_id, drive_id=shared_drive_id)
             events_id = ensure_folder(events_name, parent_id=root_id, drive_id=shared_drive_id)
             docs_id = ensure_folder(docs_name, parent_id=root_id, drive_id=shared_drive_id)
@@ -954,6 +980,7 @@ def setup_drive_folders():
         env = load_env()
         env_updates = {
             "GOOGLE_DRIVE_ROOT_FOLDER_ID": root_id,
+            "GOOGLE_DRIVE_COMMISSIONS_FOLDER_ID": commissions_id,
             "GOOGLE_DRIVE_NEWS_FOLDER_ID": news_id,
             "GOOGLE_DRIVE_EVENTS_FOLDER_ID": events_id,
             "GOOGLE_DRIVE_DOCS_FOLDER_ID": docs_id,

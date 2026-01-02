@@ -36,7 +36,7 @@ def register_commands(app: Flask):
 
     @app.cli.command("setup-drive-folders")
     def setup_drive_folders():
-        """Setup Google Drive folders for Eventos, Documentos, and Noticias.
+        """Setup Google Drive folders for Eventos, Documentos, Noticias, and Comisiones.
 
         This command creates the folders in Google Drive (if they don't exist)
         and prints their IDs so you can add them to your .env file.
@@ -57,6 +57,9 @@ def register_commands(app: Flask):
             print(f"❌ Error creating root folder {root_folder_name}: {e}\n")
 
         folders = {
+            "GOOGLE_DRIVE_COMMISSIONS_FOLDER_ID": app.config.get(
+                "GOOGLE_DRIVE_COMMISSIONS_FOLDER_NAME", "Comisiones"
+            ),
             "GOOGLE_DRIVE_NEWS_FOLDER_ID": app.config.get("GOOGLE_DRIVE_NEWS_FOLDER_NAME", "Noticias"),
             "GOOGLE_DRIVE_EVENTS_FOLDER_ID": app.config.get("GOOGLE_DRIVE_EVENTS_FOLDER_NAME", "Eventos"),
             "GOOGLE_DRIVE_DOCS_FOLDER_ID": app.config.get("GOOGLE_DRIVE_DOCS_FOLDER_NAME", "Documentos"),
@@ -69,6 +72,31 @@ def register_commands(app: Flask):
                 print(f"   Add to .env: {env_var}={folder_id}\n")
             except Exception as e:
                 print(f"❌ Error creating {folder_name}: {e}\n")
+
+    @app.cli.command("sync-commission-drive-folders")
+    def sync_commission_drive_folders():
+        """Create missing Drive folders for commissions and projects."""
+        from app.services.commission_drive_service import sync_commission_drive_folders as sync_folders
+
+        print("\nSyncing commission and project folders in Drive...\n")
+        result = sync_folders()
+        print(
+            "Comisiones: {created}/{total} creadas".format(
+                created=result.get("commissions_created", 0),
+                total=result.get("commissions_total", 0),
+            )
+        )
+        print(
+            "Proyectos: {created}/{total} creadas".format(
+                created=result.get("projects_created", 0),
+                total=result.get("projects_total", 0),
+            )
+        )
+        errors = result.get("errors") or []
+        if errors:
+            print("\nErrores:")
+            for err in errors:
+                print(f" - {err}")
 
     @app.cli.command("regenerate-google-token")
     def regenerate_google_token():

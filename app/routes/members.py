@@ -53,6 +53,7 @@ from app.utils import (
 )
 from app.services.permission_registry import ensure_roles_and_permissions, DEFAULT_ROLE_NAMES
 from app.services.calendar_service import sync_commission_meeting_to_calendar
+from app.services.commission_drive_service import ensure_project_drive_folder
 
 members_bp = Blueprint("members", __name__, template_folder="../../templates/members")
 
@@ -1480,13 +1481,17 @@ def commission_project_form(slug: str, project_id: int | None = None):
         responsible_id = form.responsible_id.data or None
         if responsible_id == 0:
             responsible_id = None
+        should_sync_drive = False
         if project:
-            project.title = form.title.data
+            new_title = form.title.data
+            title_changed = new_title != (project.title or "")
+            project.title = new_title
             project.description_html = form.description.data
             project.status = form.status.data
             project.start_date = form.start_date.data
             project.end_date = form.end_date.data
             project.responsible_id = responsible_id
+            should_sync_drive = title_changed or not (project.drive_folder_id or "").strip()
         else:
             project = CommissionProject(
                 commission_id=commission.id,
@@ -1498,7 +1503,17 @@ def commission_project_form(slug: str, project_id: int | None = None):
                 responsible_id=responsible_id,
             )
             db.session.add(project)
+            should_sync_drive = True
         db.session.commit()
+        if should_sync_drive:
+            try:
+                ensure_project_drive_folder(project)
+            except Exception as exc:  # noqa: BLE001
+                current_app.logger.warning(
+                    "No se pudo sincronizar carpeta de Drive para el proyecto %s: %s",
+                    project.id,
+                    exc,
+                )
         flash("Proyecto guardado", "success")
         return redirect(url_for("members.commission_detail", slug=slug))
 

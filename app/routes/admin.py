@@ -35,6 +35,10 @@ from app.services.mail_service import (
     send_member_reactivation_email
 )
 from app.services.calendar_service import sync_commission_meeting_to_calendar
+from app.services.commission_drive_service import (
+    ensure_commission_drive_folder,
+    ensure_project_drive_folder,
+)
 from app.forms import (
     PostForm,
     EventForm,
@@ -712,6 +716,7 @@ def commission_edit(commission_id: int | None = None):
         form.is_active.data = commission.is_active
 
     if form.validate_on_submit():
+        should_sync_drive = False
         if commission:
             new_name = form.name.data.strip()
             name_changed = new_name != (commission.name or "").strip()
@@ -723,6 +728,7 @@ def commission_edit(commission_id: int | None = None):
                     new_name,
                     exclude_id=commission.id,
                 )
+            should_sync_drive = name_changed or not (commission.drive_folder_id or "").strip()
         else:
             new_name = form.name.data.strip()
             commission = Commission(
@@ -732,8 +738,18 @@ def commission_edit(commission_id: int | None = None):
                 is_active=bool(form.is_active.data),
             )
             db.session.add(commission)
+            should_sync_drive = True
         db.session.commit()
-        flash("Comisión guardada correctamente.", "success")
+        if should_sync_drive:
+            try:
+                ensure_commission_drive_folder(commission)
+            except Exception as exc:  # noqa: BLE001
+                current_app.logger.warning(
+                    "No se pudo sincronizar carpeta de Drive para la comision %s: %s",
+                    commission.id,
+                    exc,
+                )
+        flash("Comision guardada correctamente.", "success")
         return redirect(url_for("admin.commission_detail", commission_id=commission.id))
 
     return render_template("admin/comision_form.html", form=form, commission=commission)
@@ -908,13 +924,17 @@ def commission_project_edit(
         responsible_id = form.responsible_id.data or None
         if responsible_id == 0:
             responsible_id = None
+        should_sync_drive = False
         if project:
-            project.title = form.title.data
+            new_title = form.title.data
+            title_changed = new_title != (project.title or "")
+            project.title = new_title
             project.description_html = form.description.data
             project.status = form.status.data
             project.start_date = form.start_date.data
             project.end_date = form.end_date.data
             project.responsible_id = responsible_id
+            should_sync_drive = title_changed or not (project.drive_folder_id or "").strip()
         else:
             project = CommissionProject(
                 commission_id=commission.id,
@@ -926,7 +946,17 @@ def commission_project_edit(
                 responsible_id=responsible_id,
             )
             db.session.add(project)
+            should_sync_drive = True
         db.session.commit()
+        if should_sync_drive:
+            try:
+                ensure_project_drive_folder(project)
+            except Exception as exc:  # noqa: BLE001
+                current_app.logger.warning(
+                    "No se pudo sincronizar carpeta de Drive para el proyecto %s: %s",
+                    project.id,
+                    exc,
+                )
         flash("Proyecto guardado", "success")
         return redirect(url_for("admin.commissions_index"))
 
@@ -1990,12 +2020,39 @@ def api_style_activate(style_name: str):
     """Activa un estilo."""
     _require_manage_styles()
     
-    from app.services.style_service import set_active_style, style_exists
+    from app.services.style_service import (
+        apply_style_schedule_days,
+        get_scheduled_style_name,
+        set_active_style,
+        style_exists,
+    )
     
     if not style_exists(style_name):
         return jsonify({"ok": False, "error": "Estilo no encontrado"}), 404
     
     if set_active_style(style_name):
+        scheduled_today = None
+        try:
+            scheduled_today = get_scheduled_style_name()
+        except Exception:
+            scheduled_today = None
+
+        if scheduled_today:
+            try:
+                today_iso = datetime.today().date().isoformat()
+                result = apply_style_schedule_days(style_name, [today_iso], mode="overwrite")
+                if not result.get("ok"):
+                    current_app.logger.warning(
+                        "No se pudo asignar el estilo '%s' al dia actual: %s",
+                        style_name,
+                        result.get("error"),
+                    )
+            except Exception as exc:
+                current_app.logger.warning(
+                    "No se pudo asignar el estilo '%s' al dia actual: %s",
+                    style_name,
+                    exc,
+                )
         return jsonify({"ok": True})
     return jsonify({"ok": False, "error": "Error activando estilo"}), 500
 
