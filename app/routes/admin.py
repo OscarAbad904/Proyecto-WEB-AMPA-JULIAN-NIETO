@@ -429,26 +429,32 @@ def admin_eventos():
                             "warning",
                         )
                 else:
-                    # No publicado: aseguramos que no exista en Calendar.
+                    # No publicado: NO se debe crear/sincronizar con Calendar.
+                    # Si venía de publicado (o tiene vínculo previo), intentamos eliminarlo.
                     raw_google_id = getattr(event, "google_event_id", None) or previous_google_event_id
-                    # Nota: aunque "normalmente" solo existirá si venía de publicado, aquí intentamos
-                    # borrar siempre para cubrir casos inconsistentes (p.ej. eventos creados en Calendar
-                    # por bugs previos o datos antiguos).
+
                     if raw_google_id:
                         del_result = delete_general_event(raw_google_id)
-                        if not del_result.get("ok"):
-                            current_app.logger.warning(
-                                "No se pudo eliminar el evento de Google Calendar: %s",
-                                del_result.get("error"),
-                            )
-                            flash(
-                                "Evento guardado, pero no se pudo eliminar de Google Calendar.",
-                                "warning",
-                            )
-                            # No limpiamos el vínculo si falla: permite reintentar el borrado.
-                        else:
+
+                        if del_result.get("ok"):
                             event.google_event_id = None
                             db.session.commit()
+                        else:
+                            # Si ya no existe en Calendar (404/410), limpiamos igualmente el vínculo local.
+                            status_code = del_result.get("status")
+                            if status_code in {404, 410}:
+                                event.google_event_id = None
+                                db.session.commit()
+                            else:
+                                current_app.logger.warning(
+                                    "No se pudo eliminar el evento de Google Calendar: %s",
+                                    del_result.get("error"),
+                                )
+                                flash(
+                                    "Evento guardado, pero no se pudo eliminar de Google Calendar.",
+                                    "warning",
+                                )
+                                # No limpiamos el vínculo si falla: permite reintentar el borrado.
             except Exception as exc:
                 current_app.logger.exception(
                     "Error inesperado aplicando sincronización con Google Calendar",

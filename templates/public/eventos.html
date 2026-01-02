@@ -24,7 +24,18 @@
       <div class="events-grid fade-in">
         {% if featured_events %}
           {% for event in featured_events %}
-          <div class="event-card">
+          <div
+            class="event-card js-event-open-modal"
+            role="button"
+            tabindex="0"
+            data-title="{{ event.title }}"
+            data-category="{{ event.category|title if event.category else 'Evento' }}"
+            data-date="{{ event.start_at.strftime('%d %b %Y') }}"
+            data-time="{{ event.start_at.strftime('%H:%M') }}"
+            data-location="{{ event.location or '' }}"
+            data-cover="{{ event.cover_image or '' }}"
+            data-content='{{ event.description_html|tojson }}'
+          >
             <div
               class="event-cover js-event-cover{% if not event.cover_image %} event-cover-{{ loop.index }}{% endif %}"
               data-cover="{{ event.cover_image or '' }}"
@@ -40,7 +51,6 @@
                 <span>{{ event.start_at.strftime('%d %b %Y') }}</span>
                 <span>{{ event.start_at.strftime('%H:%M') }}{% if event.location %} - {{ event.location }}{% endif %}</span>
               </div>
-              <a class="btn-outline" href="{{ url_for('public.evento_detalle', slug=event.slug) }}">Ver detalle</a>
             </div>
           </div>
           {% endfor %}
@@ -68,6 +78,21 @@
       </div>
     </div>
   </section>
+
+  <div class="events-modal" id="event-details-modal" aria-hidden="true">
+    <div class="events-modal-backdrop" data-event-modal-backdrop></div>
+    <div class="events-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+      <button class="events-modal-close" type="button" aria-label="Cerrar" data-event-modal-close>×</button>
+      <figure class="events-modal-cover" id="event-modal-cover">
+        <img id="event-modal-image" src="" alt="Imagen del evento" referrerpolicy="no-referrer" />
+      </figure>
+      <div class="events-modal-body">
+        <p class="events-modal-meta" id="event-modal-meta"></p>
+        <h2 id="event-modal-title"></h2>
+        <div id="event-modal-content"></div>
+      </div>
+    </div>
+  </div>
 
   <script src="{{ url_for('static', filename='js/eventos_mini_calendario.js') }}"></script>
   <script>
@@ -154,6 +179,209 @@
       document.querySelectorAll('.js-event-cover').forEach((el) => {
         setEventCover(el, el.dataset.cover || '');
       });
+
+      function setModalImage(imgEl, rawUrl) {
+        if (!imgEl) return;
+        const coverFigure = document.getElementById('event-modal-cover');
+
+        if (!rawUrl) {
+          imgEl.removeAttribute('src');
+          if (coverFigure) coverFigure.style.display = 'none';
+          return;
+        }
+
+        if (coverFigure) coverFigure.style.display = '';
+
+        const { url, id } = normalizeDriveUrl(rawUrl);
+        const tryPrimary = () => preload(url, (okUrl) => {
+          imgEl.src = okUrl;
+        }, tryThumb);
+        const tryThumb = () => {
+          if (!id) {
+            imgEl.removeAttribute('src');
+            if (coverFigure) coverFigure.style.display = 'none';
+            return;
+          }
+          const thumb = `https://drive.google.com/thumbnail?id=${id}&sz=w1200`;
+          preload(thumb, (okUrl) => {
+            imgEl.src = okUrl;
+          }, tryAlt);
+        };
+        const tryAlt = () => {
+          if (!id) {
+            imgEl.removeAttribute('src');
+            if (coverFigure) coverFigure.style.display = 'none';
+            return;
+          }
+          const alt = `https://lh3.googleusercontent.com/d/${id}=w1200`;
+          preload(alt, (okUrl) => {
+            imgEl.src = okUrl;
+          }, () => {
+            imgEl.removeAttribute('src');
+            if (coverFigure) coverFigure.style.display = 'none';
+          });
+        };
+
+        tryPrimary();
+      }
+
+      function toggleEventModal(show) {
+        const modal = document.getElementById('event-details-modal');
+        if (!modal) return;
+        modal.classList.toggle('open', show);
+        modal.setAttribute('aria-hidden', show ? 'false' : 'true');
+        document.body.classList.toggle('modal-open', show);
+      }
+
+      function openEventModalFromCard(cardEl) {
+        if (!cardEl) return;
+        const titleEl = document.getElementById('event-modal-title');
+        const metaEl = document.getElementById('event-modal-meta');
+        const contentEl = document.getElementById('event-modal-content');
+        const imgEl = document.getElementById('event-modal-image');
+
+        const title = cardEl.dataset.title || '';
+        const category = cardEl.dataset.category || 'Evento';
+        const date = cardEl.dataset.date || '';
+        const time = cardEl.dataset.time || '';
+        const location = cardEl.dataset.location || '';
+
+        if (titleEl) titleEl.textContent = title;
+
+        const metaParts = [category];
+        const whenParts = [date, time].filter(Boolean).join(' · ');
+        if (whenParts) metaParts.push(whenParts);
+        if (location) metaParts.push(location);
+        if (metaEl) metaEl.textContent = metaParts.filter(Boolean).join(' · ');
+
+        if (contentEl) {
+          let html = '';
+          try {
+            html = JSON.parse(cardEl.dataset.content || '""') || '';
+          } catch (e) {
+            html = '';
+          }
+          contentEl.innerHTML = html;
+        }
+
+        setModalImage(imgEl, cardEl.dataset.cover || '');
+        toggleEventModal(true);
+      }
+
+      document.querySelectorAll('.js-event-open-modal').forEach((card) => {
+        card.addEventListener('click', () => openEventModalFromCard(card));
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openEventModalFromCard(card);
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-event-modal-close]').forEach((btn) => {
+        btn.addEventListener('click', () => toggleEventModal(false));
+      });
+      document.querySelectorAll('[data-event-modal-backdrop]').forEach((backdrop) => {
+        backdrop.addEventListener('click', () => toggleEventModal(false));
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') toggleEventModal(false);
+      });
     })();
   </script>
+
+  <style>
+    body.modal-open { overflow: hidden; }
+    .event-card.js-event-open-modal { cursor: pointer; }
+
+    .events-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1200;
+      overflow: hidden;
+    }
+
+    .events-modal.open { display: flex; }
+
+    .events-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      touch-action: none;
+    }
+
+    .events-modal-dialog {
+      position: relative;
+      background: var(--color-panel);
+      border-radius: 16px;
+      border: 1px solid var(--color-border);
+      width: 100vw;
+      max-width: 100vw;
+      height: 95vh;
+      box-shadow: 0 30px 60px rgba(3, 7, 18, 0.6);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+      box-sizing: border-box;
+    }
+
+    .events-modal-close {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 1px solid var(--color-border);
+      background: rgba(15, 23, 42, 0.35);
+      color: var(--color-text);
+      font-size: 1.5rem;
+      line-height: 1;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      z-index: 2;
+      backdrop-filter: blur(8px);
+    }
+
+    .events-modal-cover {
+      margin: 0;
+      width: 100%;
+      flex: 0 0 auto;
+      aspect-ratio: 16 / 9;
+      background: linear-gradient(145deg, rgba(150, 164, 178, 0.3), rgba(7, 17, 31, 0.95));
+      overflow: hidden;
+    }
+
+    .events-modal-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .events-modal-body {
+      padding: 1.25rem;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .events-modal-meta {
+      color: var(--color-text-secondary);
+      margin: 0 0 0.5rem 0;
+    }
+
+    /* Mantener siempre la imagen arriba (como en Noticias) */
+    @media (min-width: 769px) {
+      .events-modal-dialog {
+        width: 50vw;
+        max-width: 50vw;
+      }
+    }
+  </style>
 {% endblock %}

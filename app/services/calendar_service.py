@@ -776,7 +776,7 @@ def sync_commission_meeting_to_calendar(meeting, commission) -> dict:
 
 def create_general_event(event, calendar_id: str | None = None) -> dict:
     status = (getattr(event, "status", "") or "").strip().lower()
-    if status and status != "published":
+    if status != "published":
         return {"ok": False, "error": "Evento no publicado; no se crea en Google Calendar"}
 
     service = _get_calendar_service()
@@ -813,7 +813,7 @@ def update_general_event(
     calendar_id: str | None = None,
 ) -> dict:
     status = (getattr(event, "status", "") or "").strip().lower()
-    if status and status != "published":
+    if status != "published":
         return {"ok": False, "error": "Evento no publicado; no se actualiza en Google Calendar"}
 
     service = _get_calendar_service()
@@ -848,7 +848,7 @@ def update_general_event(
 def sync_general_event_to_calendar(event) -> dict:
     # Defensa en profundidad: los eventos "draft" no deben existir en Calendar.
     status = (getattr(event, "status", "") or "").strip().lower()
-    if status and status != "published":
+    if status != "published":
         return {"ok": False, "error": "Evento no publicado; no se sincroniza con Google Calendar"}
 
     raw_value = getattr(event, "google_event_id", None)
