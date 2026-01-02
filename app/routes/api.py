@@ -262,14 +262,13 @@ def calendario_eventos():
         Event.query
         .filter(Event.end_at >= range_start)
         .filter(Event.start_at <= range_end)
+        .filter(Event.status == "published")
         .order_by(Event.start_at.asc())
     )
     can_manage = current_user.is_authenticated and (
         current_user.has_permission("manage_events") or user_is_privileged(current_user)
     )
     if not can_manage:
-        events_query = events_query.filter(Event.status == "published")
-        
         # Filtrar por visibilidad: solo públicos si no es socio aprobado
         if not current_user.is_authenticated:
             # No autenticado: solo eventos públicos
