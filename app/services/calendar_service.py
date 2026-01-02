@@ -394,6 +394,10 @@ def _get_commission_calendar_id() -> str:
     )
 
 
+def _get_general_calendar_id() -> str:
+    return current_app.config.get("GOOGLE_CALENDAR_ID", "primary")
+
+
 def _get_calendar_timezone() -> str | None:
     tz = current_app.config.get("GOOGLE_CALENDAR_TIMEZONE")
     if not tz:
@@ -443,6 +447,33 @@ def _build_commission_meeting_payload(meeting, commission) -> dict:
     return payload
 
 
+def _build_general_event_payload(event) -> dict:
+    description = _clean_html(getattr(event, "description_html", None))
+    start_at = getattr(event, "start_at", None)
+    end_at = getattr(event, "end_at", None)
+    payload = {
+        "summary": getattr(event, "title", "") or "Evento",
+        "description": description or "",
+        "location": getattr(event, "location", None) or "",
+        "start": {"dateTime": start_at.isoformat()} if start_at else {},
+        "end": {"dateTime": end_at.isoformat()} if end_at else {},
+        "extendedProperties": {
+            "private": {
+                "type": "ampa_event",
+                "event_id": str(getattr(event, "id", "") or ""),
+                "is_public": "1" if bool(getattr(event, "is_public", False)) else "0",
+            }
+        },
+    }
+    tz = _get_calendar_timezone()
+    if tz:
+        if payload["start"]:
+            payload["start"]["timeZone"] = tz
+        if payload["end"]:
+            payload["end"]["timeZone"] = tz
+    return payload
+
+
 def _decode_calendar_eid(eid: str) -> tuple[str | None, str | None]:
     if not eid:
         return None, None
@@ -469,6 +500,25 @@ def _extract_calendar_event_id(raw_value: str | None) -> str | None:
         event_id, _ = _decode_calendar_eid(eid_values[0])
         return event_id
     return value
+
+
+def _extract_calendar_event_and_calendar_id(raw_value: str | None) -> tuple[str | None, str | None]:
+    """Extrae (event_id, calendar_id) desde un ID o una URL con eid.
+
+    - Si `raw_value` es una URL de Google Calendar con parámetro `eid`, se intenta decodificar
+      para obtener tanto el `event_id` como el `calendar_id`.
+    - Si `raw_value` es un ID directo, devuelve (id, None).
+    """
+    if not raw_value:
+        return None, None
+    value = raw_value.strip()
+    if value.startswith(("http://", "https://")):
+        parsed = urlparse(value)
+        eid_values = parse_qs(parsed.query).get("eid") or []
+        if not eid_values:
+            return None, None
+        return _decode_calendar_eid(eid_values[0])
+    return value, None
 
 
 def build_calendar_event_url(event_id: str | None, calendar_id: str | None = None) -> str | None:
@@ -724,6 +774,97 @@ def sync_commission_meeting_to_calendar(meeting, commission) -> dict:
     return create_commission_meeting_event(meeting, commission)
 
 
+def create_general_event(event, calendar_id: str | None = None) -> dict:
+    status = (getattr(event, "status", "") or "").strip().lower()
+    if status and status != "published":
+        return {"ok": False, "error": "Evento no publicado; no se crea en Google Calendar"}
+
+    service = _get_calendar_service()
+    if not service:
+        return {"ok": False, "error": "Servicio de Google Calendar no disponible"}
+
+    target_calendar_id = calendar_id or _get_general_calendar_id()
+    payload = _build_general_event_payload(event)
+    try:
+        created = service.events().insert(
+            calendarId=target_calendar_id,
+            body=payload,
+        ).execute()
+        event_id = created.get("id")
+        if not event_id:
+            return {"ok": False, "error": "Google Calendar no devolvio el ID del evento"}
+        return {
+            "ok": True,
+            "event_id": event_id,
+            "html_link": created.get("htmlLink"),
+            "calendar_id": target_calendar_id,
+        }
+    except HttpError as error:
+        current_app.logger.error("Error creando evento general en Google Calendar: %s", error)
+        return {"ok": False, "error": str(error)}
+    except Exception as exc:
+        current_app.logger.error("Error inesperado creando evento general: %s", exc)
+        return {"ok": False, "error": str(exc)}
+
+
+def update_general_event(
+    event_id: str,
+    event,
+    calendar_id: str | None = None,
+) -> dict:
+    status = (getattr(event, "status", "") or "").strip().lower()
+    if status and status != "published":
+        return {"ok": False, "error": "Evento no publicado; no se actualiza en Google Calendar"}
+
+    service = _get_calendar_service()
+    if not service:
+        return {"ok": False, "error": "Servicio de Google Calendar no disponible"}
+
+    target_calendar_id = calendar_id or _get_general_calendar_id()
+    payload = _build_general_event_payload(event)
+    try:
+        updated = service.events().patch(
+            calendarId=target_calendar_id,
+            eventId=event_id,
+            body=payload,
+        ).execute()
+        return {
+            "ok": True,
+            "event_id": updated.get("id", event_id),
+            "html_link": updated.get("htmlLink"),
+            "calendar_id": target_calendar_id,
+        }
+    except HttpError as error:
+        status = getattr(error, "status_code", None)
+        if status is None:
+            status = getattr(getattr(error, "resp", None), "status", None)
+        current_app.logger.error("Error actualizando evento general en Google Calendar: %s", error)
+        return {"ok": False, "error": str(error), "status": status}
+    except Exception as exc:
+        current_app.logger.error("Error inesperado actualizando evento general: %s", exc)
+        return {"ok": False, "error": str(exc)}
+
+
+def sync_general_event_to_calendar(event) -> dict:
+    # Defensa en profundidad: los eventos "draft" no deben existir en Calendar.
+    status = (getattr(event, "status", "") or "").strip().lower()
+    if status and status != "published":
+        return {"ok": False, "error": "Evento no publicado; no se sincroniza con Google Calendar"}
+
+    raw_value = getattr(event, "google_event_id", None)
+    event_id, extracted_calendar_id = _extract_calendar_event_and_calendar_id(raw_value)
+    if raw_value and not event_id:
+        return {"ok": False, "error": "No se pudo extraer el ID del evento de Google Calendar"}
+    if event_id:
+        result = update_general_event(event_id, event, calendar_id=extracted_calendar_id)
+        if result.get("ok"):
+            return result
+        if result.get("status") in {404, 410}:
+            return create_general_event(event)
+        return result
+    return create_general_event(event)
+
+
 def clear_calendar_cache() -> None:
     """
     Limpia la cache de eventos del calendario.
@@ -903,4 +1044,40 @@ def delete_commission_meeting_event(event_id: str, calendar_id: str | None = Non
         return {"ok": False, "error": str(error)}
     except Exception as exc:
         current_app.logger.error("Error inesperado eliminando evento de comisión: %s", exc)
+        return {"ok": False, "error": str(exc)}
+
+
+def delete_general_event(event_id: str, calendar_id: str | None = None) -> dict:
+    """Elimina un evento general del calendario de Google (GOOGLE_CALENDAR_ID)."""
+    service = _get_calendar_service()
+    if not service:
+        return {"ok": False, "error": "Servicio de Google Calendar no disponible"}
+
+    extracted, extracted_calendar_id = _extract_calendar_event_and_calendar_id(event_id)
+    if not extracted:
+        return {"ok": False, "error": "No se pudo extraer el ID del evento de Google Calendar"}
+
+    target_calendar_id = calendar_id or extracted_calendar_id or _get_general_calendar_id()
+
+    try:
+        service.events().delete(
+            calendarId=target_calendar_id,
+            eventId=extracted,
+        ).execute()
+
+        current_app.logger.info(
+            "Evento general eliminado del calendario de Google: %s", event_id
+        )
+        return {
+            "ok": True,
+            "event_id": extracted,
+        }
+    except HttpError as error:
+        status = getattr(error, "status_code", None)
+        if status is None:
+            status = getattr(getattr(error, "resp", None), "status", None)
+        current_app.logger.error("Error eliminando evento general de Google Calendar: %s", error)
+        return {"ok": False, "error": str(error), "status": status}
+    except Exception as exc:
+        current_app.logger.error("Error inesperado eliminando evento general: %s", exc)
         return {"ok": False, "error": str(exc)}

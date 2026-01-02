@@ -155,6 +155,14 @@ def eventos():
     if not _can_view_events():
         abort(403)
     
+    # Verificar si el usuario puede gestionar eventos
+    can_manage_events = False
+    if current_user.is_authenticated:
+        can_manage_events = (
+            current_user.has_permission("manage_events") or 
+            user_is_privileged(current_user)
+        )
+    
     # Obtener los próximos 3 eventos para las tarjetas destacadas
     now_dt = datetime.utcnow()
     eventos_query = Event.query.filter(
@@ -172,14 +180,14 @@ def eventos():
     
     # Normalizar URLs de imágenes
     for event in featured_events:
-        from app.routes.admin import _normalize_drive_url
         event.cover_image = _normalize_drive_url(event.cover_image) if event.cover_image else None
     
     return render_template(
         "public/eventos.html",
         featured_events=featured_events,
         can_view_calendar=_can_view_events(),
-        calendar_href=url_for("public.calendario")
+        calendar_href=url_for("public.calendario"),
+        can_manage_events=can_manage_events
     )
 
 

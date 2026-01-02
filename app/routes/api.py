@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 import sqlalchemy as sa
@@ -280,12 +280,14 @@ def calendario_eventos():
         # Si es socio aprobado, puede ver todos los eventos (públicos + privados)
 
     eventos: list[dict] = []
+    from app.services.calendar_service import build_calendar_event_url
     for event in events_query.limit(limite).all():
         is_new = bool(
             current_user.is_authenticated
             and event.id in newest_event_ids
             and event.id not in seen_event_ids
         )
+        calendar_id = current_app.config.get("GOOGLE_CALENDAR_ID", "primary")
         eventos.append({
             "id": f"event-{event.id}",
             "titulo": event.title,
@@ -293,7 +295,7 @@ def calendario_eventos():
             "inicio": event.start_at.isoformat(),
             "fin": event.end_at.isoformat(),
             "ubicacion": event.location or "",
-            "url": None,
+            "url": build_calendar_event_url(event.google_event_id, calendar_id=calendar_id) if getattr(event, "google_event_id", None) else None,
             "todo_el_dia": False,
             "categoria": event.category or "general",
             "is_new": is_new,
@@ -426,6 +428,7 @@ def calendario_mis_eventos():
                 and event.id in newest_event_ids
                 and event.id not in seen_event_ids
             )
+            calendar_id = current_app.config.get("GOOGLE_CALENDAR_ID", "primary")
             general_events.append({
                 "id": f"event-{event.id}",
                 "titulo": event.title,
@@ -433,7 +436,7 @@ def calendario_mis_eventos():
                 "inicio": event.start_at.isoformat(),
                 "fin": event.end_at.isoformat(),
                 "ubicacion": event.location or "",
-                "url": None,
+                "url": build_calendar_event_url(event.google_event_id, calendar_id=calendar_id) if getattr(event, "google_event_id", None) else None,
                 "todo_el_dia": False,
                 "categoria": event.category or "general",
                 "is_new": is_new,

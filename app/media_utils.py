@@ -488,6 +488,100 @@ def upload_news_image_variants(
     return urls
 
 
+def upload_event_image_variants(
+    file_storage,
+    base_name: str | None = None,
+    parent_folder_id: str | None = None,
+    folder_name: str | None = None,
+    shared_drive_id: str | None = None,
+) -> Dict[str, str]:
+    """Igual que `upload_news_image_variants`, pero usando la carpeta de Eventos.
+
+    Respeta la misma lógica de compatibilidad:
+    - Si `parent_folder_id` se pasa explícitamente, se interpreta como carpeta padre.
+    - Si `GOOGLE_DRIVE_EVENTS_FOLDER_ID` apunta a la subcarpeta "Eventos", se usa directamente.
+    - Si `GOOGLE_DRIVE_EVENTS_FOLDER_ID` apunta a la carpeta raíz, se cuelga "Eventos" dentro.
+    """
+
+    fmt = current_app.config.get("NEWS_IMAGE_FORMAT", "JPEG").upper()
+    quality = int(current_app.config.get("NEWS_IMAGE_QUALITY", 80))
+    mimetype = "image/jpeg" if fmt == "JPEG" else f"image/{fmt.lower()}"
+
+    base_slug = _slugify_name(base_name)
+    variants_bytes = generate_news_variants(file_storage, fmt=fmt, quality=quality)
+    urls: Dict[str, str] = {}
+
+    filename_map = {
+        "latest": f"{base_slug}_Evento.{fmt.lower()}",
+        "modal": f"{base_slug}_Evento_Modal.{fmt.lower()}",
+    }
+
+    drive_service = _get_user_drive_service()
+    if drive_service is None:
+        uploads_dir = Path(current_app.static_folder) / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+
+        for key, img_bytes in variants_bytes.items():
+            filename = filename_map.get(key, f"{base_slug}_{key}.{fmt.lower()}")
+            file_path = uploads_dir / filename
+            file_path.write_bytes(img_bytes)
+            urls[key] = f"/assets/uploads/{filename}"
+            current_app.logger.info(f"Imagen de evento guardada localmente: {filename}")
+        return urls
+
+    default_folder_name = current_app.config.get("GOOGLE_DRIVE_EVENTS_FOLDER_NAME", "Eventos")
+    target_folder_name = folder_name or default_folder_name
+    target_drive = shared_drive_id or current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID", "") or None
+
+    target_folder_id = None
+    configured_events_id = current_app.config.get("GOOGLE_DRIVE_EVENTS_FOLDER_ID", "") or None
+
+    if parent_folder_id:
+        target_parent = parent_folder_id
+    elif configured_events_id:
+        configured_name = _get_folder_name_by_id(drive_service, configured_events_id, drive_id=target_drive)
+        if not configured_name:
+            target_parent = None
+        elif configured_name == target_folder_name:
+            target_folder_id = configured_events_id
+            target_parent = None
+        else:
+            target_parent = configured_events_id
+    else:
+        target_parent = None
+
+    if target_folder_id is None and not target_parent:
+        target_parent = resolve_drive_root_folder_id(drive_service, drive_id=target_drive)
+
+    try:
+        if target_folder_id is None:
+            target_folder_id = ensure_folder(target_folder_name, target_parent, target_drive)
+
+        for key, img_bytes in variants_bytes.items():
+            filename = filename_map.get(key, f"{base_slug}_{key}.{fmt.lower()}")
+            urls[key] = upload_image_bytes_to_drive(
+                img_bytes,
+                filename,
+                target_folder_id,
+                mimetype=mimetype,
+                drive_id=target_drive,
+            )
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.warning(
+            "Error subiendo imagen de evento a Google Drive, guardando localmente: %s", exc
+        )
+        uploads_dir = Path(current_app.static_folder) / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+
+        for key, img_bytes in variants_bytes.items():
+            filename = filename_map.get(key, f"{base_slug}_{key}.{fmt.lower()}")
+            file_path = uploads_dir / filename
+            file_path.write_bytes(img_bytes)
+            urls[key] = f"/assets/uploads/{filename}"
+
+    return urls
+
+
 def _is_rate_limit_error(err: HttpError) -> bool:
     """Detecta errores típicos de rate limit de Drive."""
     if err.resp is not None and err.resp.status in (403, 429):

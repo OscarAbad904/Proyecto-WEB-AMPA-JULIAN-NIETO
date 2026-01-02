@@ -53,7 +53,7 @@ from app.utils import (
     merge_meeting_description,
     get_local_now,
 )
-from app.media_utils import upload_news_image_variants, delete_news_images
+from app.media_utils import upload_news_image_variants, upload_event_image_variants, delete_news_images
 from app.services.permission_registry import (
     DEFAULT_ROLE_NAMES,
     ensure_roles_and_permissions,
@@ -299,8 +299,23 @@ def admin_eventos():
 
     form = EventForm()
     events = Event.query.order_by(Event.start_at.asc()).all()
+    now_str = datetime.now().strftime("%Y-%m-%dT%H:%M")
 
     if form.validate_on_submit():
+        raw_event_id = (request.form.get("event_id") or "").strip()
+        editing_event: Event | None = None
+        previous_status: str | None = None
+        previous_google_event_id: str | None = None
+        if raw_event_id:
+            try:
+                event_id_int = int(raw_event_id)
+            except ValueError:
+                event_id_int = 0
+            if event_id_int > 0:
+                editing_event = Event.query.get_or_404(event_id_int)
+                previous_status = getattr(editing_event, "status", None)
+                previous_google_event_id = getattr(editing_event, "google_event_id", None)
+
         start_at = _parse_datetime_local(form.start_at.data)
         end_at = _parse_datetime_local(form.end_at.data)
         if not start_at or not end_at:
@@ -308,7 +323,7 @@ def admin_eventos():
         elif end_at <= start_at:
             flash("La fecha de fin debe ser posterior al inicio del evento.", "warning")
         else:
-            slug_value = _generate_unique_event_slug(form.title.data)
+            slug_value = editing_event.slug if editing_event and editing_event.slug else _generate_unique_event_slug(form.title.data)
             location_value = (form.location.data or "").strip()
             if not location_value:
                 location_value = None
@@ -325,11 +340,21 @@ def admin_eventos():
             if image_file and image_file.filename:
                 try:
                     # Subir variantes de imagen a Drive
-                    variants_urls = upload_news_image_variants(
+                    variants_urls = upload_event_image_variants(
                         image_file,
                         base_name=slug_value,
                         shared_drive_id=current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID", "") or None,
                     )
+                    # Si la subida fue exitosa y estamos editando, eliminamos las imágenes anteriores
+                    if editing_event and variants_urls:
+                        try:
+                            delete_news_images(editing_event.cover_image, getattr(editing_event, "image_variants", None))
+                        except Exception as exc:  # noqa: BLE001
+                            current_app.logger.error(
+                                "Error eliminando imágenes previas del evento %s: %s",
+                                editing_event.id,
+                                exc,
+                            )
                 except Exception as exc:
                     current_app.logger.exception("Error generando/subiendo variantes de imagen para evento", exc_info=exc)
                     flash(
@@ -338,23 +363,102 @@ def admin_eventos():
                     )
             
             cover_value = variants_urls.get("latest") or normalized_cover
-            
-            event = Event(
-                title=form.title.data.strip(),
-                slug=slug_value,
-                description_html=form.description.data.strip(),
-                category=form.category.data or "actividades",
-                start_at=start_at,
-                end_at=end_at,
-                location=location_value,
-                capacity=capacity_value,
-                cover_image=cover_value,
-                status=form.status.data,
-                is_public=form.is_public.data,
-                organizer_id=current_user.id,
-            )
-            db.session.add(event)
-            db.session.commit()
+            if editing_event:
+                event = editing_event
+                event.title = form.title.data.strip()
+                event.slug = slug_value
+                event.description_html = form.description.data.strip()
+                event.category = form.category.data or "actividades"
+                event.start_at = start_at
+                event.end_at = end_at
+                event.location = location_value
+                event.capacity = capacity_value
+                if cover_value:
+                    event.cover_image = cover_value
+                if variants_urls:
+                    event.image_variants = variants_urls
+                event.status = form.status.data
+                event.is_public = form.is_public.data
+                db.session.commit()
+            else:
+                event = Event(
+                    title=form.title.data.strip(),
+                    slug=slug_value,
+                    description_html=form.description.data.strip(),
+                    category=form.category.data or "actividades",
+                    start_at=start_at,
+                    end_at=end_at,
+                    location=location_value,
+                    capacity=capacity_value,
+                    cover_image=cover_value,
+                    image_variants=variants_urls or None,
+                    status=form.status.data,
+                    is_public=form.is_public.data,
+                    organizer_id=current_user.id,
+                )
+                db.session.add(event)
+                db.session.commit()
+
+            # Google Calendar:
+            # - Solo sincronizar si está publicado.
+            # - Si pasa de publicado a borrador, eliminar del calendario.
+            try:
+                current_status = (event.status or "").strip().lower()
+                from app.services.calendar_service import sync_general_event_to_calendar, delete_general_event
+
+                if current_status == "published":
+                    calendar_result = sync_general_event_to_calendar(event)
+                    if calendar_result.get("ok"):
+                        from app.services.calendar_service import build_calendar_event_url
+
+                        created_id = calendar_result.get("event_id")
+                        created_calendar_id = calendar_result.get("calendar_id")
+                        event.google_event_id = (
+                            build_calendar_event_url(created_id, calendar_id=created_calendar_id)
+                            if created_id
+                            else None
+                        )
+                        db.session.commit()
+                    else:
+                        current_app.logger.warning(
+                            "No se pudo sincronizar el evento con Google Calendar: %s",
+                            calendar_result.get("error"),
+                        )
+                        flash(
+                            "Evento guardado, pero no se pudo sincronizar con Google Calendar.",
+                            "warning",
+                        )
+                else:
+                    # No publicado: aseguramos que no exista en Calendar.
+                    raw_google_id = getattr(event, "google_event_id", None) or previous_google_event_id
+                    # Nota: aunque "normalmente" solo existirá si venía de publicado, aquí intentamos
+                    # borrar siempre para cubrir casos inconsistentes (p.ej. eventos creados en Calendar
+                    # por bugs previos o datos antiguos).
+                    if raw_google_id:
+                        del_result = delete_general_event(raw_google_id)
+                        if not del_result.get("ok"):
+                            current_app.logger.warning(
+                                "No se pudo eliminar el evento de Google Calendar: %s",
+                                del_result.get("error"),
+                            )
+                            flash(
+                                "Evento guardado, pero no se pudo eliminar de Google Calendar.",
+                                "warning",
+                            )
+                            # No limpiamos el vínculo si falla: permite reintentar el borrado.
+                        else:
+                            event.google_event_id = None
+                            db.session.commit()
+            except Exception as exc:
+                current_app.logger.exception(
+                    "Error inesperado aplicando sincronización con Google Calendar",
+                    exc_info=exc,
+                )
+                flash(
+                    "Evento guardado, pero hubo un error al sincronizar con Google Calendar.",
+                    "warning",
+                )
+
             flash("Evento guardado correctamente.", "success")
             return redirect(url_for("admin.admin_eventos"))
 
@@ -362,9 +466,61 @@ def admin_eventos():
         "admin/eventos.html",
         form=form,
         events=events,
+        now_str=now_str,
         category_labels=EVENT_CATEGORY_LABELS,
         can_edit_events=can_edit_events,
     )
+
+
+@admin_bp.route("/eventos/<int:event_id>/delete", methods=["POST"])
+@login_required
+def delete_event(event_id: int):
+    can_edit_events = current_user.has_permission("manage_events") or user_is_privileged(current_user)
+    if not can_edit_events:
+        abort(403)
+
+    event = Event.query.get_or_404(event_id)
+
+    # Eliminar imágenes asociadas (Drive o local), igual que en Noticias.
+    try:
+        delete_news_images(event.cover_image, getattr(event, "image_variants", None))
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.error("Error eliminando imágenes del evento %s: %s", event_id, exc)
+
+    # Intentar borrar también en Google Calendar.
+    try:
+        raw_google_id = getattr(event, "google_event_id", None)
+        if raw_google_id:
+            from app.services.calendar_service import delete_general_event
+
+            calendar_result = delete_general_event(raw_google_id)
+            if not calendar_result.get("ok"):
+                current_app.logger.warning(
+                    "No se pudo eliminar el evento en Google Calendar: %s",
+                    calendar_result.get("error"),
+                )
+                flash(
+                    "No se pudo eliminar el evento en Google Calendar, pero se eliminó en la web.",
+                    "warning",
+                )
+    except Exception as exc:
+        current_app.logger.exception(
+            "Error inesperado eliminando evento en Google Calendar",
+            exc_info=exc,
+        )
+        flash(
+            "No se pudo eliminar el evento en Google Calendar, pero se eliminó en la web.",
+            "warning",
+        )
+
+    db.session.delete(event)
+    db.session.commit()
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+        return jsonify({"ok": True}), 200
+
+    flash("Evento eliminado", "success")
+    return redirect(url_for("admin.admin_eventos"))
 
 
 @admin_bp.route("/comisiones")

@@ -508,6 +508,19 @@ function openEventModal(eventId) {
   // Descripción
   const description = document.getElementById('modal-event-description');
   description.textContent = event.descripcion || '';
+
+  // Enlace a Google Calendar (si está disponible)
+  const link = document.getElementById('modal-event-link');
+  if (link) {
+    const footer = link.closest('.event-modal-footer');
+    if (event.url) {
+      link.href = event.url;
+      if (footer) footer.style.display = '';
+    } else {
+      link.href = '#';
+      if (footer) footer.style.display = 'none';
+    }
+  }
   
   // Mostrar modal
   modal.classList.remove('hidden');

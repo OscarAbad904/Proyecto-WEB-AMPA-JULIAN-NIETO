@@ -11,21 +11,25 @@
           <h1 class="events-title">Actividades destacadas</h1>
           <p class="events-desc">Participa en nuestras actividades pensadas para toda la comunidad educativa.</p>
         </div>
+        {% if can_manage_events %}
         <div class="nav-buttons fade-in">
-          <button class="nav-button" onclick="scrollEvents(-1)">←</button>
-          <button class="nav-button" onclick="scrollEvents(1)">→</button>
+          <a href="{{ url_for('admin.admin_eventos') }}" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.25rem;">
+            <span>⚙️</span>
+            <span>Administrar eventos</span>
+          </a>
         </div>
+        {% endif %}
       </div>
 
       <div class="events-grid fade-in">
         {% if featured_events %}
           {% for event in featured_events %}
           <div class="event-card">
-            {% if event.cover_image %}
-            <div class="event-cover" style="background-image: url('{{ event.cover_image }}');"></div>
-            {% else %}
-            <div class="event-cover event-cover-{{ loop.index }}"></div>
-            {% endif %}
+            <div
+              class="event-cover js-event-cover{% if not event.cover_image %} event-cover-{{ loop.index }}{% endif %}"
+              data-cover="{{ event.cover_image or '' }}"
+              data-fallback="event-cover-{{ loop.index }}"
+            ></div>
             <div class="event-content">
               <p class="event-category {% if loop.index == 2 %}orange{% elif loop.index == 3 %}green{% endif %}">
                 {{ event.category|title if event.category else 'Evento' }}
@@ -66,4 +70,90 @@
   </section>
 
   <script src="{{ url_for('static', filename='js/eventos_mini_calendario.js') }}"></script>
+  <script>
+    // Mismo comportamiento que Noticias: normaliza URLs de Drive y aplica fallbacks.
+    (function () {
+      const drivePatterns = [
+        /https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\//,
+        /https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\/view/,
+        /https?:\/\/drive\.google\.com\/open\?id=([^&]+)/,
+        /https?:\/\/drive\.google\.com\/uc\?id=([^&]+)/,
+        /https?:\/\/drive\.googleusercontent\.com\/d\/([^/]+)/,
+        /https?:\/\/drive\.google\.com\/uc\?export=view&?id=([^&]+)/,
+      ];
+
+      function extractDriveId(url) {
+        if (!url) return null;
+        for (const pattern of drivePatterns) {
+          const match = url.match(pattern);
+          if (match && match[1]) return match[1];
+        }
+        try {
+          const parsed = new URL(url);
+          const id = parsed.searchParams.get('id');
+          if (id) return id;
+        } catch (e) {
+          // ignore
+        }
+        return null;
+      }
+
+      function normalizeDriveUrl(url) {
+        const id = extractDriveId(url);
+        if (id) return { url: `https://drive.google.com/uc?export=view&id=${id}`, id };
+        return { url: url || '', id: null };
+      }
+
+      function preload(url, onOk, onFail) {
+        if (!url) return onFail();
+        const img = new Image();
+        img.referrerPolicy = 'no-referrer';
+        img.onload = () => onOk(url);
+        img.onerror = () => onFail();
+        img.src = url;
+      }
+
+      function applyFallbackCover(el) {
+        const fallbackClass = el.dataset.fallback;
+        el.style.backgroundImage = '';
+        if (fallbackClass) el.classList.add(fallbackClass);
+      }
+
+      function setEventCover(el, rawUrl) {
+        if (!el) return;
+        const fallbackClass = el.dataset.fallback;
+        if (fallbackClass) el.classList.remove(fallbackClass);
+
+        const { url, id } = normalizeDriveUrl(rawUrl);
+        const tryPrimary = () => preload(url, (okUrl) => {
+          el.style.backgroundImage = `url('${okUrl}')`;
+        }, tryThumb);
+        const tryThumb = () => {
+          if (!id) return applyFallbackCover(el);
+          const thumb = `https://drive.google.com/thumbnail?id=${id}&sz=w1200`;
+          preload(thumb, (okUrl) => {
+            el.style.backgroundImage = `url('${okUrl}')`;
+          }, tryAlt);
+        };
+        const tryAlt = () => {
+          if (!id) return applyFallbackCover(el);
+          const alt = `https://lh3.googleusercontent.com/d/${id}=w1200`;
+          preload(alt, (okUrl) => {
+            el.style.backgroundImage = `url('${okUrl}')`;
+          }, () => applyFallbackCover(el));
+        };
+
+        if (!rawUrl) {
+          applyFallbackCover(el);
+          return;
+        }
+
+        tryPrimary();
+      }
+
+      document.querySelectorAll('.js-event-cover').forEach((el) => {
+        setEventCover(el, el.dataset.cover || '');
+      });
+    })();
+  </script>
 {% endblock %}

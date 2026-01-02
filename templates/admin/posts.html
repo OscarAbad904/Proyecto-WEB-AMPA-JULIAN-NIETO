@@ -5,12 +5,27 @@
 {% block head %}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.0-rc.4/dist/quill.snow.css" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  <style>
+    .admin-kicker-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .admin-kicker-row .nav-auth-btn {
+      min-width: 0;
+    }
+  </style>
 {% endblock %}
 
 {% block content %}
   <section class="admin-wrapper">
     <div class="admin-header">
-      <p class="admin-kicker">Noticias · Administración</p>
+      <div class="admin-kicker-row">
+        <p class="admin-kicker">Noticias · Administración</p>
+        <a class="nav-auth-btn nav-auth-btn--logout" href="{{ url_for('public.noticias') }}">Volver a noticias</a>
+      </div>
       <h1 class="admin-title">Tablón de publicaciones</h1>
       <p class="admin-subtitle">Crea noticias con formato enriquecido, maquetación de imagen y previsualización en vivo con el mismo estilo del sitio.</p>
     </div>

@@ -5,16 +5,19 @@
 {% block content %}
 <section id="noticias" class="news-section" data-can-reorder="{{ 'true' if can_manage_posts else 'false' }}">
   <div class="container">
-    <div class="news-header fade-in">
+    <div class="news-header fade-in" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; flex-wrap: wrap;">
       <div>
         <h1 class="news-title">Últimas Noticias</h1>
-        <div class="news-subheader">
-          {% if can_manage_posts %}
-          <a href="{{ url_for('admin.posts') }}" class="nav-auth-btn nav-auth-btn--edit news-edit-btn">Edición</a>
-          {% endif %}
-          <p class="news-subtitle">Lo más reciente del AMPA, actividades, comunicados y reuniones.</p>
-        </div>
+        <p class="news-subtitle">Lo más reciente del AMPA, actividades, comunicados y reuniones.</p>
       </div>
+      {% if can_manage_posts %}
+      <div class="nav-buttons fade-in">
+        <a href="{{ url_for('admin.posts') }}" class="btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.25rem;">
+          <span>⚙️</span>
+          <span>Administrar noticias</span>
+        </a>
+      </div>
+      {% endif %}
     </div>
 
     {% if latest_three %}
