@@ -153,7 +153,7 @@ def register_context(app: Flask) -> None:
     @app.context_processor
     def inject_globals():
         from flask_login import current_user
-        from flask import url_for
+        from flask import url_for, current_app
         from app.services.style_service import (
             get_active_style_name, 
             get_active_style_version,
@@ -268,6 +268,8 @@ def register_context(app: Flask) -> None:
                 or user_is_privileged(current_user)
             )
         )
+
+        suggestions_forum_enabled = bool(current_app.config.get("SUGGESTIONS_FORUM_ENABLED", False))
         return {
             "current_year": datetime.utcnow().year,
             "header_login_form": LoginForm(),
@@ -288,6 +290,7 @@ def register_context(app: Flask) -> None:
             "can_manage_styles": can_manage_styles,
             "can_view_register": public_view_register,
             "style_urls": style_urls,
+            "suggestions_forum_enabled": suggestions_forum_enabled,
         }
 
 

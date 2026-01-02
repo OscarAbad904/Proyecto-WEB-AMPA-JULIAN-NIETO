@@ -352,6 +352,12 @@ class BaseConfig:
     EMAIL_VERIFICATION_TOKEN_MAX_AGE = get_int_env("EMAIL_VERIFICATION_TOKEN_MAX_AGE", 60 * 60 * 24)
     SET_PASSWORD_TOKEN_MAX_AGE = get_int_env("SET_PASSWORD_TOKEN_MAX_AGE", 60 * 60 * 24)
     PRIVACY_POLICY_VERSION = os.getenv("PRIVACY_POLICY_VERSION", "1")
+
+    # --- Foro general de sugerencias (deshabilitado por defecto) ---
+    # Mantiene discusiones de comisiones/proyectos (scoped) sin exponer el foro general.
+    SUGGESTIONS_FORUM_ENABLED = (
+        os.getenv("SUGGESTIONS_FORUM_ENABLED", "false").lower() in ("1", "true", "yes", "on")
+    )
     LOG_FILE = str(ROOT_PATH / "logs" / "ampa.log")
     LOG_LEVEL = os.getenv("LOG_LEVEL") or "INFO"
     # Carpeta raíz en Google Drive para agrupar recursos (e.g. "WEB Ampa/Noticias").

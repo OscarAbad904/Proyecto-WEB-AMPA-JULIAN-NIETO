@@ -15,6 +15,9 @@ const CalendarState = {
   error: null,
   cacheExpiry: 60000, // 1 minuto de cache en cliente
   lastFetch: 0,
+  showAllMeetings: false,
+  canToggleMeetings: false,
+  lastFetchKey: '',
 };
 
 // Nombres de meses y días en español
@@ -30,6 +33,14 @@ const DAYS_SHORT_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 document.addEventListener('DOMContentLoaded', () => {
   initCalendar();
 });
+
+function isPastEvent(event) {
+  if (!event) return false;
+  const endRaw = event.fin || event.inicio;
+  const end = new Date(endRaw);
+  if (Number.isNaN(end.getTime())) return false;
+  return end.getTime() < Date.now();
+}
 
 async function markSeenEventId(eventId) {
   if (!eventId || typeof eventId !== 'string' || !eventId.startsWith('event-')) return;
@@ -78,9 +89,15 @@ function initCalendar() {
 async function loadCalendarEvents() {
   if (CalendarState.isLoading) return;
   
+  const fetchKey = CalendarState.showAllMeetings ? 'all_meetings' : 'my_meetings';
+
   // Verificar cache del cliente
   const now = Date.now();
-  if (CalendarState.events.length > 0 && (now - CalendarState.lastFetch) < CalendarState.cacheExpiry) {
+  if (
+    CalendarState.events.length > 0 &&
+    CalendarState.lastFetchKey === fetchKey &&
+    (now - CalendarState.lastFetch) < CalendarState.cacheExpiry
+  ) {
     renderCalendar();
     return;
   }
@@ -101,6 +118,10 @@ async function loadCalendarEvents() {
     rango_final: formatDateISO(endDate),
     limite: '100'
   });
+
+  if (CalendarState.showAllMeetings) {
+    params.set('todas_reuniones', '1');
+  }
   
   try {
     const response = await fetch(`/api/calendario/mis-eventos?${params}`);
@@ -109,7 +130,12 @@ async function loadCalendarEvents() {
     if (data.ok) {
       CalendarState.events = data.eventos || [];
       CalendarState.lastFetch = now;
+      CalendarState.lastFetchKey = fetchKey;
       CalendarState.error = null;
+
+      CalendarState.canToggleMeetings = Boolean(data.can_toggle_reuniones);
+      CalendarState.showAllMeetings = Boolean(data.mostrando_todas_reuniones);
+      updateMeetingsToggleButton();
       
       renderCalendar();
       renderUpcomingEvents();
@@ -129,6 +155,27 @@ async function loadCalendarEvents() {
     CalendarState.isLoading = false;
     showLoading(false);
   }
+}
+
+function updateMeetingsToggleButton() {
+  const btn = document.getElementById('btn-toggle-meetings-scope');
+  if (!btn) return;
+  if (!CalendarState.canToggleMeetings) {
+    btn.hidden = true;
+    return;
+  }
+  btn.hidden = false;
+  btn.textContent = CalendarState.showAllMeetings ? 'Ver mis reuniones' : 'Ver todas las reuniones';
+}
+
+function toggleMeetingsScope() {
+  if (!CalendarState.canToggleMeetings) return;
+  CalendarState.showAllMeetings = !CalendarState.showAllMeetings;
+  CalendarState.lastFetch = 0;
+  CalendarState.lastFetchKey = '';
+  CalendarState.events = [];
+  updateMeetingsToggleButton();
+  loadCalendarEvents();
 }
 
 /**
@@ -227,6 +274,7 @@ function renderMonthView() {
       const maxVisible = 3;
       dayEvents.slice(0, maxVisible).forEach(event => {
         const eventType = categorizeEvent(event);
+        const pastClass = isPastEvent(event) ? 'is-past' : '';
         let displayTitle = event.titulo;
         
         // Mejorar título para reuniones de comisión/proyecto
@@ -239,7 +287,7 @@ function renderMonthView() {
         }
         
         eventsHtml += `
-          <div class="day-event event-type-${eventType}" 
+          <div class="day-event event-type-${eventType} ${pastClass}" 
                onclick="openEventModal('${event.id}')" 
                title="${escapeHtml(displayTitle)}">
             ${escapeHtml(displayTitle)}
@@ -269,20 +317,13 @@ function renderMonthView() {
 function renderListView() {
   const list = document.getElementById('events-list');
   if (!list) return;
-  
-  // Filtrar eventos desde hoy en adelante
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const futureEvents = CalendarState.events.filter(event => {
-    const eventDate = new Date(event.inicio);
-    return eventDate >= today;
-  });
-  
-  if (futureEvents.length === 0) {
+
+  const allEvents = CalendarState.events || [];
+
+  if (allEvents.length === 0) {
     list.innerHTML = `
       <div class="calendar-empty-list">
-        <p>No hay eventos próximos programados</p>
+        <p>No hay eventos programados</p>
       </div>
     `;
     return;
@@ -290,7 +331,7 @@ function renderListView() {
   
   // Agrupar eventos por fecha
   const groupedEvents = {};
-  futureEvents.forEach(event => {
+  allEvents.forEach(event => {
     const dateKey = formatDateISO(new Date(event.inicio));
     if (!groupedEvents[dateKey]) {
       groupedEvents[dateKey] = [];
@@ -311,9 +352,10 @@ function renderListView() {
     events.forEach(event => {
       const eventType = categorizeEvent(event);
       const timeStr = formatEventTime(event);
+      const pastClass = isPastEvent(event) ? 'is-past' : '';
       
       html += `
-        <div class="event-list-item" onclick="openEventModal('${event.id}')">
+        <div class="event-list-item ${pastClass}" onclick="openEventModal('${event.id}')">
           <div class="event-list-indicator event-type-${eventType}"></div>
           <div class="event-list-time">
             ${event.todo_el_dia ? '<span>Todo el día</span>' : `<span>${timeStr.start}</span>${timeStr.end ? `<span class="time-end">– ${timeStr.end}</span>` : ''}`}

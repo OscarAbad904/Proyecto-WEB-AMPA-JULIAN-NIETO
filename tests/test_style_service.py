@@ -146,34 +146,21 @@ class TestGetActiveStyleWithFallback:
     """Tests for get_active_style_with_fallback function."""
     
     def test_returns_complete_style_dict(self, app_context):
-        """Should return dict with all required keys."""
+        """Should return the active style name as string."""
         from app.services.style_service import get_active_style_with_fallback
         
         with patch('app.services.style_service.get_active_style_name', return_value="Navidad"):
-            with patch('app.services.style_service.get_style_file_url') as mock_url:
-                mock_url.return_value = "/style/test"
-                
-                result = get_active_style_with_fallback()
-                
-                assert "style_css" in result
-                assert "logo_header" in result
-                assert "logo_hero" in result
-                assert "placeholder" in result
-                assert "active_style" in result
+            result = get_active_style_with_fallback()
+            assert isinstance(result, str)
+            assert result == "Navidad"
     
     def test_uses_fallback_urls_on_error(self, app_context):
-        """Should use local fallback URLs when Drive fails."""
-        from app.services.style_service import get_active_style_with_fallback
+        """Should fallback to DEFAULT_STYLE when get_active_style_name fails."""
+        from app.services.style_service import get_active_style_with_fallback, DEFAULT_STYLE
         
         with patch('app.services.style_service.get_active_style_name', side_effect=Exception("Error")):
-            with patch('flask.url_for') as mock_url:
-                mock_url.return_value = "/static/fallback"
-                
-                result = get_active_style_with_fallback()
-                
-                # Should still return a valid dict with fallbacks
-                assert isinstance(result, dict)
-                assert "style_css" in result
+            result = get_active_style_with_fallback()
+            assert result == DEFAULT_STYLE
 
 
 class TestCacheInvalidation:
@@ -264,13 +251,23 @@ class TestDownloadStyleFile:
         
         with patch('app.services.style_service.CACHE_DIR', str(tmp_path)):
             with patch('app.services.style_service.CACHE_TTL', 3600):
-                with patch('app.services.style_service._download_from_drive') as mock_download:
-                    mock_download.return_value = (b"/* fresh css */", "text/css")
-                    
-                    content, mime_type = download_style_file("TestStyle", "style.css")
-                    
-                    # Should have called Drive download
-                    mock_download.assert_called()
+                # Simular Drive disponible
+                mock_drive = MagicMock()
+                mock_files = MagicMock()
+                mock_drive.files.return_value = mock_files
+                mock_files.list.return_value.execute.return_value = {
+                    "files": [{"id": "file123", "name": "style.css", "mimeType": "text/css"}]
+                }
+
+                with patch('app.services.style_service._get_user_drive_service', return_value=mock_drive):
+                    with patch('app.services.style_service.get_style_folder_id', return_value="folder123"):
+                        with patch('app.services.style_service._download_from_drive') as mock_download:
+                            mock_download.return_value = b"/* fresh css */"
+
+                            content, mime_type = download_style_file("TestStyle", "style.css")
+                            assert b"fresh css" in content
+                            assert mime_type is not None
+                            mock_download.assert_called()
 
 
 class TestInitializeDefaultStyles:
@@ -279,25 +276,28 @@ class TestInitializeDefaultStyles:
     def test_creates_default_styles(self, app_context):
         """Should create Navidad and General styles."""
         from app.services.style_service import initialize_default_styles
-        
-        with patch('app.services.style_service._get_styles_folder_id', return_value="root123"):
-            with patch('app.services.style_service._style_exists', return_value=False):
-                with patch('app.services.style_service._create_style_folder') as mock_create:
-                    with patch('app.services.style_service._upload_default_assets'):
-                        result = initialize_default_styles()
-                        
-                        assert result["ok"] is True
-                        assert "Navidad" in result.get("styles_created", [])
+
+        with patch('app.services.style_service._get_user_drive_service', return_value=MagicMock()):
+            with patch('app.services.style_service.get_styles_folder_id', return_value="root123"):
+                with patch('app.services.style_service._find_folder_id', return_value=None):
+                    with patch('app.services.style_service.ensure_folder', return_value="folderX"):
+                        with patch('app.services.style_service.upload_style_file', return_value=True):
+                            result = initialize_default_styles()
+                            assert result["ok"] is True
+                            assert "Navidad" in result.get("styles_created", [])
+                            assert "General" in result.get("styles_created", [])
     
     def test_skips_existing_styles(self, app_context):
         """Should skip styles that already exist."""
         from app.services.style_service import initialize_default_styles
-        
-        with patch('app.services.style_service._get_styles_folder_id', return_value="root123"):
-            with patch('app.services.style_service._style_exists', return_value=True):
-                result = initialize_default_styles(overwrite=False)
-                
-                assert "styles_skipped" in result
+
+        with patch('app.services.style_service._get_user_drive_service', return_value=MagicMock()):
+            with patch('app.services.style_service.get_styles_folder_id', return_value="root123"):
+                with patch('app.services.style_service._find_folder_id', return_value="existing"):
+                    result = initialize_default_styles(overwrite=False)
+                    assert "styles_skipped" in result
+                    assert "Navidad" in result.get("styles_skipped", [])
+                    assert "General" in result.get("styles_skipped", [])
 
 
 # Fixtures

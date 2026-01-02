@@ -285,23 +285,32 @@ def resolve_drive_root_folder_id(drive_service, drive_id: str | None = None) -> 
 
 
 def _crop_to_aspect(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
-    """Recorta centrado para ajustar el aspect ratio antes de escalar."""
+    """Recorta centrado para ajustar el aspect ratio antes de escalar.
+
+    Nota: mantenemos la función por compatibilidad, pero las variantes de noticias/eventos
+    ya no deben recortar (se usa escalado proporcional).
+    """
     src_w, src_h = img.size
     src_ratio = src_w / src_h
     target_ratio = target_w / target_h
 
     if src_ratio > target_ratio:
-        # Imagen más ancha -> recortar laterales
         new_w = int(src_h * target_ratio)
         offset = (src_w - new_w) // 2
         box = (offset, 0, offset + new_w, src_h)
     else:
-        # Imagen más alta -> recortar arriba/abajo
         new_h = int(src_w / target_ratio)
         offset = (src_h - new_h) // 2
         box = (0, offset, src_w, offset + new_h)
 
     return img.crop(box)
+
+
+def _resize_contain(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
+    """Escala proporcionalmente para que quepa en (target_w, target_h) sin recortar."""
+    working = img.copy()
+    working.thumbnail((int(target_w), int(target_h)), Image.LANCZOS)
+    return working
 
 
 def _export_to_bytes(img: Image.Image, fmt: str = "JPEG", quality: int = 80) -> bytes:
@@ -324,6 +333,14 @@ def generate_news_variants(file_storage, fmt: str = "JPEG", quality: int = 80) -
     """
     file_storage.stream.seek(0)
     with Image.open(file_storage.stream) as img:
+        # Respetar orientación EXIF (móviles) para evitar "recortes" aparentes.
+        try:
+            from PIL import ImageOps
+
+            img = ImageOps.exif_transpose(img)
+        except Exception:  # noqa: BLE001
+            pass
+
         if img.mode not in ("RGB", "L"):
             img = img.convert("RGB")
 
@@ -333,9 +350,7 @@ def generate_news_variants(file_storage, fmt: str = "JPEG", quality: int = 80) -
 
         variants_bytes: Dict[str, bytes] = {}
         for key, (w, h) in sizes.items():
-            working = img.copy()
-            cropped = _crop_to_aspect(working, w, h)
-            resized = cropped.resize((w, h), Image.LANCZOS)
+            resized = _resize_contain(img, w, h)
             variants_bytes[key] = _export_to_bytes(resized, fmt=fmt, quality=quality)
 
     file_storage.stream.seek(0)

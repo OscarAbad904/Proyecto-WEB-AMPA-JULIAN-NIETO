@@ -1,46 +1,40 @@
 {
   "files": {
-    "Globo_shape_Verde.png": {
-      "cached_at": 1766574521.5181737,
-      "size": 47953,
-      "drive_file_id": "1UZkBr6hSIg32O5CKx85kaicJnhKpwJsy",
-      "etag": "6ef6df44ea9647bdd0bbd0f2dd3b7b42"
-    },
     "Logo_AMPA_400x400.png": {
-      "cached_at": 1766753006.6091511,
+      "cached_at": 1767370723.246985,
       "size": 170012,
       "drive_file_id": "1OLSn39rzd7TJoNEFtn6qg7GRyya6Hc-f",
       "etag": "4390e4cc2f9d2899f71de7f75444dfa4"
     },
-    "Globo_shape_Naranja.png": {
-      "cached_at": 1766574520.3722153,
-      "size": 48706,
-      "drive_file_id": "1Ua3RyrVxmt5tb9ShhkSysyja9_DKfAFT",
-      "etag": "3bfa47f391188351d3476ea1b6948f29"
-    },
     "Logo_AMPA_64x64.png": {
-      "cached_at": 1766753021.22454,
+      "cached_at": 1767370723.2516274,
       "size": 8752,
       "drive_file_id": "1Enhl8dbB_A6QTrEFIF0ZpT0QssbIeVsp",
       "etag": "c1c0ae69fd60720f91b75bbfc3bc67c1"
     },
-    "Fondo Pagina Principal.png": {
-      "cached_at": 1766574516.41647,
-      "size": 1977804,
-      "drive_file_id": "1_IN7AIa_7jZuOV2MoHBV9GAk5kn_YUN4",
-      "etag": "c7c0be39dc3464590a45bf9043656515"
+    "Globo_shape_Verde.png": {
+      "cached_at": 1767370723.2713413,
+      "size": 47953,
+      "drive_file_id": "1UZkBr6hSIg32O5CKx85kaicJnhKpwJsy",
+      "etag": "6ef6df44ea9647bdd0bbd0f2dd3b7b42"
     },
     "Logo_AMPA.png": {
-      "cached_at": 1766574519.2220612,
+      "cached_at": 1767370723.5318043,
       "size": 1503969,
       "drive_file_id": "16q69Ok-K7RslfVtnHJlkoUvu0S5MA1IB",
       "etag": "8da15b1e740f7a77813532ed0f91b2f8"
     },
-    "style.css": {
-      "cached_at": 1766574522.8532739,
-      "size": 1535,
-      "drive_file_id": "16ZGdU7WoHqqufItGUZQeh-t6Xuhe7yGy",
-      "etag": "4181f8c901802f7bac89ff458179c40b"
+    "Globo_shape_Naranja.png": {
+      "cached_at": 1767370723.6396816,
+      "size": 48706,
+      "drive_file_id": "1Ua3RyrVxmt5tb9ShhkSysyja9_DKfAFT",
+      "etag": "3bfa47f391188351d3476ea1b6948f29"
+    },
+    "Fondo Pagina Principal.png": {
+      "cached_at": 1767370724.087478,
+      "size": 1726608,
+      "drive_file_id": "1_IN7AIa_7jZuOV2MoHBV9GAk5kn_YUN4",
+      "etag": "439a5d3d63978480648773077b753262"
     }
   },
   "last_sync": 0

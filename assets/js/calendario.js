@@ -31,6 +31,14 @@ document.addEventListener('DOMContentLoaded', () => {
   initCalendar();
 });
 
+function isPastEvent(event) {
+  if (!event) return false;
+  const endRaw = event.fin || event.inicio;
+  const end = new Date(endRaw);
+  if (Number.isNaN(end.getTime())) return false;
+  return end.getTime() < Date.now();
+}
+
 async function markSeenEventId(eventId) {
   if (!eventId || typeof eventId !== 'string' || !eventId.startsWith('event-')) return;
   const raw = eventId.slice('event-'.length);

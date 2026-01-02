@@ -1182,6 +1182,19 @@ def permissions():
         "manage_commission_meetings",
         "view_all_commission_calendar",
     }
+
+    # Si no existe foro general de sugerencias, ocultamos sus permisos para
+    # evitar confusión en la tabla de roles.
+    if not bool(current_app.config.get("SUGGESTIONS_FORUM_ENABLED", False)):
+        excluded_permission_keys.update(
+            {
+                "view_suggestions",
+                "create_suggestions",
+                "comment_suggestions",
+                "vote_suggestions",
+                "manage_suggestions",
+            }
+        )
     permissions_list = [
         permission
         for permission in permissions_list
@@ -1300,6 +1313,8 @@ def permissions():
 @admin_bp.route("/sugerencias")
 @login_required
 def admin_sugerencias():
+    if not bool(current_app.config.get("SUGGESTIONS_FORUM_ENABLED", False)):
+        abort(404)
     if not (
         current_user.has_permission("manage_suggestions")
         or current_user.has_permission("view_suggestions")

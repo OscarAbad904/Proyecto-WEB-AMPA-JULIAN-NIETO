@@ -152,13 +152,13 @@
                         <a href="{{ url_for('public.noticias') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.noticias') %} active{% endif %}{% if current_user.is_authenticated %} nav-link--with-badge{% endif %}">Noticias{% if current_user.is_authenticated %} <span class="nav-badge" data-unread-posts-badge style="display:none;"></span>{% endif %}</a>
                         {% endif %}
                         {% if can_view_events %}
-                        <a href="{{ url_for('public.eventos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.eventos') %} active{% endif %}">Eventos</a>
+                        <a href="{{ url_for('public.eventos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.eventos') %} active{% endif %}{% if current_user.is_authenticated %} nav-link--with-badge{% endif %}">Eventos{% if current_user.is_authenticated %} <span class="nav-badge" data-unread-events-badge style="display:none;"></span>{% endif %}</a>
                         {% endif %}
                         {% if can_view_commissions %}
                         <a href="{{ commissions_href }}" class="nav-link{% if request.endpoint and (request.endpoint.startswith('admin.commissions') or request.endpoint.startswith('admin.commission') or request.endpoint.startswith('members.commissions') or request.endpoint.startswith('members.commission')) %} active{% endif %}">Comisiones</a>
                         {% endif %}
                         {% if can_view_calendar %}
-                        <a href="{{ calendar_href }}" class="nav-link{% if request.endpoint in ['public.calendario', 'members.calendar'] %} active{% endif %}{% if current_user.is_authenticated %} nav-link--with-badge{% endif %}">Calendario{% if current_user.is_authenticated %} <span class="nav-badge" data-unread-events-badge style="display:none;"></span>{% endif %}</a>
+                        <a href="{{ calendar_href }}" class="nav-link{% if request.endpoint in ['public.calendario', 'members.calendar'] %} active{% endif %}">Calendario</a>
                         {% endif %}
                         {% if can_view_documents %}
                         <a href="{{ url_for('public.documentos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.documentos') %} active{% endif %}">Documentos</a>
@@ -214,14 +214,14 @@
                         onclick="toggleMobileMenu()">Noticias{% if current_user.is_authenticated %} <span class="nav-badge" data-unread-posts-badge style="display:none;"></span>{% endif %}</a>
                     {% endif %}
                     {% if can_view_events %}
-                    <a href="{{ url_for('public.eventos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.eventos') %} active{% endif %}" onclick="toggleMobileMenu()">Eventos</a>
+                    <a href="{{ url_for('public.eventos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.eventos') %} active{% endif %}{% if current_user.is_authenticated %} nav-link--with-badge{% endif %}" onclick="toggleMobileMenu()">Eventos{% if current_user.is_authenticated %} <span class="nav-badge" data-unread-events-badge style="display:none;"></span>{% endif %}</a>
                     {% endif %}
                     {% if can_view_commissions %}
                     <a href="{{ commissions_href }}" class="nav-link{% if request.endpoint and (request.endpoint.startswith('admin.commissions') or request.endpoint.startswith('admin.commission') or request.endpoint.startswith('members.commissions') or request.endpoint.startswith('members.commission')) %} active{% endif %}" onclick="toggleMobileMenu()">Comisiones</a>
                     {% endif %}
                     {% if can_view_calendar %}
-                    <a href="{{ calendar_href }}" class="nav-link{% if request.endpoint in ['public.calendario', 'members.calendar'] %} active{% endif %}{% if current_user.is_authenticated %} nav-link--with-badge{% endif %}"
-                        onclick="toggleMobileMenu()">Calendario{% if current_user.is_authenticated %} <span class="nav-badge" data-unread-events-badge style="display:none;"></span>{% endif %}</a>
+                    <a href="{{ calendar_href }}" class="nav-link{% if request.endpoint in ['public.calendario', 'members.calendar'] %} active{% endif %}"
+                        onclick="toggleMobileMenu()">Calendario</a>
                     {% endif %}
                     {% if can_view_documents %}
                     <a href="{{ url_for('public.documentos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.documentos') %} active{% endif %}"

@@ -10,11 +10,11 @@
           <p class="eyebrow">Área privada</p>
           <h1 class="members-title">Panel de socios</h1>
           <p class="members-lead">
-            Un espacio cuidado para seguir el pulso del AMPA: foro activo, calendario privado y documentación siempre a mano.
+            Un espacio cuidado para seguir el pulso del AMPA: calendario privado, comisiones y documentación siempre a mano.
           </p>
           <div class="members-pills">
             <span class="members-pill">Documentos y actas en un mismo panel</span>
-            <span class="members-pill">Foro con seguimiento y votos</span>
+            <span class="members-pill">Discusiones dentro de comisiones</span>
             {% if can_manage_members %}
             <span class="members-pill members-pill--accent">Permiso de gesti?n de socios</span>
             {% endif %}
@@ -31,7 +31,9 @@
               <span class="btn-dot"></span> Alta rápida
             </button>
             {% else %}
-            <a class="btn-outline btn-compact" href="{{ url_for('members.sugerencias') }}">Ir al foro</a>
+            {% if can_view_commissions %}
+            <a class="btn-outline btn-compact" href="{{ commissions_href }}">Ver comisiones</a>
+            {% endif %}
             {% endif %}
           </div>
           <div class="members-hero__signals">
@@ -43,8 +45,8 @@
                 </svg>
               </div>
               <div>
-                <p class="members-signal__title">Foro activo</p>
-                <small>Comparte, comenta y vota las propuestas de la comunidad.</small>
+                <p class="members-signal__title">Discusiones de comisiones</p>
+                <small>Participa en los hilos vinculados a tu comisión o proyecto.</small>
               </div>
             </div>
             <div class="members-signal">
@@ -61,6 +63,7 @@
             </div>
           </div>
           <div class="members-steps">
+            {% if suggestions_forum_enabled %}
             <div class="members-step">
               <span class="members-step__dot"></span>
               <div>
@@ -77,6 +80,7 @@
               </div>
               <a class="members-step__link" href="{{ url_for('members.sugerencias') }}">Entrar</a>
             </div>
+            {% endif %}
             {% if can_view_private_calendar %}
             <div class="members-step">
               <span class="members-step__dot"></span>
@@ -92,6 +96,7 @@
       </div>
 
       <div class="members-grid">
+        {% if suggestions_forum_enabled %}
         <a class="members-card" href="{{ url_for('members.sugerencias') }}">
           <span class="members-card__icon">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
@@ -124,6 +129,7 @@
             <span class="members-arrow">→</span>
           </div>
         </a>
+        {% endif %}
         {% if can_view_private_calendar %}
         <a class="members-card" href="{{ calendar_href }}">
           <span class="members-card__icon">

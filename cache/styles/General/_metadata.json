@@ -1,46 +1,40 @@
 {
   "files": {
-    "Globo_shape_Naranja.png": {
-      "cached_at": 1766572657.0732152,
-      "size": 116364,
-      "drive_file_id": "18gu2F03oZxBRcg77yyx8AYdJ9HFQMRs7",
-      "etag": "762145bba484844e2310efa2f1417490"
-    },
     "Logo_AMPA_400x400.png": {
-      "cached_at": 1766753006.7126436,
+      "cached_at": 1767370742.063642,
       "size": 128696,
       "drive_file_id": "1ubApCa00Tsem7-4J6ecQ5hQMzi5iV-im",
       "etag": "589554c202cb640eba4760b38aa4cee3"
     },
-    "Logo_AMPA_64x64.png": {
-      "cached_at": 1766753015.6309602,
-      "size": 6776,
-      "drive_file_id": "1G-B5Rpdd6I8AEn1DSP-0NmqhV3smCG9W",
-      "etag": "f09f732bb74395c07a218076fa8df89c"
-    },
     "Logo_AMPA.png": {
-      "cached_at": 1766572657.4650998,
+      "cached_at": 1767370742.6860313,
       "size": 783184,
       "drive_file_id": "1lmVVOGsGINMyPe3aYcPSsjiKJcXosmhk",
       "etag": "d694d393e022cd86129f75b12505f7e9"
     },
+    "Globo_shape_Naranja.png": {
+      "cached_at": 1767370742.5602655,
+      "size": 116364,
+      "drive_file_id": "18gu2F03oZxBRcg77yyx8AYdJ9HFQMRs7",
+      "etag": "762145bba484844e2310efa2f1417490"
+    },
+    "Logo_AMPA_64x64.png": {
+      "cached_at": 1767370742.553646,
+      "size": 6776,
+      "drive_file_id": "1G-B5Rpdd6I8AEn1DSP-0NmqhV3smCG9W",
+      "etag": "f09f732bb74395c07a218076fa8df89c"
+    },
     "Fondo Pagina Principal.png": {
-      "cached_at": 1766572657.5879438,
-      "size": 1717469,
+      "cached_at": 1767370744.8100328,
+      "size": 1585788,
       "drive_file_id": "1fwinFLxlblDPsRJm_Uub3EIQH-WI5LoU",
-      "etag": "1047245a711712d52ca12258d45bbd73"
+      "etag": "55dd8492c5340c7deeb4cb98b1293370"
     },
     "Globo_shape_Verde.png": {
-      "cached_at": 1766572947.1636114,
+      "cached_at": 1767370742.906846,
       "size": 121520,
       "drive_file_id": "16CwouEIfAHhkP8NYgtlaq085omil60Mv",
       "etag": "762bec0ee191ba24c2bce9faff99d048"
-    },
-    "style.css": {
-      "cached_at": 1766572947.1833148,
-      "size": 1535,
-      "drive_file_id": "1dY-6ByRZkbKdk3M8ja82EvweQHcNPjg3",
-      "etag": "b28f1e57434bd8836fd4a8cb69329403"
     }
   },
   "last_sync": 0

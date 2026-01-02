@@ -62,42 +62,98 @@
    * @param {HTMLElement} container - Contenedor DOM
    */
   function renderEvents(eventos, container) {
-    const html = eventos.map((evento, index) => {
+    container.innerHTML = '';
+
+    const MONTHS_EN_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const toTitle = (value) => {
+      const s = String(value || '').trim();
+      if (!s) return 'Evento';
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    };
+
+    const formatDateLikeCards = (dt) => {
+      const d = String(dt.getDate()).padStart(2, '0');
+      const m = MONTHS_EN_SHORT[dt.getMonth()];
+      const y = dt.getFullYear();
+      return `${d} ${m} ${y}`;
+    };
+
+    eventos.forEach((evento) => {
       const startDate = new Date(evento.inicio);
       const day = startDate.getDate();
       const month = MONTHS_ES[startDate.getMonth()];
       const time = startDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-      
-      // Determinar color basado en categoría
+      const dateLabel = formatDateLikeCards(startDate);
+
       const colorClass = CATEGORY_COLORS[evento.categoria] || '';
-      
-      return `
-        <div class="event-item">
-          <div class="event-date">
-            <div class="event-date-day ${colorClass}">${day}</div>
-            <div class="event-date-month">${month}</div>
-          </div>
-          <div class="event-info">
-            <div class="event-info-title">${escapeHtml(evento.titulo)}</div>
-            <div class="event-info-desc">${time}${evento.ubicacion ? ' - ' + escapeHtml(evento.ubicacion) : ''}</div>
-          </div>
-        </div>
-      `;
-    }).join('');
+      const categoryLabel = toTitle(evento.categoria);
 
-    container.innerHTML = html;
+      const item = document.createElement('div');
+      item.className = 'event-item';
+      item.setAttribute('role', 'button');
+      item.setAttribute('tabindex', '0');
+
+      const payload = {
+        title: String(evento.titulo || ''),
+        category: categoryLabel,
+        date: dateLabel,
+        time,
+        location: String(evento.ubicacion || ''),
+        cover: String(evento.cover_image || ''),
+        contentHtml: String(evento.descripcion || ''),
+      };
+
+      const open = () => {
+        if (typeof window.openEventModalFromData === 'function') {
+          window.openEventModalFromData(payload);
+        }
+      };
+
+      item.addEventListener('click', open);
+      item.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          open();
+        }
+      });
+
+      const dateWrap = document.createElement('div');
+      dateWrap.className = 'event-date';
+
+      const dayEl = document.createElement('div');
+      dayEl.className = `event-date-day ${colorClass}`.trim();
+      dayEl.textContent = String(day);
+
+      const monthEl = document.createElement('div');
+      monthEl.className = 'event-date-month';
+      monthEl.textContent = String(month);
+
+      dateWrap.appendChild(dayEl);
+      dateWrap.appendChild(monthEl);
+
+      const info = document.createElement('div');
+      info.className = 'event-info';
+
+      const title = document.createElement('div');
+      title.className = 'event-info-title';
+      title.textContent = String(evento.titulo || '');
+
+      const desc = document.createElement('div');
+      desc.className = 'event-info-desc';
+      desc.textContent = `${time}${evento.ubicacion ? ' - ' + String(evento.ubicacion) : ''}`;
+
+      info.appendChild(title);
+      info.appendChild(desc);
+
+      item.appendChild(dateWrap);
+      item.appendChild(info);
+
+      container.appendChild(item);
+    });
   }
 
-  /**
-   * Escapa HTML para prevenir XSS
-   * @param {string} text - Texto a escapar
-   * @returns {string} - Texto escapado
-   */
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
+  // Nota: ya no usamos innerHTML para renderizar eventos; evitamos XSS por construcción.
 
   // Inicializar cuando el DOM esté listo
   if (document.readyState === 'loading') {

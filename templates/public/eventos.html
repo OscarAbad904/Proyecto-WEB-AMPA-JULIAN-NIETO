@@ -62,11 +62,11 @@
       </div>
 
       <div class="events-footer fade-in">
-        <div>
-          <p class="events-desc">Consulta todas las fechas y actividades programadas en el calendario.</p>
+        <div class="events-footer-row">
           {% if can_view_calendar %}
           <a class="btn-primary" href="{{ calendar_href }}">Ver calendario completo</a>
           {% endif %}
+          <p class="events-desc">Consulta todas las fechas y actividades programadas en el calendario.</p>
         </div>
         
         <!-- Mini-calendario de eventos próximos -->
@@ -233,18 +233,18 @@
         document.body.classList.toggle('modal-open', show);
       }
 
-      function openEventModalFromCard(cardEl) {
-        if (!cardEl) return;
+      function openEventModalFromData(payload) {
         const titleEl = document.getElementById('event-modal-title');
         const metaEl = document.getElementById('event-modal-meta');
         const contentEl = document.getElementById('event-modal-content');
         const imgEl = document.getElementById('event-modal-image');
 
-        const title = cardEl.dataset.title || '';
-        const category = cardEl.dataset.category || 'Evento';
-        const date = cardEl.dataset.date || '';
-        const time = cardEl.dataset.time || '';
-        const location = cardEl.dataset.location || '';
+        const title = (payload && payload.title) ? String(payload.title) : '';
+        const category = (payload && payload.category) ? String(payload.category) : 'Evento';
+        const date = (payload && payload.date) ? String(payload.date) : '';
+        const time = (payload && payload.time) ? String(payload.time) : '';
+        const location = (payload && payload.location) ? String(payload.location) : '';
+        const cover = (payload && payload.cover) ? String(payload.cover) : '';
 
         if (titleEl) titleEl.textContent = title;
 
@@ -255,27 +255,49 @@
         if (metaEl) metaEl.textContent = metaParts.filter(Boolean).join(' · ');
 
         if (contentEl) {
-          let html = '';
-          try {
-            html = JSON.parse(cardEl.dataset.content || '""') || '';
-          } catch (e) {
-            html = '';
-          }
+          const html = (payload && payload.contentHtml) ? String(payload.contentHtml) : '';
           contentEl.innerHTML = html;
         }
 
-        setModalImage(imgEl, cardEl.dataset.cover || '');
+        setModalImage(imgEl, cover);
         toggleEventModal(true);
       }
 
-      document.querySelectorAll('.js-event-open-modal').forEach((card) => {
-        card.addEventListener('click', () => openEventModalFromCard(card));
-        card.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            openEventModalFromCard(card);
-          }
+      function openEventModalFromCard(cardEl) {
+        if (!cardEl) return;
+        let html = '';
+        try {
+          html = JSON.parse(cardEl.dataset.content || '""') || '';
+        } catch (e) {
+          html = '';
+        }
+        openEventModalFromData({
+          title: cardEl.dataset.title || '',
+          category: cardEl.dataset.category || 'Evento',
+          date: cardEl.dataset.date || '',
+          time: cardEl.dataset.time || '',
+          location: cardEl.dataset.location || '',
+          cover: cardEl.dataset.cover || '',
+          contentHtml: html,
         });
+      }
+
+      window.openEventModalFromData = openEventModalFromData;
+
+      document.addEventListener('click', (e) => {
+        const target = e.target;
+        const card = target && target.closest ? target.closest('.js-event-open-modal') : null;
+        if (!card) return;
+        openEventModalFromCard(card);
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const target = e.target;
+        const card = target && target.closest ? target.closest('.js-event-open-modal') : null;
+        if (!card) return;
+        e.preventDefault();
+        openEventModalFromCard(card);
       });
 
       document.querySelectorAll('[data-event-modal-close]').forEach((btn) => {
@@ -361,7 +383,7 @@
     .events-modal-cover img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
       display: block;
     }
 

@@ -137,6 +137,12 @@ def _discussion_back_target(suggestion: Suggestion, return_to: str | None = None
                     f"Área privada · Proyecto · {project.title} · Discusiones · {suggestion.title}",
                 )
 
+    if not bool(current_app.config.get("SUGGESTIONS_FORUM_ENABLED", False)):
+        return (
+            url_for("members.dashboard"),
+            "Volver al panel",
+            f"Área privada · Discusiones · {suggestion.title}",
+        )
     return (
         url_for("members.sugerencias"),
         "Volver a sugerencias",
@@ -195,6 +201,12 @@ def _ensure_can_access_suggestion_detail(suggestion: Suggestion) -> None:
         _commission_discussion_commission_id(category) is not None
         or _project_discussion_project_id(category) is not None
     )
+
+    # Si el foro general está deshabilitado, solo se permiten discusiones scoped
+    # (comisiones/proyectos). El resto debe comportarse como si no existiera.
+    if not bool(current_app.config.get("SUGGESTIONS_FORUM_ENABLED", False)) and not is_scoped:
+        abort(404)
+
     if not current_user.has_permission("view_suggestions") and not is_scoped:
         abort(403)
     _ensure_can_access_scoped_discussion(suggestion)
@@ -661,6 +673,8 @@ def recuperar():
 @members_bp.route("/sugerencias")
 @login_required
 def sugerencias():
+    if not bool(current_app.config.get("SUGGESTIONS_FORUM_ENABLED", False)):
+        abort(404)
     if not current_user.has_permission("view_suggestions"):
         abort(403)
     status = request.args.get("status", "pendiente")
@@ -775,6 +789,8 @@ def commission_discussion_edit(slug: str, suggestion_id: int):
 @members_bp.route("/sugerencias/nueva", methods=["GET", "POST"])
 @login_required
 def nueva_sugerencia():
+    if not bool(current_app.config.get("SUGGESTIONS_FORUM_ENABLED", False)):
+        abort(404)
     if not current_user.has_permission("create_suggestions"):
         abort(403)
     form = SuggestionForm()

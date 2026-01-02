@@ -291,6 +291,7 @@ def calendario_eventos():
             "id": f"event-{event.id}",
             "titulo": event.title,
             "descripcion": event.description_html or "",
+            "cover_image": event.cover_image or "",
             "inicio": event.start_at.isoformat(),
             "fin": event.end_at.isoformat(),
             "ubicacion": event.location or "",
@@ -322,6 +323,11 @@ def calendario_mis_eventos():
     """
     from app.services.calendar_service import build_calendar_event_url
 
+    def _parse_bool(value: str | None) -> bool:
+        if value is None:
+            return False
+        return value.strip().lower() in {"1", "true", "t", "yes", "y", "on", "si", "sí"}
+
     membership = (
         CommissionMembership.query.filter_by(user_id=current_user.id, is_active=True)
         .join(Commission)
@@ -337,6 +343,15 @@ def calendario_mis_eventos():
     rango_inicial = request.args.get("rango_inicial")
     rango_final = request.args.get("rango_final")
     limite = request.args.get("limite", 50, type=int)
+
+    solicitar_todas_reuniones = _parse_bool(request.args.get("todas_reuniones"))
+    can_view_all_commissions = (
+        current_user.has_permission("view_commissions")
+        or current_user.has_permission("manage_commissions")
+        or current_user.has_permission("manage_commission_members")
+        or user_is_privileged(current_user)
+    )
+    mostrar_todas_reuniones = bool(solicitar_todas_reuniones and can_view_all_commissions)
 
     time_min = None
     time_max = None
@@ -454,10 +469,11 @@ def calendario_mis_eventos():
         .filter(CommissionMeeting.end_at >= range_start)
         .filter(CommissionMeeting.start_at <= range_end)
     )
-    if commission_ids:
-        meetings_query = meetings_query.filter(CommissionMeeting.commission_id.in_(commission_ids))
-    else:
-        meetings_query = meetings_query.filter(sa.false())
+    if not mostrar_todas_reuniones:
+        if commission_ids:
+            meetings_query = meetings_query.filter(CommissionMeeting.commission_id.in_(commission_ids))
+        else:
+            meetings_query = meetings_query.filter(sa.false())
 
     commission_events: list[dict] = []
     for meeting in meetings_query.order_by(CommissionMeeting.start_at.asc()).all():
@@ -492,6 +508,8 @@ def calendario_mis_eventos():
         "desde": time_min,
         "hasta": time_max,
         "cached": False,
+        "can_toggle_reuniones": bool(can_view_all_commissions),
+        "mostrando_todas_reuniones": bool(mostrar_todas_reuniones),
     }
 
     return jsonify(respuesta), 200
