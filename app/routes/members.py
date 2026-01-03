@@ -988,6 +988,9 @@ def votar_sugerencia(suggestion_id: int):
 @login_required
 def commissions():
     scope = request.args.get("scope", "mis")
+    if scope not in ("mis", "todas"):
+        scope = "mis"
+
     can_view_all = current_user.has_permission("view_commissions")
     member_memberships = (
         CommissionMembership.query.filter_by(user_id=current_user.id, is_active=True)
@@ -1000,9 +1003,12 @@ def commissions():
     if not can_view_all and not memberships_map:
         abort(403)
 
-    # Los usuarios sin permiso view_commissions solo pueden ver sus comisiones
+    # Por defecto mostramos solo "mis" comisiones aunque tenga permiso para ver todas.
+    # Para ver todas debe pedir explícitamente scope=todas.
+    show_all = bool(can_view_all and scope == "todas")
+
     query = Commission.query.filter_by(is_active=True)
-    if not can_view_all:
+    if not show_all:
         commission_ids = list(memberships_map.keys())
         query = query.filter(Commission.id.in_(commission_ids)) if commission_ids else query.filter(Commission.id == -1)
 

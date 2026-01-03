@@ -544,7 +544,28 @@ def commissions_index():
     if not can_view_commissions_admin:
         abort(403)
 
-    commissions = Commission.query.order_by(Commission.created_at.desc()).all()
+    scope = request.args.get("scope", "mis")
+    if scope not in ("mis", "todas"):
+        scope = "mis"
+
+    member_commission_ids = [
+        commission_id
+        for (commission_id,) in (
+            CommissionMembership.query.with_entities(CommissionMembership.commission_id)
+            .filter_by(user_id=current_user.id, is_active=True)
+            .all()
+        )
+    ]
+
+    show_all = bool(scope == "todas")
+    query = Commission.query
+    if not show_all:
+        if member_commission_ids:
+            query = query.filter(Commission.id.in_(member_commission_ids))
+        else:
+            query = query.filter(Commission.id == -1)
+
+    commissions = query.order_by(Commission.created_at.desc()).all()
     stats: dict[int, dict[str, object]] = {}
     now_dt = get_local_now()
     active_project_statuses = ("pendiente", "en_progreso")
@@ -575,7 +596,13 @@ def commissions_index():
             "proxima_reunion": next_meeting,
         }
 
-    return render_template("admin/comisiones.html", commissions=commissions, stats=stats)
+    return render_template(
+        "admin/comisiones.html",
+        commissions=commissions,
+        stats=stats,
+        scope=scope,
+        can_view_all=True,
+    )
 
 
 @admin_bp.route("/comisiones/<int:commission_id>")
