@@ -3,7 +3,11 @@
 {% set drive_list_title = drive_list_title|default("Archivos de la " ~ drive_label) %}
 {% set drive_list_button = drive_list_button|default("Ver archivos") %}
 {% set drive_can_delete = drive_can_delete if drive_can_delete is defined else False %}
+{% set drive_can_history = drive_can_history if drive_can_history is defined else False %}
 {% set drive_delete_url = drive_delete_url|default("") %}
+{% set drive_history_url = drive_history_url|default("") %}
+{% set drive_restore_url = drive_restore_url|default("") %}
+{% set drive_description_url = drive_description_url|default("") %}
 
 <div class="drive-files-panel">
   <div
@@ -15,13 +19,17 @@
     data-drive-download-url="{{ drive_download_url }}"
     data-drive-delete-url="{{ drive_delete_url }}"
     data-drive-can-delete="{{ 'true' if drive_can_delete else 'false' }}"
+    data-drive-can-history="{{ 'true' if drive_can_history else 'false' }}"
+    data-drive-history-url="{{ drive_history_url }}"
+    data-drive-restore-url="{{ drive_restore_url }}"
+    data-drive-description-url="{{ drive_description_url }}"
   >
     <div class="drive-files-card">
       <div class="drive-files-dropzone" data-drive-dropzone role="button" tabindex="0" aria-label="Seleccionar archivos">
         <input class="drive-files-input" data-drive-input type="file" multiple />
         <div class="drive-files-dropzone__content">
           <p class="drive-files-title">{{ drive_upload_title }}</p>
-          <p class="drive-files-help">Arrastra y suelta archivos aqui o pulsa para seleccionar.</p>
+          <p class="drive-files-help">Arrastra y suelta archivos aqui o pulsa para seleccionar archivos.</p>
         </div>
       </div>
       <div class="drive-files-actions">
@@ -38,16 +46,24 @@
         <button class="drive-files-modal__close" type="button" data-drive-list-close aria-label="Cerrar">&times;</button>
       </div>
       <div class="drive-files-modal__body">
-        <button type="button" class="drive-files-btn drive-files-btn--ghost" data-drive-list-refresh>Actualizar</button>
+        <div class="drive-files-toolbar">
+          <button type="button" class="drive-files-btn drive-files-btn--ghost" data-drive-list-refresh>Actualizar</button>
+          <button type="button" class="drive-files-btn drive-files-btn--ghost" data-drive-list-history style="display:none;" data-drive-history-btn>Historial</button>
+          <button type="button" class="drive-files-btn drive-files-btn--ghost" data-drive-list-back style="display:none;" data-drive-back-btn>Volver</button>
+
+          <div class="drive-files-search">
+            <input
+              type="search"
+              class="drive-files-search__input"
+              data-drive-list-search
+              placeholder="Buscar archivos..."
+              aria-label="Buscar archivos"
+              autocomplete="off"
+            />
+          </div>
+        </div>
         <table class="drive-files-table">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Modificado</th>
-              <th>Subido</th>
-              <th></th>
-            </tr>
-          </thead>
+          <thead data-drive-list-head></thead>
           <tbody data-drive-list-body></tbody>
         </table>
       </div>
@@ -70,5 +86,51 @@
       </div>
     </div>
   </div>
+
+    <div class="drive-files-modal" data-drive-dialog-modal aria-hidden="true">
+      <div class="drive-files-modal__dialog" role="dialog" aria-modal="true" aria-label="Confirmación">
+        <div class="drive-files-modal__header">
+          <h3 data-drive-dialog-title>Confirmación</h3>
+          <button class="drive-files-modal__close" type="button" data-drive-dialog-close aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="drive-files-modal__body">
+          <p class="drive-files-dialog-message" data-drive-dialog-message></p>
+        </div>
+        <div class="drive-files-modal__footer">
+          <button type="button" class="drive-files-btn drive-files-btn--ghost" data-drive-dialog-cancel>Cancelar</button>
+          <button type="button" class="drive-files-btn" data-drive-dialog-confirm>Aceptar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="drive-files-modal" data-drive-desc-modal aria-hidden="true">
+      <div class="drive-files-modal__dialog" role="dialog" aria-modal="true" aria-label="Descripción">
+        <div class="drive-files-modal__header">
+          <h3 data-drive-desc-title>Descripción</h3>
+          <button class="drive-files-modal__close" type="button" data-drive-desc-close aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="drive-files-modal__body">
+          <p class="drive-files-desc-hint" data-drive-desc-hint></p>
+
+          <label class="drive-files-desc-toggle">
+            <input type="checkbox" data-drive-desc-enabled />
+            <span>Quiero añadir una descripción (opcional)</span>
+          </label>
+
+          <textarea
+            class="drive-files-desc-textarea"
+            data-drive-desc-text
+            rows="3"
+            placeholder="Escribe una descripción..."
+            disabled
+          ></textarea>
+
+          <div class="drive-files-desc-actions">
+            <button type="button" class="drive-files-btn drive-files-btn--ghost" data-drive-desc-cancel>Cancelar</button>
+            <button type="button" class="drive-files-btn" data-drive-desc-confirm>Continuar</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>

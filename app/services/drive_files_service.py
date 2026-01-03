@@ -9,18 +9,26 @@ from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 from app.media_utils import _get_user_drive_service
 
 
-def list_drive_files(folder_id: str, *, drive_id: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
+def list_drive_files(
+    folder_id: str,
+    *,
+    drive_id: str | None = None,
+    limit: int = 200,
+    trashed: bool = False,
+) -> list[dict[str, Any]]:
     drive = _get_user_drive_service()
     if drive is None:
         raise RuntimeError("Google Drive no esta configurado o no se pudo autenticar.")
 
+    trashed_clause = "true" if trashed else "false"
+
     kwargs: dict[str, Any] = {
         "q": (
-            f"'{folder_id}' in parents and trashed=false and "
+            f"'{folder_id}' in parents and trashed={trashed_clause} and "
             "mimeType!='application/vnd.google-apps.folder'"
         ),
         "spaces": "drive",
-        "fields": "files(id,name,createdTime,modifiedTime,mimeType,size),nextPageToken",
+        "fields": "files(id,name,createdTime,modifiedTime,mimeType,size,trashed),nextPageToken",
         "orderBy": "modifiedTime desc",
         "pageSize": max(1, min(200, int(limit))),
         "supportsAllDrives": True,
@@ -40,6 +48,7 @@ def list_drive_files(folder_id: str, *, drive_id: str | None = None, limit: int 
             "modifiedTime": f.get("modifiedTime"),
             "mimeType": f.get("mimeType"),
             "size": f.get("size"),
+            "trashed": bool(f.get("trashed")),
         }
         for f in files
         if f.get("id")
@@ -48,12 +57,36 @@ def list_drive_files(folder_id: str, *, drive_id: str | None = None, limit: int 
     ]
 
 
-def delete_drive_file(file_id: str) -> None:
+def trash_drive_file(file_id: str) -> None:
     drive = _get_user_drive_service()
     if drive is None:
         raise RuntimeError("Google Drive no esta configurado o no se pudo autenticar.")
 
-    drive.files().delete(fileId=file_id, supportsAllDrives=True).execute()
+    drive.files().update(
+        fileId=file_id,
+        body={"trashed": True},
+        fields="id,trashed",
+        supportsAllDrives=True,
+    ).execute()
+
+
+def restore_drive_file(file_id: str) -> None:
+    drive = _get_user_drive_service()
+    if drive is None:
+        raise RuntimeError("Google Drive no esta configurado o no se pudo autenticar.")
+
+    drive.files().update(
+        fileId=file_id,
+        body={"trashed": False},
+        fields="id,trashed",
+        supportsAllDrives=True,
+    ).execute()
+
+
+def delete_drive_file(file_id: str) -> None:
+    """Compatibilidad: antes borraba definitivamente; ahora mueve a papelera."""
+
+    trash_drive_file(file_id)
 
 
 def find_drive_file_by_name(

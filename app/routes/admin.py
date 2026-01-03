@@ -680,7 +680,15 @@ def commission_detail(commission_id: int):
     can_manage_meetings = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
     can_edit_commission = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
     can_create_discussions = can_manage_discussions
-    can_manage_drive_files = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
+    can_manage_drive_files = (
+        current_user.has_permission("manage_commission_drive_files")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    )
+    can_view_drive_history = (
+        can_manage_drive_files
+        or current_user.has_permission("view_commission_drive_history")
+    )
 
     return render_template(
         "admin/comision_detalle.html",
@@ -701,6 +709,7 @@ def commission_detail(commission_id: int):
         can_edit_commission=can_edit_commission,
         can_create_discussions=can_create_discussions,
         can_manage_drive_files=can_manage_drive_files,
+        can_view_drive_history=can_view_drive_history,
     )
 
 

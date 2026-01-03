@@ -420,7 +420,11 @@
       {% set drive_upload_url = url_for('api.project_drive_files_upload', project_id=project.id) %}
       {% set drive_download_url = url_for('api.project_drive_files_download', project_id=project.id, file_id='__FILE_ID__') %}
       {% set drive_delete_url = url_for('api.project_drive_files_delete', project_id=project.id, file_id='__FILE_ID__') %}
+      {% set drive_history_url = url_for('api.project_drive_files_history', project_id=project.id) %}
+      {% set drive_restore_url = url_for('api.project_drive_files_restore', project_id=project.id, file_id='__FILE_ID__') %}
+      {% set drive_description_url = url_for('api.project_drive_files_update_description', project_id=project.id, file_id='__FILE_ID__') %}
       {% set drive_can_delete = can_manage_drive_files %}
+      {% set drive_can_history = can_view_drive_history %}
       {% include 'shared/drive_files_widget.html' %}
 
       </div>
@@ -591,7 +595,11 @@
       {% set drive_upload_url = url_for('api.project_drive_files_upload', project_id=project.id) %}
       {% set drive_download_url = url_for('api.project_drive_files_download', project_id=project.id, file_id='__FILE_ID__') %}
       {% set drive_delete_url = url_for('api.project_drive_files_delete', project_id=project.id, file_id='__FILE_ID__') %}
+      {% set drive_history_url = url_for('api.project_drive_files_history', project_id=project.id) %}
+      {% set drive_restore_url = url_for('api.project_drive_files_restore', project_id=project.id, file_id='__FILE_ID__') %}
+      {% set drive_description_url = url_for('api.project_drive_files_update_description', project_id=project.id, file_id='__FILE_ID__') %}
       {% set drive_can_delete = can_manage_drive_files %}
+      {% set drive_can_history = can_view_drive_history %}
       {% include 'shared/drive_files_widget.html' %}
 
       <div class="card">

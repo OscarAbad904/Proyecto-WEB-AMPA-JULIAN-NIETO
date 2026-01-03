@@ -12,6 +12,8 @@ from app.models import (
     CommissionMembership,
     Commission,
     CommissionProject,
+    DriveFile,
+    DriveFileEvent,
     Event,
     Post,
     UserSeenItem,
@@ -30,6 +32,7 @@ from app.services.drive_files_service import (
     get_drive_file_meta,
     download_drive_file,
     delete_drive_file,
+    restore_drive_file,
 )
 
 api_bp = Blueprint("api", __name__)
@@ -701,6 +704,161 @@ def _can_manage_commission_files(commission: Commission) -> bool:
     return (membership.role or "").strip().lower() == "coordinador"
 
 
+def _can_view_drive_history(commission: Commission | None = None) -> bool:
+    if not (current_user.is_authenticated and current_user.id):
+        return False
+    if (
+        user_is_privileged(current_user)
+        or current_user.has_permission("manage_commissions")
+        or current_user.has_permission("manage_commission_drive_files")
+        or current_user.has_permission("view_commission_drive_history")
+    ):
+        return True
+    if commission is None:
+        return False
+    return _can_manage_commission_files(commission)
+
+
+def _display_user_label(user) -> str:
+    if not user:
+        return ""
+    first = (getattr(user, "first_name", None) or "").strip()
+    last = (getattr(user, "last_name", None) or "").strip()
+    full = (f"{first} {last}").strip()
+    return full or (getattr(user, "username", None) or "").strip() or ""
+
+
+def _drive_file_edit_window() -> timedelta:
+    return timedelta(days=2)
+
+
+def _can_edit_drive_file_record(
+    record: DriveFile | None,
+    *,
+    commission: Commission | None = None,
+) -> bool:
+    if not (current_user.is_authenticated and current_user.id):
+        return False
+    # Coordinadores/privilegiados/gestion de comisiones: siempre.
+    if (
+        user_is_privileged(current_user)
+        or current_user.has_permission("manage_commissions")
+        or current_user.has_permission("manage_commission_drive_files")
+    ):
+        return True
+    if commission is not None and _can_manage_commission_files(commission):
+        return True
+
+    if record is None:
+        return False
+
+    if record.uploaded_by_id != current_user.id:
+        return False
+    if not record.uploaded_at:
+        return False
+    try:
+        return (get_local_now() - record.uploaded_at) <= _drive_file_edit_window()
+    except TypeError:
+        # Incompatibilidad naive/aware.
+        return False
+
+
+def _upsert_drive_file_from_drive_meta(
+    *,
+    scope_type: str,
+    scope_id: int,
+    file_meta: dict,
+    actor_user=None,
+    actor_label: str | None = None,
+    record_external_modifications: bool = True,
+) -> DriveFile:
+    now_dt = get_local_now()
+    drive_file_id = (file_meta.get("id") or "").strip()
+    drive_name = (file_meta.get("name") or "").strip() or "-"
+    created_time = file_meta.get("createdTime")
+    modified_time = file_meta.get("modifiedTime")
+
+    drive_file = DriveFile.query.filter_by(
+        scope_type=scope_type,
+        scope_id=scope_id,
+        drive_file_id=drive_file_id,
+    ).first()
+
+    if drive_file is None:
+        drive_file = DriveFile(
+            scope_type=scope_type,
+            scope_id=scope_id,
+            drive_file_id=drive_file_id,
+            name=drive_name,
+            drive_created_time=created_time,
+            drive_modified_time=modified_time,
+            uploaded_at=now_dt,
+            uploaded_by_id=getattr(actor_user, "id", None),
+            uploaded_by_label=(actor_label or _display_user_label(actor_user)) or None,
+            last_seen_at=now_dt,
+        )
+        db.session.add(drive_file)
+        return drive_file
+
+    changed_name = drive_file.name != drive_name
+    changed_modified_time = (drive_file.drive_modified_time or None) != (modified_time or None)
+
+    if record_external_modifications and (changed_name or changed_modified_time):
+        event = DriveFileEvent(
+            drive_file=drive_file,
+            scope_type=scope_type,
+            scope_id=scope_id,
+            drive_file_id=drive_file_id,
+            event_type="external_modify",
+            actor_user_id=None,
+            actor_label=(actor_label or "Drive"),
+            old_name=drive_file.name if changed_name else None,
+            new_name=drive_name if changed_name else None,
+        )
+        db.session.add(event)
+        drive_file.modified_at = now_dt
+        drive_file.modified_by_id = None
+        drive_file.modified_by_label = (actor_label or "Drive")
+
+    drive_file.name = drive_name
+    drive_file.drive_created_time = created_time
+    drive_file.drive_modified_time = modified_time
+    drive_file.last_seen_at = now_dt
+    return drive_file
+
+
+def _drive_file_to_api_dict(drive_file: DriveFile, *, commission: Commission | None = None) -> dict:
+    can_manage = False
+    if current_user.is_authenticated and current_user.id:
+        if (
+            user_is_privileged(current_user)
+            or current_user.has_permission("manage_commissions")
+            or current_user.has_permission("manage_commission_drive_files")
+        ):
+            can_manage = True
+        elif commission is not None and _can_manage_commission_files(commission):
+            can_manage = True
+
+    can_edit = _can_edit_drive_file_record(drive_file, commission=commission)
+
+    return {
+        "id": drive_file.drive_file_id,
+        "name": drive_file.name,
+        "createdTime": drive_file.drive_created_time,
+        "modifiedTime": drive_file.drive_modified_time,
+        "description": drive_file.description,
+        "deletedAt": drive_file.deleted_at.isoformat() if drive_file.deleted_at else None,
+        "deletedBy": drive_file.deleted_by_label,
+        "modifiedAt": drive_file.modified_at.isoformat() if drive_file.modified_at else None,
+        "modifiedBy": drive_file.modified_by_label,
+        "uploadedAt": drive_file.uploaded_at.isoformat() if drive_file.uploaded_at else None,
+        "uploadedBy": drive_file.uploaded_by_label,
+        "canDelete": bool(can_edit) and not bool(drive_file.deleted_at),
+        "canEditDescription": bool(can_edit) and not bool(drive_file.deleted_at),
+        "canRestore": bool(can_manage),
+    }
+
+
 def _parse_resolutions(payload: str | None) -> dict:
     if not payload:
         return {}
@@ -746,10 +904,38 @@ def commission_drive_files_list(commission_id: int):
 
     shared_drive_id = current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID") or None
     try:
-        files = list_drive_files(folder_id, drive_id=shared_drive_id)
+        drive_files = list_drive_files(folder_id, drive_id=shared_drive_id, trashed=False)
     except Exception as exc:  # noqa: BLE001
         return jsonify({"ok": False, "error": str(exc)}), 500
-    return jsonify({"ok": True, "files": files}), 200
+
+    records: list[DriveFile] = []
+    for f in drive_files:
+        record = _upsert_drive_file_from_drive_meta(
+            scope_type="commission",
+            scope_id=commission.id,
+            file_meta=f,
+            actor_label="Drive",
+            record_external_modifications=True,
+        )
+        # Si estaba marcado como eliminado, pero vuelve a aparecer activo en Drive, lo consideramos restaurado externo.
+        if record.deleted_at:
+            record.deleted_at = None
+            record.deleted_by_id = None
+            record.deleted_by_label = None
+            db.session.add(
+                DriveFileEvent(
+                    drive_file=record,
+                    scope_type="commission",
+                    scope_id=commission.id,
+                    drive_file_id=record.drive_file_id,
+                    event_type="restore",
+                    actor_label="Drive",
+                )
+            )
+        records.append(record)
+
+    db.session.commit()
+    return jsonify({"ok": True, "files": [_drive_file_to_api_dict(r, commission=commission) for r in records]}), 200
 
 
 @api_bp.route("/drive-files/commissions/<int:commission_id>", methods=["POST"])
@@ -764,6 +950,8 @@ def commission_drive_files_upload(commission_id: int):
     if not files:
         return jsonify({"ok": False, "error": "No se recibieron archivos."}), 400
 
+    description = (request.form.get("description") or "").strip()
+
     folder_id = _resolve_commission_folder(commission)
     if not folder_id:
         return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
@@ -772,6 +960,8 @@ def commission_drive_files_upload(commission_id: int):
     resolutions = _parse_resolutions(request.form.get("resolutions"))
     existing_map: dict[str, dict] = {}
     conflicts: list[dict] = []
+
+    overwrite_capabilities: dict[str, bool] = {}
 
     for file in files:
         name = (file.filename or "").strip()
@@ -782,12 +972,20 @@ def commission_drive_files_upload(commission_id: int):
         except Exception as exc:  # noqa: BLE001
             return jsonify({"ok": False, "error": str(exc)}), 500
         existing_map[name] = existing
+        if existing:
+            record = DriveFile.query.filter_by(
+                scope_type="commission",
+                scope_id=commission.id,
+                drive_file_id=(existing.get("id") or "").strip(),
+            ).first()
+            overwrite_capabilities[name] = _can_edit_drive_file_record(record, commission=commission)
         if existing and name not in resolutions:
             conflicts.append(
                 {
                     "name": name,
                     "createdTime": existing.get("createdTime"),
                     "modifiedTime": existing.get("modifiedTime"),
+                    "canOverwrite": bool(overwrite_capabilities.get(name, False)),
                 }
             )
 
@@ -810,6 +1008,13 @@ def commission_drive_files_upload(commission_id: int):
                     skipped.append(name)
                     continue
                 if action == "overwrite":
+                    if not overwrite_capabilities.get(name, False):
+                        return jsonify(
+                            {
+                                "ok": False,
+                                "error": "No tienes permiso para sobrescribir este archivo. Solo el autor puede hacerlo durante 2 días; después, coordinadores/administradores.",
+                            }
+                        ), 403
                     result = upload_drive_file(
                         folder_id,
                         file,
@@ -842,6 +1047,53 @@ def commission_drive_files_upload(commission_id: int):
                 "modifiedTime": result.get("modifiedTime"),
             }
         )
+
+        # Persistir/actualizar en BD
+        record = _upsert_drive_file_from_drive_meta(
+            scope_type="commission",
+            scope_id=commission.id,
+            file_meta=result,
+            actor_user=current_user,
+            actor_label=_display_user_label(current_user),
+            record_external_modifications=False,
+        )
+        record.description = description or None
+        record.deleted_at = None
+        record.deleted_by_id = None
+        record.deleted_by_label = None
+        now_dt = get_local_now()
+        if existing and action == "overwrite":
+            record.modified_at = now_dt
+            record.modified_by_id = current_user.id
+            record.modified_by_label = _display_user_label(current_user) or None
+            db.session.add(
+                DriveFileEvent(
+                    drive_file=record,
+                    scope_type="commission",
+                    scope_id=commission.id,
+                    drive_file_id=record.drive_file_id,
+                    event_type="overwrite",
+                    actor_user_id=current_user.id,
+                    actor_label=_display_user_label(current_user) or None,
+                )
+            )
+        else:
+            record.uploaded_at = record.uploaded_at or now_dt
+            record.uploaded_by_id = record.uploaded_by_id or current_user.id
+            record.uploaded_by_label = record.uploaded_by_label or (_display_user_label(current_user) or None)
+            db.session.add(
+                DriveFileEvent(
+                    drive_file=record,
+                    scope_type="commission",
+                    scope_id=commission.id,
+                    drive_file_id=record.drive_file_id,
+                    event_type="upload",
+                    actor_user_id=current_user.id,
+                    actor_label=_display_user_label(current_user) or None,
+                )
+            )
+
+    db.session.commit()
 
     return jsonify({"ok": True, "uploaded": uploaded, "skipped": skipped}), 200
 
@@ -879,8 +1131,18 @@ def commission_drive_files_download(commission_id: int, file_id: str):
 @login_required
 def commission_drive_files_delete(commission_id: int, file_id: str):
     commission = Commission.query.get_or_404(commission_id)
-    if not _can_manage_commission_files(commission):
-        abort(403)
+    record = DriveFile.query.filter_by(
+        scope_type="commission",
+        scope_id=commission.id,
+        drive_file_id=file_id,
+    ).first()
+    if not _can_edit_drive_file_record(record, commission=commission):
+        return jsonify(
+            {
+                "ok": False,
+                "error": "No tienes permiso para eliminar este archivo. Solo el autor puede hacerlo durante 2 días; después, coordinadores/administradores.",
+            }
+        ), 403
 
     folder_id = _resolve_commission_folder(commission)
     if not folder_id:
@@ -894,6 +1156,33 @@ def commission_drive_files_delete(commission_id: int, file_id: str):
         delete_drive_file(file_id)
     except Exception as exc:  # noqa: BLE001
         return jsonify({"ok": False, "error": str(exc)}), 500
+
+    now_dt = get_local_now()
+    if record is None:
+        record = DriveFile(
+            scope_type="commission",
+            scope_id=commission.id,
+            drive_file_id=file_id,
+            name=(meta.get("name") or "-").strip() or "-",
+            drive_created_time=meta.get("createdTime"),
+            drive_modified_time=meta.get("modifiedTime"),
+        )
+        db.session.add(record)
+    record.deleted_at = now_dt
+    record.deleted_by_id = current_user.id
+    record.deleted_by_label = _display_user_label(current_user) or None
+    db.session.add(
+        DriveFileEvent(
+            drive_file=record,
+            scope_type="commission",
+            scope_id=commission.id,
+            drive_file_id=file_id,
+            event_type="trash",
+            actor_user_id=current_user.id,
+            actor_label=_display_user_label(current_user) or None,
+        )
+    )
+    db.session.commit()
 
     return jsonify({"ok": True, "deleted": {"id": file_id}}), 200
 
@@ -914,10 +1203,37 @@ def project_drive_files_list(project_id: int):
 
     shared_drive_id = current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID") or None
     try:
-        files = list_drive_files(folder_id, drive_id=shared_drive_id)
+        drive_files = list_drive_files(folder_id, drive_id=shared_drive_id, trashed=False)
     except Exception as exc:  # noqa: BLE001
         return jsonify({"ok": False, "error": str(exc)}), 500
-    return jsonify({"ok": True, "files": files}), 200
+
+    records: list[DriveFile] = []
+    for f in drive_files:
+        record = _upsert_drive_file_from_drive_meta(
+            scope_type="project",
+            scope_id=project.id,
+            file_meta=f,
+            actor_label="Drive",
+            record_external_modifications=True,
+        )
+        if record.deleted_at:
+            record.deleted_at = None
+            record.deleted_by_id = None
+            record.deleted_by_label = None
+            db.session.add(
+                DriveFileEvent(
+                    drive_file=record,
+                    scope_type="project",
+                    scope_id=project.id,
+                    drive_file_id=record.drive_file_id,
+                    event_type="restore",
+                    actor_label="Drive",
+                )
+            )
+        records.append(record)
+
+    db.session.commit()
+    return jsonify({"ok": True, "files": [_drive_file_to_api_dict(r, commission=commission) for r in records]}), 200
 
 
 @api_bp.route("/drive-files/projects/<int:project_id>", methods=["POST"])
@@ -935,6 +1251,8 @@ def project_drive_files_upload(project_id: int):
     if not files:
         return jsonify({"ok": False, "error": "No se recibieron archivos."}), 400
 
+    description = (request.form.get("description") or "").strip()
+
     folder_id = _resolve_project_folder(project)
     if not folder_id:
         return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
@@ -943,6 +1261,8 @@ def project_drive_files_upload(project_id: int):
     resolutions = _parse_resolutions(request.form.get("resolutions"))
     existing_map: dict[str, dict] = {}
     conflicts: list[dict] = []
+
+    overwrite_capabilities: dict[str, bool] = {}
 
     for file in files:
         name = (file.filename or "").strip()
@@ -953,12 +1273,20 @@ def project_drive_files_upload(project_id: int):
         except Exception as exc:  # noqa: BLE001
             return jsonify({"ok": False, "error": str(exc)}), 500
         existing_map[name] = existing
+        if existing:
+            record = DriveFile.query.filter_by(
+                scope_type="project",
+                scope_id=project.id,
+                drive_file_id=(existing.get("id") or "").strip(),
+            ).first()
+            overwrite_capabilities[name] = _can_edit_drive_file_record(record, commission=commission)
         if existing and name not in resolutions:
             conflicts.append(
                 {
                     "name": name,
                     "createdTime": existing.get("createdTime"),
                     "modifiedTime": existing.get("modifiedTime"),
+                    "canOverwrite": bool(overwrite_capabilities.get(name, False)),
                 }
             )
 
@@ -981,6 +1309,13 @@ def project_drive_files_upload(project_id: int):
                     skipped.append(name)
                     continue
                 if action == "overwrite":
+                    if not overwrite_capabilities.get(name, False):
+                        return jsonify(
+                            {
+                                "ok": False,
+                                "error": "No tienes permiso para sobrescribir este archivo. Solo el autor puede hacerlo durante 2 días; después, coordinadores/administradores.",
+                            }
+                        ), 403
                     result = upload_drive_file(
                         folder_id,
                         file,
@@ -1013,6 +1348,52 @@ def project_drive_files_upload(project_id: int):
                 "modifiedTime": result.get("modifiedTime"),
             }
         )
+
+        record = _upsert_drive_file_from_drive_meta(
+            scope_type="project",
+            scope_id=project.id,
+            file_meta=result,
+            actor_user=current_user,
+            actor_label=_display_user_label(current_user),
+            record_external_modifications=False,
+        )
+        record.description = description or None
+        record.deleted_at = None
+        record.deleted_by_id = None
+        record.deleted_by_label = None
+        now_dt = get_local_now()
+        if existing and action == "overwrite":
+            record.modified_at = now_dt
+            record.modified_by_id = current_user.id
+            record.modified_by_label = _display_user_label(current_user) or None
+            db.session.add(
+                DriveFileEvent(
+                    drive_file=record,
+                    scope_type="project",
+                    scope_id=project.id,
+                    drive_file_id=record.drive_file_id,
+                    event_type="overwrite",
+                    actor_user_id=current_user.id,
+                    actor_label=_display_user_label(current_user) or None,
+                )
+            )
+        else:
+            record.uploaded_at = record.uploaded_at or now_dt
+            record.uploaded_by_id = record.uploaded_by_id or current_user.id
+            record.uploaded_by_label = record.uploaded_by_label or (_display_user_label(current_user) or None)
+            db.session.add(
+                DriveFileEvent(
+                    drive_file=record,
+                    scope_type="project",
+                    scope_id=project.id,
+                    drive_file_id=record.drive_file_id,
+                    event_type="upload",
+                    actor_user_id=current_user.id,
+                    actor_label=_display_user_label(current_user) or None,
+                )
+            )
+
+    db.session.commit()
 
     return jsonify({"ok": True, "uploaded": uploaded, "skipped": skipped}), 200
 
@@ -1056,8 +1437,18 @@ def project_drive_files_delete(project_id: int, file_id: str):
     commission = project.commission or Commission.query.get(project.commission_id)
     if commission is None:
         return jsonify({"ok": False, "error": "Comision no encontrada."}), 404
-    if not _can_manage_commission_files(commission):
-        abort(403)
+    record = DriveFile.query.filter_by(
+        scope_type="project",
+        scope_id=project.id,
+        drive_file_id=file_id,
+    ).first()
+    if not _can_edit_drive_file_record(record, commission=commission):
+        return jsonify(
+            {
+                "ok": False,
+                "error": "No tienes permiso para eliminar este archivo. Solo el autor puede hacerlo durante 2 días; después, coordinadores/administradores.",
+            }
+        ), 403
 
     folder_id = _resolve_project_folder(project)
     if not folder_id:
@@ -1071,5 +1462,338 @@ def project_drive_files_delete(project_id: int, file_id: str):
         delete_drive_file(file_id)
     except Exception as exc:  # noqa: BLE001
         return jsonify({"ok": False, "error": str(exc)}), 500
+
+    now_dt = get_local_now()
+    if record is None:
+        record = DriveFile(
+            scope_type="project",
+            scope_id=project.id,
+            drive_file_id=file_id,
+            name=(meta.get("name") or "-").strip() or "-",
+            drive_created_time=meta.get("createdTime"),
+            drive_modified_time=meta.get("modifiedTime"),
+        )
+        db.session.add(record)
+    record.deleted_at = now_dt
+    record.deleted_by_id = current_user.id
+    record.deleted_by_label = _display_user_label(current_user) or None
+    db.session.add(
+        DriveFileEvent(
+            drive_file=record,
+            scope_type="project",
+            scope_id=project.id,
+            drive_file_id=file_id,
+            event_type="trash",
+            actor_user_id=current_user.id,
+            actor_label=_display_user_label(current_user) or None,
+        )
+    )
+    db.session.commit()
+
+    return jsonify({"ok": True, "deleted": {"id": file_id}}), 200
+
+
+@api_bp.route("/drive-files/commissions/<int:commission_id>/history", methods=["GET"])
+@login_required
+def commission_drive_files_history(commission_id: int):
+    commission = Commission.query.get_or_404(commission_id)
+    if not _can_view_drive_history(commission):
+        abort(403)
+    # Aun asi, valida que el usuario pueda acceder a la comision.
+    if not _can_access_commission_files(commission):
+        abort(403)
+
+    records = (
+        DriveFile.query.filter_by(scope_type="commission", scope_id=commission.id)
+        .order_by(DriveFile.deleted_at.desc().nullslast(), DriveFile.updated_at.desc().nullslast())
+        .all()
+    )
+    return jsonify({"ok": True, "files": [_drive_file_to_api_dict(r, commission=commission) for r in records]}), 200
+
+
+@api_bp.route("/drive-files/projects/<int:project_id>/history", methods=["GET"])
+@login_required
+def project_drive_files_history(project_id: int):
+    project = CommissionProject.query.get_or_404(project_id)
+    commission = project.commission or Commission.query.get(project.commission_id)
+    if commission is None:
+        return jsonify({"ok": False, "error": "Comision no encontrada."}), 404
+    if not _can_view_drive_history(commission):
+        abort(403)
+    if not _can_access_commission_files(commission):
+        abort(403)
+
+    records = (
+        DriveFile.query.filter_by(scope_type="project", scope_id=project.id)
+        .order_by(DriveFile.deleted_at.desc().nullslast(), DriveFile.updated_at.desc().nullslast())
+        .all()
+    )
+    return jsonify({"ok": True, "files": [_drive_file_to_api_dict(r, commission=commission) for r in records]}), 200
+
+
+@api_bp.route("/drive-files/commissions/<int:commission_id>/restore/<file_id>", methods=["POST"])
+@csrf.exempt
+@login_required
+def commission_drive_files_restore(commission_id: int, file_id: str):
+    commission = Commission.query.get_or_404(commission_id)
+    if not (
+        _can_manage_commission_files(commission)
+        or current_user.has_permission("manage_commission_drive_files")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    ):
+        abort(403)
+    if not _can_access_commission_files(commission):
+        abort(403)
+
+    folder_id = _resolve_commission_folder(commission)
+    if not folder_id:
+        return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
+
+    meta = _assert_file_in_folder(file_id, folder_id)
+    if meta is None:
+        return jsonify({"ok": False, "error": "Archivo no encontrado."}), 404
+
+    try:
+        restore_drive_file(file_id)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+    now_dt = get_local_now()
+    record = DriveFile.query.filter_by(
+        scope_type="commission",
+        scope_id=commission.id,
+        drive_file_id=file_id,
+    ).first()
+    if record is None:
+        record = DriveFile(
+            scope_type="commission",
+            scope_id=commission.id,
+            drive_file_id=file_id,
+            name=(meta.get("name") or "-").strip() or "-",
+            drive_created_time=meta.get("createdTime"),
+            drive_modified_time=meta.get("modifiedTime"),
+        )
+        db.session.add(record)
+    record.deleted_at = None
+    record.deleted_by_id = None
+    record.deleted_by_label = None
+    record.modified_at = now_dt
+    record.modified_by_id = current_user.id
+    record.modified_by_label = _display_user_label(current_user) or None
+    db.session.add(
+        DriveFileEvent(
+            drive_file=record,
+            scope_type="commission",
+            scope_id=commission.id,
+            drive_file_id=file_id,
+            event_type="restore",
+            actor_user_id=current_user.id,
+            actor_label=_display_user_label(current_user) or None,
+        )
+    )
+    db.session.commit()
+    return jsonify({"ok": True, "restored": {"id": file_id}}), 200
+
+
+@api_bp.route("/drive-files/projects/<int:project_id>/restore/<file_id>", methods=["POST"])
+@csrf.exempt
+@login_required
+def project_drive_files_restore(project_id: int, file_id: str):
+    project = CommissionProject.query.get_or_404(project_id)
+    commission = project.commission or Commission.query.get(project.commission_id)
+    if commission is None:
+        return jsonify({"ok": False, "error": "Comision no encontrada."}), 404
+    if not (
+        _can_manage_commission_files(commission)
+        or current_user.has_permission("manage_commission_drive_files")
+        or current_user.has_permission("manage_commissions")
+        or user_is_privileged(current_user)
+    ):
+        abort(403)
+    if not _can_access_commission_files(commission):
+        abort(403)
+
+    folder_id = _resolve_project_folder(project)
+    if not folder_id:
+        return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
+
+    meta = _assert_file_in_folder(file_id, folder_id)
+    if meta is None:
+        return jsonify({"ok": False, "error": "Archivo no encontrado."}), 404
+
+    try:
+        restore_drive_file(file_id)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+    now_dt = get_local_now()
+    record = DriveFile.query.filter_by(
+        scope_type="project",
+        scope_id=project.id,
+        drive_file_id=file_id,
+    ).first()
+    if record is None:
+        record = DriveFile(
+            scope_type="project",
+            scope_id=project.id,
+            drive_file_id=file_id,
+            name=(meta.get("name") or "-").strip() or "-",
+            drive_created_time=meta.get("createdTime"),
+            drive_modified_time=meta.get("modifiedTime"),
+        )
+        db.session.add(record)
+    record.deleted_at = None
+    record.deleted_by_id = None
+    record.deleted_by_label = None
+    record.modified_at = now_dt
+    record.modified_by_id = current_user.id
+    record.modified_by_label = _display_user_label(current_user) or None
+    db.session.add(
+        DriveFileEvent(
+            drive_file=record,
+            scope_type="project",
+            scope_id=project.id,
+            drive_file_id=file_id,
+            event_type="restore",
+            actor_user_id=current_user.id,
+            actor_label=_display_user_label(current_user) or None,
+        )
+    )
+    db.session.commit()
+    return jsonify({"ok": True, "restored": {"id": file_id}}), 200
+
+
+@api_bp.route("/drive-files/commissions/<int:commission_id>/description/<file_id>", methods=["POST"])
+@csrf.exempt
+@login_required
+def commission_drive_files_update_description(commission_id: int, file_id: str):
+    commission = Commission.query.get_or_404(commission_id)
+
+    payload = request.get_json(silent=True) or {}
+    description = (payload.get("description") or "").strip()
+    if description is None:
+        description = ""
+
+    folder_id = _resolve_commission_folder(commission)
+    if not folder_id:
+        return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
+    meta = _assert_file_in_folder(file_id, folder_id)
+    if meta is None:
+        return jsonify({"ok": False, "error": "Archivo no encontrado."}), 404
+
+    record = DriveFile.query.filter_by(
+        scope_type="commission",
+        scope_id=commission.id,
+        drive_file_id=file_id,
+    ).first()
+
+    if not _can_edit_drive_file_record(record, commission=commission):
+        return jsonify(
+            {
+                "ok": False,
+                "error": "No tienes permiso para modificar este archivo. Solo el autor puede hacerlo durante 2 días; después, coordinadores/administradores.",
+            }
+        ), 403
+    if record is None:
+        record = DriveFile(
+            scope_type="commission",
+            scope_id=commission.id,
+            drive_file_id=file_id,
+            name=(meta.get("name") or "-").strip() or "-",
+            drive_created_time=meta.get("createdTime"),
+            drive_modified_time=meta.get("modifiedTime"),
+        )
+        db.session.add(record)
+
+    old_description = record.description
+    record.description = description
+    now_dt = get_local_now()
+    record.modified_at = now_dt
+    record.modified_by_id = current_user.id
+    record.modified_by_label = _display_user_label(current_user) or None
+    db.session.add(
+        DriveFileEvent(
+            drive_file=record,
+            scope_type="commission",
+            scope_id=commission.id,
+            drive_file_id=file_id,
+            event_type="description_update",
+            actor_user_id=current_user.id,
+            actor_label=_display_user_label(current_user) or None,
+            old_description=old_description,
+            new_description=description,
+        )
+    )
+    db.session.commit()
+    return jsonify({"ok": True, "file": _drive_file_to_api_dict(record, commission=commission)}), 200
+
+
+@api_bp.route("/drive-files/projects/<int:project_id>/description/<file_id>", methods=["POST"])
+@csrf.exempt
+@login_required
+def project_drive_files_update_description(project_id: int, file_id: str):
+    project = CommissionProject.query.get_or_404(project_id)
+    commission = project.commission or Commission.query.get(project.commission_id)
+    if commission is None:
+        return jsonify({"ok": False, "error": "Comision no encontrada."}), 404
+
+    payload = request.get_json(silent=True) or {}
+    description = (payload.get("description") or "").strip()
+    if description is None:
+        description = ""
+
+    folder_id = _resolve_project_folder(project)
+    if not folder_id:
+        return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
+    meta = _assert_file_in_folder(file_id, folder_id)
+    if meta is None:
+        return jsonify({"ok": False, "error": "Archivo no encontrado."}), 404
+
+    record = DriveFile.query.filter_by(
+        scope_type="project",
+        scope_id=project.id,
+        drive_file_id=file_id,
+    ).first()
+
+    if not _can_edit_drive_file_record(record, commission=commission):
+        return jsonify(
+            {
+                "ok": False,
+                "error": "No tienes permiso para modificar este archivo. Solo el autor puede hacerlo durante 2 días; después, coordinadores/administradores.",
+            }
+        ), 403
+    if record is None:
+        record = DriveFile(
+            scope_type="project",
+            scope_id=project.id,
+            drive_file_id=file_id,
+            name=(meta.get("name") or "-").strip() or "-",
+            drive_created_time=meta.get("createdTime"),
+            drive_modified_time=meta.get("modifiedTime"),
+        )
+        db.session.add(record)
+
+    old_description = record.description
+    record.description = description
+    now_dt = get_local_now()
+    record.modified_at = now_dt
+    record.modified_by_id = current_user.id
+    record.modified_by_label = _display_user_label(current_user) or None
+    db.session.add(
+        DriveFileEvent(
+            drive_file=record,
+            scope_type="project",
+            scope_id=project.id,
+            drive_file_id=file_id,
+            event_type="description_update",
+            actor_user_id=current_user.id,
+            actor_label=_display_user_label(current_user) or None,
+            old_description=old_description,
+            new_description=description,
+        )
+    )
+    db.session.commit()
+    return jsonify({"ok": True, "file": _drive_file_to_api_dict(record, commission=commission)}), 200
 
     return jsonify({"ok": True, "deleted": {"id": file_id}}), 200

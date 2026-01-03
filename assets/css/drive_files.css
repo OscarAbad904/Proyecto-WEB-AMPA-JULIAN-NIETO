@@ -14,9 +14,53 @@
 
 .drive-files-card {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+
+.drive-files-desc-hint {
+  margin: 0;
+  color: #475569;
+  font-weight: 600;
+}
+
+.drive-files-desc-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.drive-files-desc-textarea {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.9rem;
+  padding: 0.65rem 0.85rem;
+  font-weight: 600;
+  color: #0f172a;
+  background: #ffffff;
+  resize: vertical;
+  min-height: 52px;
+}
+
+.drive-files-desc-textarea:disabled {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.drive-files-desc-textarea:focus {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.drive-files-desc-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .drive-files-dropzone {
@@ -27,7 +71,6 @@
   padding: 1rem 1.2rem;
   cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-  min-height: 90px;
   touch-action: manipulation;
 }
 
@@ -77,7 +120,7 @@
   flex-direction: column;
   gap: 0.5rem;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   flex: 0 0 auto;
 }
 
@@ -93,7 +136,7 @@
   color: #f8fafc;
   font-weight: 800;
   border-radius: 999px;
-  padding: 0.65rem 1rem;
+  padding: 0.3rem 1rem;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
@@ -185,6 +228,34 @@
   gap: 0.85rem;
 }
 
+.drive-files-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.drive-files-search {
+  margin-left: auto;
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+
+.drive-files-search__input {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.drive-files-search__input:focus {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
 .drive-files-table {
   width: 100%;
   border-collapse: collapse;
@@ -214,6 +285,59 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.drive-files-desc-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.drive-files-audit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.drive-files-audit__date {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.drive-files-audit__by {
+  font-size: 0.82rem;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.drive-files-dialog-message {
+  margin: 0;
+  color: #0f172a;
+  font-weight: 700;
+}
+.drive-files-desc-text {
+  color: #0f172a;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.drive-files-edit-desc,
+.drive-files-restore {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.drive-files-edit-desc:hover,
+.drive-files-restore:hover {
+  background: #f8fafc;
 }
 
 .drive-files-empty {
@@ -312,6 +436,13 @@
   align-items: center;
 }
 
+.drive-conflict-note {
+  flex-basis: 100%;
+  color: #b91c1c;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
 .drive-conflict-options label {
   display: inline-flex;
   align-items: center;
@@ -350,10 +481,15 @@
 @media (max-width: 720px) {
   .drive-files-card {
     flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  .drive-files-dropzone {
+    flex: none;
   }
   .drive-files-actions {
-    justify-content: flex-start;
-    align-items: flex-start;
+    justify-content: center;
+    align-items: center;
   }
   .drive-files-table th:nth-child(3),
   .drive-files-table td:nth-child(3) {

@@ -181,6 +181,19 @@ PERMISSION_DEFINITIONS = [
         "section": "Comisiones",
     },
     {
+        "key": "view_commission_drive_history",
+        "name": "Ver historial de archivos en comisiones y proyectos",
+        "description": "Permite ver el historial completo de archivos (incluidos eliminados) en el widget de Drive de comisiones y proyectos.",
+        "section": "Comisiones",
+    },
+    {
+        "key": "manage_commission_drive_files",
+        "name": "Eliminar y actualizar archivos en comisiones y proyectos",
+        "description": "Permite eliminar, restaurar y actualizar metadatos (p.ej. descripción) de archivos en el Drive de comisiones y proyectos, sin límite temporal.",
+        "section": "Comisiones",
+        "grant_to_roles": ["Administrador", "Presidencia"],
+    },
+    {
         "key": "view_all_commission_calendar",
         "name": "Ver todas las reuniones de comisiones",
         "description": "Acceso a reuniones de cualquier comisión en el calendario interno.",

@@ -576,6 +576,106 @@ class CommissionProject(db.Model):
     )
 
 
+class DriveFile(db.Model):
+    __tablename__ = "drive_files"
+
+    id = db.Column(db.Integer, primary_key=True)
+    scope_type = db.Column(
+        db.Enum("commission", "project", name="drive_scope_type"),
+        nullable=False,
+        index=True,
+    )
+    scope_id = db.Column(db.Integer, nullable=False, index=True)
+    drive_file_id = db.Column(db.String(255), nullable=False, index=True)
+    name = db.Column(db.String(512), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+
+    drive_created_time = db.Column(db.String(64), nullable=True)
+    drive_modified_time = db.Column(db.String(64), nullable=True)
+
+    uploaded_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    uploaded_by_label = db.Column(db.String(64), nullable=True)
+    modified_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    modified_by_label = db.Column(db.String(64), nullable=True)
+    deleted_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    deleted_by_label = db.Column(db.String(64), nullable=True)
+
+    uploaded_at = db.Column(db.DateTime, nullable=True)
+    modified_at = db.Column(db.DateTime, nullable=True)
+    deleted_at = db.Column(db.DateTime, nullable=True, index=True)
+    last_seen_at = db.Column(db.DateTime, nullable=True, index=True)
+
+    created_at = db.Column(db.DateTime, server_default=func.now())
+    updated_at = db.Column(db.DateTime, server_default=func.now(), onupdate=func.now())
+
+    events = db.relationship(
+        "DriveFileEvent",
+        back_populates="drive_file",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
+
+    uploader = db.relationship("User", foreign_keys=[uploaded_by_id])
+    modifier = db.relationship("User", foreign_keys=[modified_by_id])
+    deleter = db.relationship("User", foreign_keys=[deleted_by_id])
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "scope_type",
+            "scope_id",
+            "drive_file_id",
+            name="uq_drive_file_scope_drive_id",
+        ),
+    )
+
+
+class DriveFileEvent(db.Model):
+    __tablename__ = "drive_file_events"
+
+    id = db.Column(db.Integer, primary_key=True)
+    drive_file_db_id = db.Column(
+        db.Integer,
+        db.ForeignKey("drive_files.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    scope_type = db.Column(
+        db.Enum("commission", "project", name="drive_scope_type"),
+        nullable=False,
+        index=True,
+    )
+    scope_id = db.Column(db.Integer, nullable=False, index=True)
+    drive_file_id = db.Column(db.String(255), nullable=False, index=True)
+
+    event_type = db.Column(
+        db.Enum(
+            "upload",
+            "overwrite",
+            "rename",
+            "trash",
+            "restore",
+            "external_modify",
+            "description_update",
+            name="drive_file_event_type",
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    actor_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    actor_label = db.Column(db.String(64), nullable=True)
+
+    old_name = db.Column(db.String(512), nullable=True)
+    new_name = db.Column(db.String(512), nullable=True)
+    old_description = db.Column(db.Text, nullable=True)
+    new_description = db.Column(db.Text, nullable=True)
+
+    created_at = db.Column(db.DateTime, server_default=func.now(), index=True)
+
+    drive_file = db.relationship("DriveFile", back_populates="events")
+    actor = db.relationship("User")
+
+
 class CommissionMeeting(db.Model):
     __tablename__ = "commission_meetings"
 

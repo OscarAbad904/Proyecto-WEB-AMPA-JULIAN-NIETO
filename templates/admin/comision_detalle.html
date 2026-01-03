@@ -630,7 +630,11 @@
     {% set drive_upload_url = url_for('api.commission_drive_files_upload', commission_id=commission.id) %}
     {% set drive_download_url = url_for('api.commission_drive_files_download', commission_id=commission.id, file_id='__FILE_ID__') %}
     {% set drive_delete_url = url_for('api.commission_drive_files_delete', commission_id=commission.id, file_id='__FILE_ID__') %}
+    {% set drive_history_url = url_for('api.commission_drive_files_history', commission_id=commission.id) %}
+    {% set drive_restore_url = url_for('api.commission_drive_files_restore', commission_id=commission.id, file_id='__FILE_ID__') %}
+    {% set drive_description_url = url_for('api.commission_drive_files_update_description', commission_id=commission.id, file_id='__FILE_ID__') %}
     {% set drive_can_delete = can_manage_drive_files %}
+    {% set drive_can_history = can_view_drive_history %}
     {% include 'shared/drive_files_widget.html' %}
 
     </div>

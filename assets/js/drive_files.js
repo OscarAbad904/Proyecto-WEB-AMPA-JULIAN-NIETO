@@ -32,24 +32,52 @@
     const uploadUrl = widget.dataset.driveUploadUrl || listUrl;
     const downloadUrlTemplate = widget.dataset.driveDownloadUrl;
     const deleteUrlTemplate = widget.dataset.driveDeleteUrl;
+    const historyUrl = widget.dataset.driveHistoryUrl;
+    const restoreUrlTemplate = widget.dataset.driveRestoreUrl;
+    const descriptionUrlTemplate = widget.dataset.driveDescriptionUrl;
     const canDelete = widget.dataset.driveCanDelete === 'true';
+    const canHistory = widget.dataset.driveCanHistory === 'true';
     const dropzone = widget.querySelector('[data-drive-dropzone]');
     const fileInput = widget.querySelector('[data-drive-input]');
+    const descModal = widget.querySelector('[data-drive-desc-modal]');
+    const descTitle = widget.querySelector('[data-drive-desc-title]');
+    const descHint = widget.querySelector('[data-drive-desc-hint]');
+    const descClose = widget.querySelector('[data-drive-desc-close]');
+    const descEnabled = widget.querySelector('[data-drive-desc-enabled]');
+    const descText = widget.querySelector('[data-drive-desc-text]');
+    const descCancel = widget.querySelector('[data-drive-desc-cancel]');
+    const descConfirm = widget.querySelector('[data-drive-desc-confirm]');
     const statusEl = widget.querySelector('[data-drive-status]');
     const listBtn = widget.querySelector('[data-drive-open-list]');
     const listModal = widget.querySelector('[data-drive-list-modal]');
+    const listHead = widget.querySelector('[data-drive-list-head]');
     const listBody = widget.querySelector('[data-drive-list-body]');
     const listClose = widget.querySelector('[data-drive-list-close]');
     const listRefresh = widget.querySelector('[data-drive-list-refresh]');
+    const listHistoryBtn = widget.querySelector('[data-drive-history-btn]');
+    const listBackBtn = widget.querySelector('[data-drive-back-btn]');
+    const listSearch = widget.querySelector('[data-drive-list-search]');
     const conflictModal = widget.querySelector('[data-drive-conflict-modal]');
     const conflictBody = widget.querySelector('[data-drive-conflict-body]');
     const conflictClose = widget.querySelector('[data-drive-conflict-close]');
     const conflictConfirm = widget.querySelector('[data-drive-conflict-confirm]');
+    const dialogModal = widget.querySelector('[data-drive-dialog-modal]');
+    const dialogTitle = widget.querySelector('[data-drive-dialog-title]');
+    const dialogMessage = widget.querySelector('[data-drive-dialog-message]');
+    const dialogClose = widget.querySelector('[data-drive-dialog-close]');
+    const dialogCancel = widget.querySelector('[data-drive-dialog-cancel]');
+    const dialogConfirm = widget.querySelector('[data-drive-dialog-confirm]');
     const scopeLabel = widget.dataset.driveLabel || 'comision';
     const supportsDirectoryPicker = typeof window.showDirectoryPicker === 'function';
     const countEl = widget.querySelector('[data-drive-count]');
 
     let pendingFiles = [];
+  let currentListMode = 'active';
+    let currentListColCount = 5;
+    let pendingUploadDescription = '';
+    let pendingDescMode = null; // 'upload' | 'edit'
+    let pendingDescFileId = null;
+    let pendingDescFileName = null;
 
     const setStatus = (message, tone, isLoading) => {
       if (!statusEl) return;
@@ -79,6 +107,112 @@
       modal.setAttribute('aria-hidden', show ? 'false' : 'true');
     };
 
+    const showDialog = ({
+      title,
+      message,
+      confirmText,
+      cancelText,
+      showCancel
+    }) => {
+      if (!dialogModal) return Promise.resolve(false);
+
+      if (dialogTitle) dialogTitle.textContent = title || 'Confirmación';
+      if (dialogMessage) dialogMessage.textContent = message || '';
+
+      if (dialogConfirm) dialogConfirm.textContent = confirmText || 'Aceptar';
+      if (dialogCancel) dialogCancel.textContent = cancelText || 'Cancelar';
+
+      const wantsCancel = showCancel !== false;
+      if (dialogCancel) dialogCancel.style.display = wantsCancel ? '' : 'none';
+
+      toggleModal(dialogModal, true);
+
+      return new Promise((resolve) => {
+        let resolved = false;
+        const cleanup = () => {
+          dialogModal.removeEventListener('click', onOverlayClick);
+          if (dialogClose) dialogClose.removeEventListener('click', onCancel);
+          if (dialogCancel) dialogCancel.removeEventListener('click', onCancel);
+          if (dialogConfirm) dialogConfirm.removeEventListener('click', onConfirm);
+          document.removeEventListener('keydown', onEscape);
+        };
+
+        const finish = (value) => {
+          if (resolved) return;
+          resolved = true;
+          cleanup();
+          toggleModal(dialogModal, false);
+          resolve(value);
+        };
+
+        const onConfirm = () => finish(true);
+        const onCancel = () => finish(false);
+        const onOverlayClick = (event) => {
+          if (event.target === dialogModal) onCancel();
+        };
+        const onEscape = (event) => {
+          if (event.key === 'Escape') onCancel();
+        };
+
+        dialogModal.addEventListener('click', onOverlayClick);
+        if (dialogClose) dialogClose.addEventListener('click', onCancel);
+        if (dialogCancel) dialogCancel.addEventListener('click', onCancel);
+        if (dialogConfirm) dialogConfirm.addEventListener('click', onConfirm);
+        document.addEventListener('keydown', onEscape);
+      });
+    };
+
+    const openDescriptionModalForUpload = (files) => {
+      if (!descModal) {
+        // Sin modal, subimos sin descripción.
+        pendingUploadDescription = '';
+        uploadFiles();
+        return;
+      }
+
+      pendingDescMode = 'upload';
+      pendingDescFileId = null;
+      pendingDescFileName = null;
+
+      const count = files ? files.length : 0;
+      if (descTitle) descTitle.textContent = 'Descripción de la subida';
+      if (descHint) {
+        if (count > 1) {
+          descHint.textContent = `Has seleccionado ${count} archivos. La misma descripción se aplicará a todos. Puedes dejarla en blanco y editarla más tarde.`;
+        } else {
+          descHint.textContent = 'Puedes añadir una descripción al archivo. Puedes dejarla en blanco y editarla más tarde.';
+        }
+      }
+
+      if (descEnabled) descEnabled.checked = false;
+      if (descText) {
+        descText.value = '';
+        descText.disabled = true;
+      }
+
+      toggleModal(descModal, true);
+    };
+
+    const openDescriptionModalForEdit = (fileId, fileName, currentValue) => {
+      if (!descModal || !descriptionUrlTemplate) return;
+
+      pendingDescMode = 'edit';
+      pendingDescFileId = fileId;
+      pendingDescFileName = fileName;
+
+      if (descTitle) descTitle.textContent = 'Editar descripción';
+      if (descHint) descHint.textContent = `Archivo: ${fileName || 'archivo'}`;
+
+      if (descEnabled) descEnabled.checked = true;
+      if (descText) {
+        descText.disabled = false;
+        descText.value = (currentValue || '').toString();
+        setTimeout(() => descText.focus(), 0);
+      }
+
+      toggleModal(descModal, true);
+    };
+
     const cancelConflicts = () => {
       pendingFiles = [];
       if (fileInput) fileInput.value = '';
@@ -88,6 +222,7 @@
 
     const closeModalOnEscape = (event) => {
       if (event.key !== 'Escape') return;
+      if (dialogModal && dialogModal.classList.contains('open')) return;
       if (listModal && listModal.classList.contains('open')) toggleModal(listModal, false);
       if (conflictModal && conflictModal.classList.contains('open')) {
         toggleModal(conflictModal, false);
@@ -100,7 +235,7 @@
     const prepareFiles = (files) => {
       if (!files || !files.length) return;
       pendingFiles = Array.from(files);
-      uploadFiles();
+      openDescriptionModalForUpload(pendingFiles);
     };
 
     const buildConflictRow = (conflict, index) => {
@@ -120,7 +255,8 @@
       const groupName = `drive-conflict-${index}`;
 
       const optionOverwrite = document.createElement('label');
-      optionOverwrite.innerHTML = `<input type="radio" name="${groupName}" value="overwrite"> Sobrescribir`;
+      const canOverwrite = conflict.canOverwrite !== false;
+      optionOverwrite.innerHTML = `<input type="radio" name="${groupName}" value="overwrite" ${canOverwrite ? '' : 'disabled'}> Sobrescribir`;
 
       const optionRename = document.createElement('label');
       optionRename.innerHTML = `<input type="radio" name="${groupName}" value="rename"> Renombrar`;
@@ -139,6 +275,13 @@
       });
 
       options.append(optionOverwrite, optionRename, optionSkip, renameInput);
+
+      if (!canOverwrite) {
+        const note = document.createElement('div');
+        note.className = 'drive-conflict-note';
+        note.textContent = 'No tienes permiso para sobrescribir (solo 2 días para el autor; luego coordinadores/administradores).';
+        options.appendChild(note);
+      }
 
       options.addEventListener('change', (event) => {
         const target = event.target;
@@ -165,6 +308,7 @@
 
       const formData = new FormData();
       pendingFiles.forEach((file) => formData.append('files', file, file.name));
+      formData.append('description', pendingUploadDescription || '');
       if (resolutions) formData.append('resolutions', JSON.stringify(resolutions));
 
       setBusy(true);
@@ -200,8 +344,20 @@
         const message = `Archivos subidos: ${uploaded.length}. Omitidos: ${skipped.length}.`;
         setBusy(false);
         setStatus(message, 'success', false);
+
+        if (uploaded.length) {
+          await showDialog({
+            title: 'Normas de edición',
+            message:
+              'Puedes modificar o eliminar los archivos que subas durante los próximos 2 días. Pasado ese plazo, solo coordinadores/administradores podrán hacerlo.',
+            confirmText: 'Entendido',
+            showCancel: false
+          });
+        }
+
         pendingFiles = [];
         if (fileInput) fileInput.value = '';
+        pendingUploadDescription = '';
         if (listModal && listModal.classList.contains('open')) loadFileList();
         refreshCount();
       } catch (err) {
@@ -210,26 +366,132 @@
       }
     };
 
-    const loadFileList = async () => {
-      if (!listUrl) return;
+    const setTableHead = (mode) => {
+      if (!listHead) return;
+      if (mode === 'history') {
+        listHead.innerHTML = `
+          <tr>
+            <th>Nombre</th>
+            <th>Descripción</th>
+            <th>Subido</th>
+            <th>Modificado</th>
+            <th>Eliminado</th>
+            <th></th>
+          </tr>
+        `;
+        return;
+      }
+
+      listHead.innerHTML = `
+        <tr>
+          <th>Nombre</th>
+          <th>Descripción</th>
+          <th>Modificado</th>
+          <th>Subido</th>
+          <th></th>
+        </tr>
+      `;
+    };
+
+    const renderEmptyRow = (colspan, message) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td colspan="${colspan}" class="drive-files-empty">${message}</td>`;
+      return row;
+    };
+
+    const applySearchFilter = () => {
+      if (!listSearch || !listBody) return;
+      const query = (listSearch.value || '').trim().toLowerCase();
+
+      // Eliminar row de "sin resultados" previa.
+      const oldEmpty = listBody.querySelector('tr[data-drive-search-empty]');
+      if (oldEmpty) oldEmpty.remove();
+
+      const rows = Array.from(listBody.querySelectorAll('tr'));
+      let visible = 0;
+
+      rows.forEach((row) => {
+        if (row.querySelector('.drive-files-empty')) return;
+        const haystack = (row.dataset.searchText || '').toLowerCase();
+        const match = !query || haystack.includes(query);
+        row.style.display = match ? '' : 'none';
+        if (match) visible += 1;
+      });
+
+      if (!query) return;
+
+      if (visible === 0 && rows.length) {
+        const empty = renderEmptyRow(currentListColCount, 'No hay resultados para la búsqueda.');
+        empty.setAttribute('data-drive-search-empty', 'true');
+        listBody.appendChild(empty);
+      }
+    };
+
+    const renderDescriptionCell = (file) => {
+      const cell = document.createElement('td');
+      const wrap = document.createElement('div');
+      wrap.className = 'drive-files-desc-wrap';
+
+      const text = document.createElement('span');
+      text.className = 'drive-files-desc-text';
+      text.textContent = (file.description || '').toString() || '—';
+      wrap.appendChild(text);
+
+      const canEditDescription =
+        file && typeof file.canEditDescription === 'boolean' ? file.canEditDescription : canDelete;
+      if (canEditDescription && descriptionUrlTemplate) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'drive-files-edit-desc';
+        btn.setAttribute('title', 'Editar descripción');
+        btn.setAttribute('aria-label', 'Editar descripción');
+        btn.setAttribute('data-drive-edit-desc', '');
+        btn.dataset.fileId = file.id;
+        btn.dataset.fileName = file.name || 'archivo';
+        btn.dataset.currentDescription = (file.description || '').toString();
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M12 20h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        wrap.appendChild(btn);
+      }
+
+      cell.appendChild(wrap);
+      return cell;
+    };
+
+    const loadFileList = async (mode) => {
+      const resolvedMode = mode || currentListMode || 'active';
+      currentListMode = resolvedMode;
+
+      const url = resolvedMode === 'history' ? historyUrl : listUrl;
+      const colCount = resolvedMode === 'history' ? 6 : 5;
+      currentListColCount = colCount;
+      if (!url) return;
       if (!listBody) return;
       listBody.innerHTML = '';
-      const row = document.createElement('tr');
-      row.innerHTML = `<td colspan="4" class="drive-files-empty">Cargando archivos...</td>`;
-      listBody.appendChild(row);
+
+      setTableHead(resolvedMode);
+      listBody.appendChild(renderEmptyRow(colCount, 'Cargando archivos...'));
+
+      if (listHistoryBtn) {
+        listHistoryBtn.style.display = canHistory && historyUrl ? '' : 'none';
+      }
+      if (listBackBtn) {
+        listBackBtn.style.display = resolvedMode === 'history' ? '' : 'none';
+      }
 
       try {
-        const response = await fetch(listUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
         const data = await response.json();
         if (!data.ok) {
-          listBody.innerHTML = `<tr><td colspan="4" class="drive-files-empty">${data.error || 'No se pudo cargar la lista.'}</td></tr>`;
+          listBody.innerHTML = '';
+          listBody.appendChild(renderEmptyRow(colCount, data.error || 'No se pudo cargar la lista.'));
           return;
         }
 
         const files = data.files || [];
-        setCount(files.length);
+        if (resolvedMode === 'active') setCount(files.length);
         if (!files.length) {
-          listBody.innerHTML = `<tr><td colspan="4" class="drive-files-empty">No hay archivos en la carpeta.</td></tr>`;
+          listBody.innerHTML = '';
+          listBody.appendChild(renderEmptyRow(colCount, 'No hay archivos en la carpeta.'));
           return;
         }
 
@@ -239,17 +501,48 @@
             ? downloadUrlTemplate.replace('__FILE_ID__', file.id)
             : '#';
           const rowEl = document.createElement('tr');
+          rowEl.dataset.searchText = `${(file.name || '').toString()} ${(file.description || '').toString()}`.trim();
           const nameCell = document.createElement('td');
           const nameText = document.createElement('span');
           nameText.className = 'drive-files-name';
           nameText.textContent = file.name || '-';
           nameCell.appendChild(nameText);
 
-          const modifiedCell = document.createElement('td');
-          modifiedCell.textContent = formatModifiedDate(file.modifiedTime, file.createdTime);
+          const descCell = renderDescriptionCell(file);
 
-          const createdCell = document.createElement('td');
-          createdCell.textContent = formatDate(file.createdTime);
+          const buildAuditCell = (whenValue, byValue) => {
+            const cell = document.createElement('td');
+            const wrap = document.createElement('div');
+            wrap.className = 'drive-files-audit';
+            const dateEl = document.createElement('div');
+            dateEl.className = 'drive-files-audit__date';
+            dateEl.textContent = formatDate(whenValue);
+            const byEl = document.createElement('div');
+            byEl.className = 'drive-files-audit__by';
+            byEl.textContent = byValue ? `por ${byValue}` : '-';
+            wrap.append(dateEl, byEl);
+            cell.appendChild(wrap);
+            return cell;
+          };
+
+          let uploadedOrCreatedCell;
+          let modifiedCell;
+          let deletedCell = null;
+
+          if (resolvedMode === 'history') {
+            uploadedOrCreatedCell = buildAuditCell(file.uploadedAt, file.uploadedBy);
+            modifiedCell = buildAuditCell(file.modifiedAt, file.modifiedBy);
+            deletedCell = buildAuditCell(file.deletedAt, file.deletedBy);
+          } else {
+            uploadedOrCreatedCell = document.createElement('td');
+            uploadedOrCreatedCell.textContent = formatDate(file.createdTime);
+
+            modifiedCell = document.createElement('td');
+            const modifiedLabel = file.modifiedAt
+              ? formatDate(file.modifiedAt)
+              : formatModifiedDate(file.modifiedTime, file.createdTime);
+            modifiedCell.textContent = modifiedLabel;
+          }
 
           const actionCell = document.createElement('td');
           const actionWrap = document.createElement('div');
@@ -266,7 +559,9 @@
           downloadLink.dataset.fileName = file.name || 'archivo';
           actionWrap.appendChild(downloadLink);
 
-          if (canDelete && deleteUrlTemplate) {
+          const canDeleteFile =
+            file && typeof file.canDelete === 'boolean' ? file.canDelete : canDelete;
+          if (canDeleteFile && deleteUrlTemplate) {
             const deleteBtn = document.createElement('button');
             deleteBtn.type = 'button';
             deleteBtn.className = 'drive-files-delete';
@@ -279,14 +574,94 @@
             actionWrap.appendChild(deleteBtn);
           }
 
+          const canRestoreFile =
+            file && typeof file.canRestore === 'boolean' ? file.canRestore : false;
+          if (resolvedMode === 'history' && restoreUrlTemplate && file.deletedAt && canRestoreFile) {
+            const restoreBtn = document.createElement('button');
+            restoreBtn.type = 'button';
+            restoreBtn.className = 'drive-files-restore';
+            restoreBtn.setAttribute('aria-label', 'Restaurar archivo');
+            restoreBtn.setAttribute('title', 'Restaurar');
+            restoreBtn.setAttribute('data-drive-restore', '');
+            restoreBtn.dataset.fileId = file.id;
+            restoreBtn.dataset.fileName = file.name || 'archivo';
+            restoreBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 4v5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            actionWrap.appendChild(restoreBtn);
+          }
+
           actionCell.appendChild(actionWrap);
 
-          rowEl.append(nameCell, modifiedCell, createdCell, actionCell);
+          if (resolvedMode === 'history') {
+            rowEl.append(nameCell, descCell, uploadedOrCreatedCell, modifiedCell, deletedCell, actionCell);
+          } else {
+            rowEl.append(nameCell, descCell, modifiedCell, uploadedOrCreatedCell, actionCell);
+          }
           listBody.appendChild(rowEl);
         });
+
+        applySearchFilter();
       } catch (err) {
-        setCount(null);
-        listBody.innerHTML = `<tr><td colspan="4" class="drive-files-empty">Error cargando archivos.</td></tr>`;
+        if (resolvedMode === 'active') setCount(null);
+        listBody.innerHTML = '';
+        listBody.appendChild(renderEmptyRow(colCount, 'Error cargando archivos.'));
+      }
+    };
+
+    const saveDescription = async (fileId, value) => {
+      if (!descriptionUrlTemplate || !fileId) return;
+      const url = descriptionUrlTemplate.replace('__FILE_ID__', fileId);
+      setStatus('Guardando descripcion...', null, true);
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({ description: value || '' })
+        });
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.error || 'save_failed');
+        setStatus('Descripcion guardada.', 'success', false);
+      } catch (err) {
+        setStatus('No se pudo guardar la descripcion.', 'error', false);
+      }
+    };
+
+    const restoreFile = async (fileId, fileName) => {
+      if (!restoreUrlTemplate || !fileId) return;
+      const confirmed = await showDialog({
+        title: 'Restaurar archivo',
+        message: `¿Restaurar "${fileName || 'archivo'}"?`,
+        confirmText: 'Restaurar',
+        cancelText: 'Cancelar',
+        showCancel: true
+      });
+      if (!confirmed) return;
+      const url = restoreUrlTemplate.replace('__FILE_ID__', fileId);
+      setStatus('Restaurando archivo...', null, true);
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin'
+        });
+        const data = await response.json();
+        if (!data.ok) {
+          await showDialog({
+            title: 'No se pudo restaurar',
+            message: data.error || 'No se pudo restaurar el archivo.',
+            confirmText: 'Cerrar',
+            showCancel: false
+          });
+          throw new Error(data.error || 'restore_failed');
+        }
+        setStatus('Archivo restaurado.', 'success', false);
+        loadFileList('history');
+        refreshCount();
+      } catch (err) {
+        setStatus('No se pudo restaurar el archivo.', 'error', false);
       }
     };
 
@@ -338,7 +713,13 @@
 
     const deleteFile = async (fileId, fileName) => {
       if (!deleteUrlTemplate || !fileId) return;
-      const confirmed = window.confirm(`Eliminar "${fileName || 'archivo'}"?`);
+      const confirmed = await showDialog({
+        title: 'Eliminar archivo',
+        message: `¿Eliminar "${fileName || 'archivo'}"?`,
+        confirmText: 'Eliminar',
+        cancelText: 'Cancelar',
+        showCancel: true
+      });
       if (!confirmed) return;
       const deleteUrl = deleteUrlTemplate.replace('__FILE_ID__', fileId);
       setStatus('Eliminando archivo...', null, true);
@@ -350,6 +731,12 @@
         });
         const data = await response.json();
         if (!data.ok) {
+          await showDialog({
+            title: 'No se pudo eliminar',
+            message: data.error || 'No se pudo eliminar el archivo.',
+            confirmText: 'Cerrar',
+            showCancel: false
+          });
           throw new Error(data.error || 'delete_failed');
         }
         setStatus('Archivo eliminado.', 'success', false);
@@ -386,8 +773,15 @@
     if (listBtn) {
       listBtn.addEventListener('click', () => {
         toggleModal(listModal, true);
-        loadFileList();
+        loadFileList('active');
+        if (listSearch) {
+          listSearch.value = '';
+        }
       });
+    }
+
+    if (listSearch) {
+      listSearch.addEventListener('input', () => applySearchFilter());
     }
 
     if (listClose && listModal) {
@@ -398,7 +792,22 @@
     }
 
     if (listRefresh) {
-      listRefresh.addEventListener('click', loadFileList);
+      listRefresh.addEventListener('click', () => loadFileList());
+    }
+
+    if (listHistoryBtn) {
+      if (!(canHistory && historyUrl)) {
+        listHistoryBtn.style.display = 'none';
+      }
+      listHistoryBtn.addEventListener('click', () => {
+        loadFileList('history');
+      });
+    }
+
+    if (listBackBtn) {
+      listBackBtn.addEventListener('click', () => {
+        loadFileList('active');
+      });
     }
 
     if (listBody) {
@@ -410,6 +819,24 @@
           return;
         }
 
+        const restoreBtn = event.target.closest('[data-drive-restore]');
+        if (restoreBtn) {
+          event.preventDefault();
+          restoreFile(restoreBtn.dataset.fileId, restoreBtn.dataset.fileName);
+          return;
+        }
+
+        const editBtn = event.target.closest('[data-drive-edit-desc]');
+        if (editBtn) {
+          event.preventDefault();
+          openDescriptionModalForEdit(
+            editBtn.dataset.fileId,
+            editBtn.dataset.fileName,
+            editBtn.dataset.currentDescription
+          );
+          return;
+        }
+
         const downloadLink = event.target.closest('[data-drive-download]');
         if (downloadLink) {
           if (!supportsDirectoryPicker) {
@@ -418,6 +845,66 @@
           }
           event.preventDefault();
           downloadWithPicker(downloadLink.href, downloadLink.dataset.fileName);
+        }
+      });
+    }
+
+    if (descEnabled && descText) {
+      descEnabled.addEventListener('change', () => {
+        const enabled = Boolean(descEnabled.checked);
+        descText.disabled = !enabled;
+        if (enabled) {
+          descText.focus();
+        } else {
+          descText.value = '';
+        }
+      });
+    }
+
+    const closeDescModal = () => {
+      if (!descModal) return;
+      toggleModal(descModal, false);
+      pendingDescMode = null;
+      pendingDescFileId = null;
+      pendingDescFileName = null;
+    };
+
+    if (descClose) descClose.addEventListener('click', closeDescModal);
+    if (descCancel) descCancel.addEventListener('click', () => {
+      if (pendingDescMode === 'upload') {
+        cancelConflicts();
+      }
+      closeDescModal();
+    });
+    if (descModal) {
+      descModal.addEventListener('click', (event) => {
+        if (event.target === descModal) {
+          if (pendingDescMode === 'upload') {
+            cancelConflicts();
+          }
+          closeDescModal();
+        }
+      });
+    }
+
+    if (descConfirm) {
+      descConfirm.addEventListener('click', () => {
+        const wants = descEnabled ? Boolean(descEnabled.checked) : false;
+        const value = wants && descText ? descText.value.trim() : '';
+
+        if (pendingDescMode === 'upload') {
+          pendingUploadDescription = value;
+          closeDescModal();
+          uploadFiles();
+          return;
+        }
+
+        if (pendingDescMode === 'edit' && pendingDescFileId) {
+          const fileId = pendingDescFileId;
+          closeDescModal();
+          saveDescription(fileId, value);
+          // refresca lista para reflejar el cambio
+          loadFileList();
         }
       });
     }

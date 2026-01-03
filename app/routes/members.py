@@ -1148,9 +1148,11 @@ def commission_detail(slug: str):
     can_create_discussions = can_manage_discussions
     can_manage_drive_files = (
         _user_is_commission_coordinator(membership)
+        or current_user.has_permission("manage_commission_drive_files")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
+    can_view_drive_history = can_manage_drive_files or current_user.has_permission("view_commission_drive_history")
 
     next_meeting = upcoming_meetings[0] if upcoming_meetings else None
 
@@ -1178,6 +1180,7 @@ def commission_detail(slug: str):
         can_edit_commission=can_edit_commission,
         can_create_discussions=can_create_discussions,
         can_manage_drive_files=can_manage_drive_files,
+        can_view_drive_history=can_view_drive_history,
     )
 
 
@@ -1244,9 +1247,11 @@ def commission_project_detail(slug: str, project_id: int):
     )
     can_manage_drive_files = (
         _user_is_commission_coordinator(membership)
+        or current_user.has_permission("manage_commission_drive_files")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
+    can_view_drive_history = can_manage_drive_files or current_user.has_permission("view_commission_drive_history")
 
     if return_to:
         back_url = return_to
@@ -1275,6 +1280,7 @@ def commission_project_detail(slug: str, project_id: int):
         can_manage_projects=can_manage_projects,
         can_manage_meetings=can_manage_meetings,
         can_manage_drive_files=can_manage_drive_files,
+        can_view_drive_history=can_view_drive_history,
         return_to=return_to,
         back_url=back_url,
         back_label=back_label,
