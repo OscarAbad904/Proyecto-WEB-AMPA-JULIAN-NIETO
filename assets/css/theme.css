@@ -62,3 +62,11 @@ body {
   color: #34d399;
   border-color: rgba(16, 185, 129, 0.45);
 }
+
+.chip--new {
+  background: var(--color-accent, #f97316);
+  color: var(--color-bg-mid, #ffffff);
+  border-color: transparent;
+  font-weight: 600;
+  font-size: 0.75rem;
+}

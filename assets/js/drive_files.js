@@ -70,6 +70,7 @@
     const scopeLabel = widget.dataset.driveLabel || 'comision';
     const supportsDirectoryPicker = typeof window.showDirectoryPicker === 'function';
     const countEl = widget.querySelector('[data-drive-count]');
+    const newChipEl = widget.querySelector('[data-drive-new-chip]');
 
     let pendingFiles = [];
   let currentListMode = 'active';
@@ -99,6 +100,37 @@
         return;
       }
       countEl.textContent = 'Archivos: -';
+    };
+
+    const setNewChip = (files) => {
+      if (!newChipEl) return;
+      const list = Array.isArray(files) ? files : [];
+      const anyNew = list.some((file) => Boolean(file && file.isNew));
+      newChipEl.style.display = anyNew ? '' : 'none';
+    };
+
+    const markFilesSeen = async (files) => {
+      const list = Array.isArray(files) ? files : [];
+      const pending = list
+        .filter((file) => file && file.isNew && file.dbId)
+        .map((file) => file.dbId);
+      if (!pending.length) return;
+
+      try {
+        for (const dbId of pending) {
+          await fetch('/api/me/seen', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ item_type: 'drivefile', item_id: dbId })
+          }).catch(() => null);
+        }
+      } catch (err) {
+        // Silencioso: el UI no depende de esto.
+      }
     };
 
     const toggleModal = (modal, show) => {
@@ -489,6 +521,7 @@
 
         const files = data.files || [];
         if (resolvedMode === 'active') setCount(files.length);
+        if (resolvedMode === 'active') setNewChip(files);
         if (!files.length) {
           listBody.innerHTML = '';
           listBody.appendChild(renderEmptyRow(colCount, 'No hay archivos en la carpeta.'));
@@ -507,6 +540,14 @@
           nameText.className = 'drive-files-name';
           nameText.textContent = file.name || '-';
           nameCell.appendChild(nameText);
+
+          if (file && file.isNew) {
+            const chip = document.createElement('span');
+            chip.className = 'chip chip--new';
+            chip.textContent = 'Nuevo';
+            chip.style.marginLeft = '0.5rem';
+            nameCell.appendChild(chip);
+          }
 
           const descCell = renderDescriptionCell(file);
 
@@ -600,8 +641,16 @@
         });
 
         applySearchFilter();
+
+        if (resolvedMode === 'active') {
+          // Marcamos como vistos al abrir el modal/lista.
+          setTimeout(() => {
+            markFilesSeen(files);
+          }, 0);
+        }
       } catch (err) {
         if (resolvedMode === 'active') setCount(null);
+        if (resolvedMode === 'active') setNewChip([]);
         listBody.innerHTML = '';
         listBody.appendChild(renderEmptyRow(colCount, 'Error cargando archivos.'));
       }
@@ -672,11 +721,15 @@
         const data = await response.json();
         if (!data.ok) {
           setCount(null);
+          setNewChip([]);
           return;
         }
-        setCount((data.files || []).length);
+        const files = data.files || [];
+        setCount(files.length);
+        setNewChip(files);
       } catch (err) {
         setCount(null);
+        setNewChip([]);
       }
     };
 

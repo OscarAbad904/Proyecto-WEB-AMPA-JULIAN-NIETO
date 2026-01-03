@@ -595,6 +595,9 @@
             <div class="item-top">
               <div class="meta">
                 <span class="chip">{{ discussion.status }}</span>
+                {% if is_new_by_discussion_id is defined and is_new_by_discussion_id.get(discussion.id) %}
+                  <span class="chip chip--new">Nuevo</span>
+                {% endif %}
                 <span>{{ discussion_vote_counts.get(discussion.id, 0) }} votos</span>
                 {% if discussion.updated_at %}
                   <span>Actualizada: {{ discussion.updated_at.strftime("%d/%m/%Y %H:%M") }}</span>
@@ -665,6 +668,9 @@
             <div class="item-top">
               <div class="meta">
                 <span class="chip">{{ project.status.replace("_", " ") }}</span>
+                {% if is_new_by_project_id is defined and is_new_by_project_id.get(project.id) %}
+                  <span class="chip chip--new">Nuevo</span>
+                {% endif %}
                 {% if project.responsible %}
                   <span>Responsable: {{ project.responsible.display_name }}</span>
                 {% endif %}
@@ -936,6 +942,26 @@
         }
       });
     };
+  })();
+</script>
+
+<script>
+  (function () {
+    const endpoint = {{ url_for('api.me_mark_seen') | tojson }};
+    const payload = { item_type: 'commission', item_id: {{ commission.id }} };
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    }).then(function (res) {
+      if (!res || !res.ok) return;
+      if (typeof window.refreshUnreadCounts === 'function') {
+        window.refreshUnreadCounts();
+      }
+    }).catch(function () {
+      // silencioso
+    });
   })();
 </script>
 {% endblock %}

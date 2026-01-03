@@ -300,6 +300,27 @@
 
 {% block scripts %}
   <script>
+    (function () {
+      try {
+        const endpoint = {{ url_for('api.me_mark_seen') | tojson }};
+        const payload = { item_type: 'suggestion', item_id: {{ suggestion.id }} };
+        fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          credentials: 'same-origin',
+        }).then(function (res) {
+          if (!res || !res.ok) return;
+          if (typeof window.refreshUnreadCounts === 'function') {
+            window.refreshUnreadCounts();
+          }
+        }).catch(function () {});
+      } catch (e) {}
+    })();
+
     function toggleEdit(commentId, event) {
       if (event) event.stopPropagation();
       const body = document.getElementById(`comment-body-${commentId}`);

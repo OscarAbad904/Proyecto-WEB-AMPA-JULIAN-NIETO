@@ -12,6 +12,8 @@ from app.models import (
     CommissionMembership,
     Commission,
     CommissionProject,
+    Suggestion,
+    Comment,
     DriveFile,
     DriveFileEvent,
     Event,
@@ -69,6 +71,13 @@ def me_unread_counts():
 
     posts_unread = 0
     events_unread = 0
+    commissions_unread = 0
+    commissions_unread_breakdown = {
+        "commissions": 0,
+        "projects": 0,
+        "discussions": 0,
+        "files": 0,
+    }
 
     if post_ids:
         try:
@@ -100,11 +109,157 @@ def me_unread_counts():
             db.session.rollback()
             events_unread = len(event_ids)
 
+    # Novedades en Comisiones para el usuario (solo ámbito donde es miembro activo):
+    # - Comisión: no vista.
+    # - Proyecto: no visto.
+    # - Discusión: no vista o con comentarios posteriores a la última visita.
+    # - Archivos: registros DriveFile no vistos (solo si existen en DB; se crean al listar la carpeta).
+    try:
+        member_commission_ids = [
+            commission_id
+            for (commission_id,) in (
+                CommissionMembership.query.with_entities(CommissionMembership.commission_id)
+                .join(Commission)
+                .filter(
+                    CommissionMembership.user_id == current_user.id,
+                    CommissionMembership.is_active.is_(True),
+                    Commission.is_active.is_(True),
+                )
+                .all()
+            )
+        ]
+        if member_commission_ids:
+            # 1) Comisiones no vistas.
+            seen_commission_ids = {
+                row.item_id
+                for row in (
+                    UserSeenItem.query.filter_by(user_id=current_user.id, item_type="commission")
+                    .filter(UserSeenItem.item_id.in_(member_commission_ids))
+                    .all()
+                )
+            }
+            commissions_new = len(set(member_commission_ids) - seen_commission_ids)
+
+            # 2) Proyectos activos no vistos.
+            active_project_statuses = ("pendiente", "en_progreso")
+            project_ids = [
+                project_id
+                for (project_id,) in (
+                    CommissionProject.query.with_entities(CommissionProject.id)
+                    .filter(CommissionProject.commission_id.in_(member_commission_ids))
+                    .filter(CommissionProject.status.in_(active_project_statuses))
+                    .all()
+                )
+            ]
+            seen_project_ids: set[int] = set()
+            if project_ids:
+                seen_project_ids = {
+                    row.item_id
+                    for row in (
+                        UserSeenItem.query.filter_by(user_id=current_user.id, item_type="c_project")
+                        .filter(UserSeenItem.item_id.in_(project_ids))
+                        .all()
+                    )
+                }
+            projects_new = len(set(project_ids) - seen_project_ids)
+
+            # 3) Discusiones (comisión + proyecto) no vistas o con comentarios nuevos.
+            categories = [f"comision:{cid}" for cid in member_commission_ids]
+            if project_ids:
+                categories.extend([f"proyecto:{pid}" for pid in project_ids])
+
+            discussion_ids: list[int] = []
+            if categories:
+                discussion_ids = [
+                    suggestion_id
+                    for (suggestion_id,) in (
+                        Suggestion.query.with_entities(Suggestion.id)
+                        .filter(Suggestion.category.in_(categories))
+                        .filter(Suggestion.status.in_(("pendiente", "aprobada")))
+                        .all()
+                    )
+                ]
+
+            discussions_new = 0
+            if discussion_ids:
+                seen_rows = (
+                    UserSeenItem.query.filter_by(user_id=current_user.id, item_type="suggestion")
+                    .filter(UserSeenItem.item_id.in_(discussion_ids))
+                    .all()
+                )
+                seen_at_by_discussion_id = {row.item_id: row.seen_at for row in seen_rows}
+                unseen_discussion_ids = set(discussion_ids) - set(seen_at_by_discussion_id.keys())
+
+                latest_comment_rows = (
+                    db.session.query(Comment.suggestion_id, sa.func.max(Comment.created_at))
+                    .filter(Comment.suggestion_id.in_(discussion_ids))
+                    .group_by(Comment.suggestion_id)
+                    .all()
+                )
+                latest_comment_at_by_discussion_id = {
+                    suggestion_id: latest_at for suggestion_id, latest_at in latest_comment_rows
+                }
+
+                updated_discussion_ids = set()
+                for discussion_id, seen_at in seen_at_by_discussion_id.items():
+                    latest_comment_at = latest_comment_at_by_discussion_id.get(discussion_id)
+                    if latest_comment_at and seen_at and latest_comment_at > seen_at:
+                        updated_discussion_ids.add(discussion_id)
+
+                discussions_new = len(unseen_discussion_ids) + len(updated_discussion_ids)
+
+            # 4) Archivos no vistos (solo registros ya conocidos; se crean al listar).
+            drive_db_ids = [
+                file_db_id
+                for (file_db_id,) in (
+                    DriveFile.query.with_entities(DriveFile.id)
+                    .filter(DriveFile.deleted_at.is_(None))
+                    .filter(
+                        sa.or_(
+                            sa.and_(
+                                DriveFile.scope_type == "commission",
+                                DriveFile.scope_id.in_(member_commission_ids),
+                            ),
+                            sa.and_(
+                                DriveFile.scope_type == "project",
+                                DriveFile.scope_id.in_(project_ids or [-1]),
+                            ),
+                        )
+                    )
+                    .all()
+                )
+            ]
+            files_new = 0
+            if drive_db_ids:
+                seen_drive_ids = {
+                    row.item_id
+                    for row in (
+                        UserSeenItem.query.filter_by(user_id=current_user.id, item_type="drivefile")
+                        .filter(UserSeenItem.item_id.in_(drive_db_ids))
+                        .all()
+                    )
+                }
+                files_new = len(set(drive_db_ids) - seen_drive_ids)
+
+            commissions_unread_breakdown = {
+                "commissions": int(commissions_new),
+                "projects": int(projects_new),
+                "discussions": int(discussions_new),
+                "files": int(files_new),
+            }
+
+            commissions_unread = int(commissions_new + projects_new + discussions_new + files_new)
+    except ProgrammingError:
+        db.session.rollback()
+        commissions_unread = 0
+
     return jsonify(
         {
             "ok": True,
             "posts_unread": int(posts_unread),
             "events_unread": int(events_unread),
+            "commissions_unread": int(commissions_unread),
+            "commissions_unread_breakdown": commissions_unread_breakdown,
             "limit": 9,
         }
     ), 200
@@ -118,7 +273,8 @@ def me_mark_seen():
     item_type = str(payload.get("item_type") or "").strip().lower()
     item_id = payload.get("item_id")
 
-    if item_type not in {"post", "event"}:
+    # Nota: item_type está limitado a 16 chars (UserSeenItem.item_type).
+    if item_type not in {"post", "event", "commission", "suggestion", "c_project", "drivefile"}:
         return jsonify({"ok": False, "error": "item_type inválido"}), 400
     try:
         item_id_int = int(item_id)
@@ -135,6 +291,142 @@ def me_mark_seen():
         exists = Event.query.filter_by(id=item_id_int, status="published").first()
         if not exists:
             return jsonify({"ok": False, "error": "Evento no encontrado"}), 404
+
+    if item_type == "commission":
+        commission = Commission.query.filter_by(id=item_id_int).first()
+        if not commission:
+            return jsonify({"ok": False, "error": "Comisión no encontrada"}), 404
+
+        can_view_all_commissions = (
+            current_user.has_permission("view_commissions")
+            or current_user.has_permission("manage_commissions")
+            or current_user.has_permission("manage_commission_members")
+            or user_is_privileged(current_user)
+        )
+        is_member = bool(
+            CommissionMembership.query.filter_by(
+                user_id=current_user.id,
+                commission_id=item_id_int,
+                is_active=True,
+            ).first()
+        )
+        if not (is_member or can_view_all_commissions):
+            return jsonify({"ok": False, "error": "No autorizado"}), 403
+
+    if item_type == "c_project":
+        project = CommissionProject.query.filter_by(id=item_id_int).first()
+        if not project:
+            return jsonify({"ok": False, "error": "Proyecto no encontrado"}), 404
+
+        can_view_all_commissions = (
+            current_user.has_permission("view_commissions")
+            or current_user.has_permission("manage_commissions")
+            or current_user.has_permission("manage_commission_members")
+            or user_is_privileged(current_user)
+        )
+        is_member = bool(
+            CommissionMembership.query.filter_by(
+                user_id=current_user.id,
+                commission_id=project.commission_id,
+                is_active=True,
+            ).first()
+        )
+        if not (is_member or can_view_all_commissions):
+            return jsonify({"ok": False, "error": "No autorizado"}), 403
+
+    if item_type == "suggestion":
+        suggestion = Suggestion.query.filter_by(id=item_id_int).first()
+        if not suggestion:
+            return jsonify({"ok": False, "error": "Discusión no encontrada"}), 404
+
+        category = (getattr(suggestion, "category", None) or "").strip()
+        commission_id = None
+        project_id = None
+        if category.startswith("comision:"):
+            try:
+                commission_id = int(category.split(":", 1)[1])
+            except Exception:
+                commission_id = None
+        elif category.startswith("proyecto:"):
+            try:
+                project_id = int(category.split(":", 1)[1])
+            except Exception:
+                project_id = None
+
+        is_scoped = commission_id is not None or project_id is not None
+
+        # Si el foro general está deshabilitado, solo se permiten discusiones scoped.
+        if not bool(current_app.config.get("SUGGESTIONS_FORUM_ENABLED", False)) and not is_scoped:
+            return jsonify({"ok": False, "error": "Discusión no encontrada"}), 404
+
+        if not is_scoped and not current_user.has_permission("view_suggestions"):
+            return jsonify({"ok": False, "error": "No autorizado"}), 403
+
+        # Para discusiones scoped (comisiones/proyectos), validar pertenencia o permisos.
+        if commission_id is not None:
+            can_view_scoped = (
+                bool(
+                    CommissionMembership.query.filter_by(
+                        user_id=current_user.id,
+                        commission_id=commission_id,
+                        is_active=True,
+                    ).first()
+                )
+                or current_user.has_permission("manage_commission_members")
+                or current_user.has_permission("manage_commissions")
+                or user_is_privileged(current_user)
+            )
+            if not can_view_scoped:
+                return jsonify({"ok": False, "error": "No autorizado"}), 403
+
+    if item_type == "drivefile":
+        drive_file = DriveFile.query.filter_by(id=item_id_int).first()
+        if not drive_file:
+            return jsonify({"ok": False, "error": "Archivo no encontrado"}), 404
+
+        scope_type = (getattr(drive_file, "scope_type", None) or "").strip().lower()
+        scope_id = getattr(drive_file, "scope_id", None)
+        try:
+            scope_id_int = int(scope_id)
+        except (TypeError, ValueError):
+            scope_id_int = 0
+
+        if scope_type == "commission":
+            commission = Commission.query.filter_by(id=scope_id_int).first()
+            if not commission:
+                return jsonify({"ok": False, "error": "Archivo no encontrado"}), 404
+            if not _can_access_commission_files(commission):
+                return jsonify({"ok": False, "error": "No autorizado"}), 403
+        elif scope_type == "project":
+            project = CommissionProject.query.filter_by(id=scope_id_int).first()
+            commission = project.commission if project else None
+            if commission is None and project is not None:
+                commission = Commission.query.get(project.commission_id)
+            if not project or not commission:
+                return jsonify({"ok": False, "error": "Archivo no encontrado"}), 404
+            if not _can_access_commission_files(commission):
+                return jsonify({"ok": False, "error": "No autorizado"}), 403
+        else:
+            return jsonify({"ok": False, "error": "Archivo no encontrado"}), 404
+
+        if project_id is not None:
+            project = CommissionProject.query.filter_by(id=project_id).first()
+            if not project:
+                return jsonify({"ok": False, "error": "Discusión no encontrada"}), 404
+            can_view_scoped = (
+                bool(
+                    CommissionMembership.query.filter_by(
+                        user_id=current_user.id,
+                        commission_id=project.commission_id,
+                        is_active=True,
+                    ).first()
+                )
+                or current_user.has_permission("manage_commission_members")
+                or current_user.has_permission("manage_commissions")
+                or user_is_privileged(current_user)
+            )
+            if not can_view_scoped:
+                return jsonify({"ok": False, "error": "No autorizado"}), 403
 
     now_dt = get_local_now()
     try:
@@ -827,7 +1119,12 @@ def _upsert_drive_file_from_drive_meta(
     return drive_file
 
 
-def _drive_file_to_api_dict(drive_file: DriveFile, *, commission: Commission | None = None) -> dict:
+def _drive_file_to_api_dict(
+    drive_file: DriveFile,
+    *,
+    commission: Commission | None = None,
+    seen_db_ids: set[int] | None = None,
+) -> dict:
     can_manage = False
     if current_user.is_authenticated and current_user.id:
         if (
@@ -841,7 +1138,15 @@ def _drive_file_to_api_dict(drive_file: DriveFile, *, commission: Commission | N
 
     can_edit = _can_edit_drive_file_record(drive_file, commission=commission)
 
+    is_new = False
+    if current_user.is_authenticated and current_user.id and seen_db_ids is not None:
+        try:
+            is_new = int(drive_file.id) not in seen_db_ids
+        except Exception:
+            is_new = False
+
     return {
+        "dbId": drive_file.id,
         "id": drive_file.drive_file_id,
         "name": drive_file.name,
         "createdTime": drive_file.drive_created_time,
@@ -853,6 +1158,7 @@ def _drive_file_to_api_dict(drive_file: DriveFile, *, commission: Commission | N
         "modifiedBy": drive_file.modified_by_label,
         "uploadedAt": drive_file.uploaded_at.isoformat() if drive_file.uploaded_at else None,
         "uploadedBy": drive_file.uploaded_by_label,
+        "isNew": bool(is_new),
         "canDelete": bool(can_edit) and not bool(drive_file.deleted_at),
         "canEditDescription": bool(can_edit) and not bool(drive_file.deleted_at),
         "canRestore": bool(can_manage),
@@ -935,7 +1241,32 @@ def commission_drive_files_list(commission_id: int):
         records.append(record)
 
     db.session.commit()
-    return jsonify({"ok": True, "files": [_drive_file_to_api_dict(r, commission=commission) for r in records]}), 200
+
+    seen_db_ids: set[int] = set()
+    try:
+        db_ids = [r.id for r in records if getattr(r, "id", None)]
+        if db_ids:
+            seen_db_ids = {
+                row.item_id
+                for row in (
+                    UserSeenItem.query.filter_by(user_id=current_user.id, item_type="drivefile")
+                    .filter(UserSeenItem.item_id.in_(db_ids))
+                    .all()
+                )
+            }
+    except ProgrammingError:
+        db.session.rollback()
+        seen_db_ids = set()
+
+    return (
+        jsonify(
+            {
+                "ok": True,
+                "files": [_drive_file_to_api_dict(r, commission=commission, seen_db_ids=seen_db_ids) for r in records],
+            }
+        ),
+        200,
+    )
 
 
 @api_bp.route("/drive-files/commissions/<int:commission_id>", methods=["POST"])
@@ -1233,7 +1564,32 @@ def project_drive_files_list(project_id: int):
         records.append(record)
 
     db.session.commit()
-    return jsonify({"ok": True, "files": [_drive_file_to_api_dict(r, commission=commission) for r in records]}), 200
+
+    seen_db_ids: set[int] = set()
+    try:
+        db_ids = [r.id for r in records if getattr(r, "id", None)]
+        if db_ids:
+            seen_db_ids = {
+                row.item_id
+                for row in (
+                    UserSeenItem.query.filter_by(user_id=current_user.id, item_type="drivefile")
+                    .filter(UserSeenItem.item_id.in_(db_ids))
+                    .all()
+                )
+            }
+    except ProgrammingError:
+        db.session.rollback()
+        seen_db_ids = set()
+
+    return (
+        jsonify(
+            {
+                "ok": True,
+                "files": [_drive_file_to_api_dict(r, commission=commission, seen_db_ids=seen_db_ids) for r in records],
+            }
+        ),
+        200,
+    )
 
 
 @api_bp.route("/drive-files/projects/<int:project_id>", methods=["POST"])

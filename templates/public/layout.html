@@ -155,7 +155,7 @@
                         <a href="{{ url_for('public.eventos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.eventos') %} active{% endif %}{% if current_user.is_authenticated %} nav-link--with-badge{% endif %}">Eventos{% if current_user.is_authenticated %} <span class="nav-badge" data-unread-events-badge style="display:none;"></span>{% endif %}</a>
                         {% endif %}
                         {% if can_view_commissions %}
-                        <a href="{{ commissions_href }}" class="nav-link{% if request.endpoint and (request.endpoint.startswith('admin.commissions') or request.endpoint.startswith('admin.commission') or request.endpoint.startswith('members.commissions') or request.endpoint.startswith('members.commission')) %} active{% endif %}">Comisiones</a>
+                        <a href="{{ commissions_href }}" class="nav-link{% if request.endpoint and (request.endpoint.startswith('admin.commissions') or request.endpoint.startswith('admin.commission') or request.endpoint.startswith('members.commissions') or request.endpoint.startswith('members.commission')) %} active{% endif %}{% if current_user.is_authenticated %} nav-link--with-badge{% endif %}">Comisiones{% if current_user.is_authenticated %} <span class="nav-badge" data-unread-commissions-badge style="display:none;"></span>{% endif %}</a>
                         {% endif %}
                         {% if can_view_calendar %}
                         <a href="{{ calendar_href }}" class="nav-link{% if request.endpoint in ['public.calendario', 'members.calendar'] %} active{% endif %}">Calendario</a>
@@ -217,7 +217,7 @@
                     <a href="{{ url_for('public.eventos') }}" class="nav-link{% if request.endpoint and request.endpoint.startswith('public.eventos') %} active{% endif %}{% if current_user.is_authenticated %} nav-link--with-badge{% endif %}" onclick="toggleMobileMenu()">Eventos{% if current_user.is_authenticated %} <span class="nav-badge" data-unread-events-badge style="display:none;"></span>{% endif %}</a>
                     {% endif %}
                     {% if can_view_commissions %}
-                    <a href="{{ commissions_href }}" class="nav-link{% if request.endpoint and (request.endpoint.startswith('admin.commissions') or request.endpoint.startswith('admin.commission') or request.endpoint.startswith('members.commissions') or request.endpoint.startswith('members.commission')) %} active{% endif %}" onclick="toggleMobileMenu()">Comisiones</a>
+                    <a href="{{ commissions_href }}" class="nav-link{% if request.endpoint and (request.endpoint.startswith('admin.commissions') or request.endpoint.startswith('admin.commission') or request.endpoint.startswith('members.commissions') or request.endpoint.startswith('members.commission')) %} active{% endif %}{% if current_user.is_authenticated %} nav-link--with-badge{% endif %}" onclick="toggleMobileMenu()">Comisiones{% if current_user.is_authenticated %} <span class="nav-badge" data-unread-commissions-badge style="display:none;"></span>{% endif %}</a>
                     {% endif %}
                     {% if can_view_calendar %}
                     <a href="{{ calendar_href }}" class="nav-link{% if request.endpoint in ['public.calendario', 'members.calendar'] %} active{% endif %}"
@@ -688,7 +688,8 @@
         (function () {
             const postBadgeEls = document.querySelectorAll('[data-unread-posts-badge]');
             const eventBadgeEls = document.querySelectorAll('[data-unread-events-badge]');
-            if ((!postBadgeEls || !postBadgeEls.length) && (!eventBadgeEls || !eventBadgeEls.length)) return;
+            const commissionBadgeEls = document.querySelectorAll('[data-unread-commissions-badge]');
+            if ((!postBadgeEls || !postBadgeEls.length) && (!eventBadgeEls || !eventBadgeEls.length) && (!commissionBadgeEls || !commissionBadgeEls.length)) return;
 
             const endpoint = {{ url_for('api.me_unread_counts') | tojson }};
 
@@ -711,16 +712,19 @@
                     if (!res.ok) {
                         render(postBadgeEls, 0);
                         render(eventBadgeEls, 0);
+                        render(commissionBadgeEls, 0);
                         return;
                     }
                     const data = await res.json();
                     if (!data || !data.ok) {
                         render(postBadgeEls, 0);
                         render(eventBadgeEls, 0);
+                        render(commissionBadgeEls, 0);
                         return;
                     }
                     render(postBadgeEls, data.posts_unread);
                     render(eventBadgeEls, data.events_unread);
+                    render(commissionBadgeEls, data.commissions_unread);
                 } catch (_) {
                     // Silencioso.
                 }

@@ -5,6 +5,7 @@
 {% set is_member_view = is_member_view|default(false) %}
 {% set can_view_all = can_view_all|default(false) %}
 {% set scope = scope|default("mis") %}
+{% set is_new_by_commission_id = is_new_by_commission_id|default({}) %}
 {% set header_kicker = header_kicker|default("Administración") %}
 {% set header_title = header_title|default("Comisiones del AMPA") %}
 {% set header_subtitle = header_subtitle|default("Gestiona las comisiones, sus miembros, proyectos y reuniones con el mismo lenguaje visual que noticias y calendario.") %}
@@ -392,6 +393,9 @@
               <span class="chip {% if commission.is_active %}chip-live{% else %}chip-off{% endif %}">
                 {{ "✓ Activa" if commission.is_active else "✕ Inactiva" }}
               </span>
+              {% if is_new_by_commission_id.get(commission.id) %}
+              <span class="chip chip--new">Nuevo</span>
+              {% endif %}
             </div>
           </div>
           {% if commission.description_html %}

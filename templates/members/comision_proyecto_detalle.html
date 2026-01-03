@@ -443,6 +443,9 @@
               <div class="item-top">
                 <div class="meta">
                   <span class="chip">{{ discussion.status }}</span>
+                  {% if is_new_by_discussion_id is defined and is_new_by_discussion_id.get(discussion.id) %}
+                    <span class="chip chip--new">Nuevo</span>
+                  {% endif %}
                   <span>{{ project_discussion_vote_counts.get(discussion.id, 0) }} votos</span>
                   {% if discussion.updated_at %}
                     <span>Actualizada: {{ discussion.updated_at.strftime('%d/%m/%Y %H:%M') }}</span>
@@ -615,6 +618,9 @@
             <a class="compact" href="{{ url_for('members.detalle_sugerencia', suggestion_id=discussion.id, return_to=project_self_url) }}" style="display:block; text-decoration:none; color:inherit;">
               <div class="meta">
                 <span class="badge">{{ discussion.status }}</span>
+                {% if is_new_by_discussion_id is defined and is_new_by_discussion_id.get(discussion.id) %}
+                  <span class="chip chip--new">Nuevo</span>
+                {% endif %}
                 <span>{{ project_discussion_vote_counts.get(discussion.id, 0) }} votos</span>
                 {% if discussion.updated_at %}
                   <span>{{ discussion.updated_at.strftime('%d/%m/%Y %H:%M') }}</span>
@@ -631,6 +637,29 @@
     </div>
   </section>
 {% endif %}
+
+<script>
+  (function () {
+    try {
+      const endpoint = {{ url_for('api.me_mark_seen') | tojson }};
+      const payload = { item_type: 'c_project', item_id: {{ project.id }} };
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        credentials: 'same-origin',
+      }).then(function (res) {
+        if (!res || !res.ok) return;
+        if (typeof window.refreshUnreadCounts === 'function') {
+          window.refreshUnreadCounts();
+        }
+      }).catch(function () {});
+    } catch (e) {}
+  })();
+</script>
 
 <!-- Modal de detalles de reunión de proyecto -->
 <div class="meeting-modal" id="project-meeting-detail-modal" aria-hidden="true">

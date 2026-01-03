@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import secrets
 import re
 from urllib.parse import urlparse
+import sqlalchemy as sa
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
@@ -21,6 +22,8 @@ from app.models import (
     CommissionMembership,
     CommissionProject,
     CommissionMeeting,
+    DriveFile,
+    UserSeenItem,
     user_is_privileged,
 )
 from app.forms import (
@@ -1041,12 +1044,163 @@ def commissions():
             "proxima_reunion": next_meeting,
         }
 
+    # Determinar cuáles comisiones deben mostrar chip "Nuevo" para el usuario.
+    # Regla: "Nuevo" permanece mientras exista algún elemento hijo nuevo (proyecto/discusión/archivo).
+    is_new_by_commission_id: dict[int, bool] = {}
+    commission_ids = [c.id for c in commissions]
+    member_set = set(memberships_map.keys())
+    for cid in commission_ids:
+        is_new_by_commission_id[cid] = False
+
+    if commission_ids and memberships_map:
+        try:
+            # 1) Comisión no vista.
+            seen_commission_ids = {
+                row.item_id
+                for row in (
+                    UserSeenItem.query.filter_by(user_id=current_user.id, item_type="commission")
+                    .filter(UserSeenItem.item_id.in_(commission_ids))
+                    .all()
+                )
+            }
+            for cid in commission_ids:
+                if cid in member_set and cid not in seen_commission_ids:
+                    is_new_by_commission_id[cid] = True
+
+            # 2) Proyectos activos no vistos.
+            project_rows = (
+                CommissionProject.query.with_entities(CommissionProject.id, CommissionProject.commission_id)
+                .filter(CommissionProject.commission_id.in_(commission_ids))
+                .filter(CommissionProject.status.in_(active_project_statuses))
+                .all()
+            )
+            project_ids = [pid for pid, _ in project_rows]
+            project_to_commission_id = {pid: cid for pid, cid in project_rows}
+
+            if project_ids:
+                seen_project_ids = {
+                    row.item_id
+                    for row in (
+                        UserSeenItem.query.filter_by(user_id=current_user.id, item_type="c_project")
+                        .filter(UserSeenItem.item_id.in_(project_ids))
+                        .all()
+                    )
+                }
+                for project_id in set(project_ids) - seen_project_ids:
+                    cid = project_to_commission_id.get(project_id)
+                    if cid in member_set:
+                        is_new_by_commission_id[cid] = True
+
+            # 3) Discusiones de comisión/proyecto no vistas o con comentarios nuevos.
+            categories = [f"comision:{cid}" for cid in commission_ids]
+            if project_ids:
+                categories.extend([f"proyecto:{pid}" for pid in project_ids])
+
+            suggestions = (
+                Suggestion.query.with_entities(Suggestion.id, Suggestion.category)
+                .filter(Suggestion.category.in_(categories))
+                .filter(Suggestion.status.in_(("pendiente", "aprobada")))
+                .all()
+            )
+            discussion_ids = [sid for sid, _ in suggestions]
+
+            if discussion_ids:
+                seen_rows = (
+                    UserSeenItem.query.filter_by(user_id=current_user.id, item_type="suggestion")
+                    .filter(UserSeenItem.item_id.in_(discussion_ids))
+                    .all()
+                )
+                seen_at_by_discussion_id = {row.item_id: row.seen_at for row in seen_rows}
+                latest_comment_rows = (
+                    db.session.query(Comment.suggestion_id, func.max(Comment.created_at))
+                    .filter(Comment.suggestion_id.in_(discussion_ids))
+                    .group_by(Comment.suggestion_id)
+                    .all()
+                )
+                latest_comment_at_by_discussion_id = {
+                    suggestion_id: latest_at for suggestion_id, latest_at in latest_comment_rows
+                }
+
+                for suggestion_id, category in suggestions:
+                    is_new = False
+                    seen_at = seen_at_by_discussion_id.get(suggestion_id)
+                    if not seen_at:
+                        is_new = True
+                    else:
+                        latest_comment_at = latest_comment_at_by_discussion_id.get(suggestion_id)
+                        if latest_comment_at and latest_comment_at > seen_at:
+                            is_new = True
+
+                    if not is_new:
+                        continue
+
+                    cat = (category or "").strip()
+                    if cat.startswith("comision:"):
+                        try:
+                            cid = int(cat.split(":", 1)[1])
+                        except Exception:
+                            continue
+                        if cid in member_set:
+                            is_new_by_commission_id[cid] = True
+                    elif cat.startswith("proyecto:"):
+                        try:
+                            pid = int(cat.split(":", 1)[1])
+                        except Exception:
+                            continue
+                        cid = project_to_commission_id.get(pid)
+                        if cid in member_set:
+                            is_new_by_commission_id[cid] = True
+
+            # 4) Archivos no vistos (solo registros conocidos en DB).
+            drive_rows = (
+                DriveFile.query.with_entities(DriveFile.id, DriveFile.scope_type, DriveFile.scope_id)
+                .filter(DriveFile.deleted_at.is_(None))
+                .filter(
+                    sa.or_(
+                        sa.and_(DriveFile.scope_type == "commission", DriveFile.scope_id.in_(commission_ids)),
+                        sa.and_(DriveFile.scope_type == "project", DriveFile.scope_id.in_(project_ids or [-1])),
+                    )
+                )
+                .all()
+            )
+            drive_db_ids = [db_id for db_id, _, _ in drive_rows]
+            if drive_db_ids:
+                seen_drive_ids = {
+                    row.item_id
+                    for row in (
+                        UserSeenItem.query.filter_by(user_id=current_user.id, item_type="drivefile")
+                        .filter(UserSeenItem.item_id.in_(drive_db_ids))
+                        .all()
+                    )
+                }
+                for db_id, scope_type, scope_id in drive_rows:
+                    if db_id in seen_drive_ids:
+                        continue
+                    if (scope_type or "").lower() == "commission":
+                        try:
+                            cid = int(scope_id)
+                        except Exception:
+                            continue
+                        if cid in member_set:
+                            is_new_by_commission_id[cid] = True
+                    elif (scope_type or "").lower() == "project":
+                        try:
+                            pid = int(scope_id)
+                        except Exception:
+                            continue
+                        cid = project_to_commission_id.get(pid)
+                        if cid in member_set:
+                            is_new_by_commission_id[cid] = True
+        except Exception:
+            db.session.rollback()
+
     return render_template(
         "admin/comisiones.html",
         commissions=commissions,
         stats=stats,
         scope=scope,
         can_view_all=can_view_all,
+        is_new_by_commission_id=is_new_by_commission_id,
         is_member_view=True,
         header_kicker="Área privada",
         header_title="Comisiones del AMPA",
@@ -1162,6 +1316,135 @@ def commission_detail(slug: str):
 
     next_meeting = upcoming_meetings[0] if upcoming_meetings else None
 
+    # Chips "Nuevo" (por usuario):
+    # - Proyecto: no existe UserSeenItem(c_project, project_id)
+    #   O BIEN hay discusiones del proyecto con comentarios posteriores a seen_at
+    #   O BIEN hay archivos del proyecto no vistos.
+    # - Discusión (lista de comisión): no existe UserSeenItem(suggestion, suggestion_id) o hay comentarios posteriores a seen_at
+    is_new_by_project_id: dict[int, bool] = {}
+    is_new_by_discussion_id: dict[int, bool] = {}
+    try:
+        project_ids: list[int] = [p.id for p in active_projects] if active_projects else []
+        if project_ids:
+            # Base: proyecto no visto.
+            seen_project_ids = {
+                row.item_id
+                for row in (
+                    UserSeenItem.query.filter_by(user_id=current_user.id, item_type="c_project")
+                    .filter(UserSeenItem.item_id.in_(project_ids))
+                    .all()
+                )
+            }
+            is_new_by_project_id = {project_id: (project_id not in seen_project_ids) for project_id in project_ids}
+
+            # 1) Discusiones del proyecto no vistas o con comentarios nuevos.
+            project_categories = [f"proyecto:{pid}" for pid in project_ids]
+            project_suggestions = (
+                Suggestion.query.with_entities(Suggestion.id, Suggestion.category)
+                .filter(Suggestion.category.in_(project_categories))
+                .filter(Suggestion.status.in_(("pendiente", "aprobada")))
+                .all()
+            )
+            project_discussion_ids = [sid for sid, _ in project_suggestions]
+            if project_discussion_ids:
+                seen_rows = (
+                    UserSeenItem.query.filter_by(user_id=current_user.id, item_type="suggestion")
+                    .filter(UserSeenItem.item_id.in_(project_discussion_ids))
+                    .all()
+                )
+                seen_at_by_discussion_id = {row.item_id: row.seen_at for row in seen_rows}
+                latest_comment_rows = (
+                    db.session.query(Comment.suggestion_id, func.max(Comment.created_at))
+                    .filter(Comment.suggestion_id.in_(project_discussion_ids))
+                    .group_by(Comment.suggestion_id)
+                    .all()
+                )
+                latest_comment_at_by_discussion_id = {
+                    suggestion_id: latest_at for suggestion_id, latest_at in latest_comment_rows
+                }
+
+                for suggestion_id, category in project_suggestions:
+                    seen_at = seen_at_by_discussion_id.get(suggestion_id)
+                    latest_comment_at = latest_comment_at_by_discussion_id.get(suggestion_id)
+                    is_new = False
+                    if not seen_at:
+                        is_new = True
+                    elif latest_comment_at and latest_comment_at > seen_at:
+                        is_new = True
+
+                    if not is_new:
+                        continue
+                    cat = (category or "").strip()
+                    if not cat.startswith("proyecto:"):
+                        continue
+                    try:
+                        pid = int(cat.split(":", 1)[1])
+                    except Exception:
+                        continue
+                    if pid in is_new_by_project_id:
+                        is_new_by_project_id[pid] = True
+
+            # 2) Archivos Drive del proyecto no vistos (solo registros conocidos en DB).
+            drive_rows = (
+                DriveFile.query.with_entities(DriveFile.id, DriveFile.scope_id)
+                .filter(DriveFile.deleted_at.is_(None))
+                .filter(DriveFile.scope_type == "project")
+                .filter(DriveFile.scope_id.in_(project_ids))
+                .all()
+            )
+            drive_db_ids = [db_id for db_id, _ in drive_rows]
+            if drive_db_ids:
+                seen_drive_ids = {
+                    row.item_id
+                    for row in (
+                        UserSeenItem.query.filter_by(user_id=current_user.id, item_type="drivefile")
+                        .filter(UserSeenItem.item_id.in_(drive_db_ids))
+                        .all()
+                    )
+                }
+                for db_id, scope_id in drive_rows:
+                    if db_id in seen_drive_ids:
+                        continue
+                    try:
+                        pid = int(scope_id)
+                    except Exception:
+                        continue
+                    if pid in is_new_by_project_id:
+                        is_new_by_project_id[pid] = True
+
+        if commission_discussions:
+            discussion_ids = [d.id for d in commission_discussions]
+            seen_rows = (
+                UserSeenItem.query.filter_by(user_id=current_user.id, item_type="suggestion")
+                .filter(UserSeenItem.item_id.in_(discussion_ids))
+                .all()
+            )
+            seen_at_by_discussion_id = {row.item_id: row.seen_at for row in seen_rows}
+
+            latest_comment_rows = (
+                db.session.query(Comment.suggestion_id, func.max(Comment.created_at))
+                .filter(Comment.suggestion_id.in_(discussion_ids))
+                .group_by(Comment.suggestion_id)
+                .all()
+            )
+            latest_comment_at_by_discussion_id = {
+                suggestion_id: latest_at for suggestion_id, latest_at in latest_comment_rows
+            }
+
+            for discussion_id in discussion_ids:
+                seen_at = seen_at_by_discussion_id.get(discussion_id)
+                latest_comment_at = latest_comment_at_by_discussion_id.get(discussion_id)
+                if not seen_at:
+                    is_new_by_discussion_id[discussion_id] = True
+                elif latest_comment_at and latest_comment_at > seen_at:
+                    is_new_by_discussion_id[discussion_id] = True
+                else:
+                    is_new_by_discussion_id[discussion_id] = False
+    except Exception:
+        db.session.rollback()
+        is_new_by_project_id = {}
+        is_new_by_discussion_id = {}
+
     return render_template(
         "admin/comision_detalle.html",
         commission=commission,
@@ -1173,6 +1456,8 @@ def commission_detail(slug: str):
         past_meetings=past_meetings,
         discussions=commission_discussions,
         discussion_vote_counts=discussion_vote_counts,
+        is_new_by_project_id=is_new_by_project_id,
+        is_new_by_discussion_id=is_new_by_discussion_id,
         is_member_view=True,
         can_manage_discussions=can_manage_discussions,
         header_kicker=f"Comisiones \u00b7 {commission.name}",
@@ -1216,6 +1501,38 @@ def commission_project_detail(slug: str, project_id: int):
         .all()
     )
     project_discussion_vote_counts = _vote_counts_for_suggestions([discussion.id for discussion in project_discussions])
+
+    is_new_by_discussion_id: dict[int, bool] = {}
+    try:
+        if project_discussions:
+            discussion_ids = [d.id for d in project_discussions]
+            seen_rows = (
+                UserSeenItem.query.filter_by(user_id=current_user.id, item_type="suggestion")
+                .filter(UserSeenItem.item_id.in_(discussion_ids))
+                .all()
+            )
+            seen_at_by_discussion_id = {row.item_id: row.seen_at for row in seen_rows}
+            latest_comment_rows = (
+                db.session.query(Comment.suggestion_id, func.max(Comment.created_at))
+                .filter(Comment.suggestion_id.in_(discussion_ids))
+                .group_by(Comment.suggestion_id)
+                .all()
+            )
+            latest_comment_at_by_discussion_id = {
+                suggestion_id: latest_at for suggestion_id, latest_at in latest_comment_rows
+            }
+            for discussion_id in discussion_ids:
+                seen_at = seen_at_by_discussion_id.get(discussion_id)
+                latest_comment_at = latest_comment_at_by_discussion_id.get(discussion_id)
+                if not seen_at:
+                    is_new_by_discussion_id[discussion_id] = True
+                elif latest_comment_at and latest_comment_at > seen_at:
+                    is_new_by_discussion_id[discussion_id] = True
+                else:
+                    is_new_by_discussion_id[discussion_id] = False
+    except Exception:
+        db.session.rollback()
+        is_new_by_discussion_id = {}
     now_dt = get_local_now()
     project_upcoming_meetings = (
         CommissionMeeting.query.filter_by(
@@ -1280,6 +1597,7 @@ def commission_project_detail(slug: str, project_id: int):
         membership=membership,
         project_discussions=project_discussions,
         project_discussion_vote_counts=project_discussion_vote_counts,
+        is_new_by_discussion_id=is_new_by_discussion_id,
         project_upcoming_meetings=project_upcoming_meetings,
         project_past_meetings=project_past_meetings,
         can_create_discussions=can_create_discussions,
