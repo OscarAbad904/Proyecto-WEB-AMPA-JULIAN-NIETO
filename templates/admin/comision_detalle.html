@@ -19,6 +19,8 @@
 
 {% block head %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/drive_files.css', v='20260106') }}" />
+  <script src="{{ url_for('static', filename='js/drive_files.js', v='20260106') }}" defer></script>
   <style>
     .commission-detail { padding-bottom: 4rem; }
     .detail-top { display:flex; align-items:flex-start; justify-content:space-between; gap: 1rem; flex-wrap:wrap; margin-bottom: 1.25rem; }
@@ -619,6 +621,17 @@
         {% endfor %}
       </div>
     </div>
+
+    {% set drive_label = "comision" %}
+    {% set drive_upload_title = "Sube archivos a la comision" %}
+    {% set drive_list_title = "Archivos de la comision" %}
+    {% set drive_list_button = "Ver archivos de la comision" %}
+    {% set drive_list_url = url_for('api.commission_drive_files_list', commission_id=commission.id) %}
+    {% set drive_upload_url = url_for('api.commission_drive_files_upload', commission_id=commission.id) %}
+    {% set drive_download_url = url_for('api.commission_drive_files_download', commission_id=commission.id, file_id='__FILE_ID__') %}
+    {% set drive_delete_url = url_for('api.commission_drive_files_delete', commission_id=commission.id, file_id='__FILE_ID__') %}
+    {% set drive_can_delete = can_manage_drive_files %}
+    {% include 'shared/drive_files_widget.html' %}
 
     </div>
 

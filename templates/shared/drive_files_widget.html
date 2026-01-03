@@ -1,0 +1,74 @@
+{% set drive_label = drive_label|default("comision") %}
+{% set drive_upload_title = drive_upload_title|default("Sube archivos a la " ~ drive_label) %}
+{% set drive_list_title = drive_list_title|default("Archivos de la " ~ drive_label) %}
+{% set drive_list_button = drive_list_button|default("Ver archivos") %}
+{% set drive_can_delete = drive_can_delete if drive_can_delete is defined else False %}
+{% set drive_delete_url = drive_delete_url|default("") %}
+
+<div class="drive-files-panel">
+  <div
+    class="drive-files-widget"
+    data-drive-widget
+    data-drive-label="{{ drive_label }}"
+    data-drive-list-url="{{ drive_list_url }}"
+    data-drive-upload-url="{{ drive_upload_url | default(drive_list_url) }}"
+    data-drive-download-url="{{ drive_download_url }}"
+    data-drive-delete-url="{{ drive_delete_url }}"
+    data-drive-can-delete="{{ 'true' if drive_can_delete else 'false' }}"
+  >
+    <div class="drive-files-card">
+      <div class="drive-files-dropzone" data-drive-dropzone role="button" tabindex="0" aria-label="Seleccionar archivos">
+        <input class="drive-files-input" data-drive-input type="file" multiple />
+        <div class="drive-files-dropzone__content">
+          <p class="drive-files-title">{{ drive_upload_title }}</p>
+          <p class="drive-files-help">Arrastra y suelta archivos aqui o pulsa para seleccionar.</p>
+        </div>
+      </div>
+      <div class="drive-files-actions">
+        <div class="drive-files-count" data-drive-count>Archivos: -</div>
+        <button type="button" class="drive-files-btn" data-drive-open-list>{{ drive_list_button }}</button>
+      </div>
+    </div>
+    <div class="drive-files-status" data-drive-status></div>
+
+  <div class="drive-files-modal" data-drive-list-modal aria-hidden="true">
+    <div class="drive-files-modal__dialog" role="dialog" aria-modal="true" aria-label="{{ drive_list_title }}">
+      <div class="drive-files-modal__header">
+        <h3>{{ drive_list_title }}</h3>
+        <button class="drive-files-modal__close" type="button" data-drive-list-close aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="drive-files-modal__body">
+        <button type="button" class="drive-files-btn drive-files-btn--ghost" data-drive-list-refresh>Actualizar</button>
+        <table class="drive-files-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Modificado</th>
+              <th>Subido</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody data-drive-list-body></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="drive-files-modal" data-drive-conflict-modal aria-hidden="true">
+    <div class="drive-files-modal__dialog" role="dialog" aria-modal="true" aria-label="Conflictos de archivos">
+      <div class="drive-files-modal__header">
+        <h3>Archivos ya existentes</h3>
+        <button class="drive-files-modal__close" type="button" data-drive-conflict-close aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="drive-files-modal__body">
+        <p>Elige que hacer con cada archivo duplicado.</p>
+        <div class="drive-conflict-list" data-drive-conflict-body></div>
+      </div>
+      <div class="drive-files-modal__footer">
+        <button type="button" class="drive-files-btn drive-files-btn--ghost" data-drive-conflict-close>Cancelar</button>
+        <button type="button" class="drive-files-btn" data-drive-conflict-confirm>Continuar</button>
+      </div>
+    </div>
+  </div>
+  </div>
+</div>

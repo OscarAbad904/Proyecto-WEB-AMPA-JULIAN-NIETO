@@ -1,6 +1,7 @@
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request, current_app, abort, send_file
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
+import json
 import sqlalchemy as sa
 from sqlalchemy.exc import ProgrammingError
 
@@ -10,6 +11,7 @@ from app.models import (
     CommissionMeeting,
     CommissionMembership,
     Commission,
+    CommissionProject,
     Event,
     Post,
     UserSeenItem,
@@ -17,6 +19,18 @@ from app.models import (
 from app.extensions import db
 from app.extensions import csrf
 from app.utils import get_local_now
+from app.services.commission_drive_service import (
+    ensure_commission_drive_folder,
+    ensure_project_drive_folder,
+)
+from app.services.drive_files_service import (
+    list_drive_files,
+    find_drive_file_by_name,
+    upload_drive_file,
+    get_drive_file_meta,
+    download_drive_file,
+    delete_drive_file,
+)
 
 api_bp = Blueprint("api", __name__)
 
@@ -651,3 +665,411 @@ def api_commission_meetings(commission_id: int):
         "proximas": upcoming_count,
         "pasadas": past_count,
     }), 200
+
+
+def _can_access_commission_files(commission: Commission) -> bool:
+    if user_is_privileged(current_user):
+        return True
+    if current_user.has_permission("manage_commissions"):
+        return True
+    if current_user.has_permission("manage_commission_members"):
+        return True
+    if current_user.has_permission("manage_commission_projects"):
+        return True
+    if current_user.has_permission("view_commissions"):
+        return True
+    membership = CommissionMembership.query.filter_by(
+        commission_id=commission.id,
+        user_id=current_user.id,
+        is_active=True,
+    ).first()
+    return membership is not None
+
+
+def _can_manage_commission_files(commission: Commission) -> bool:
+    if user_is_privileged(current_user):
+        return True
+    if current_user.has_permission("manage_commissions"):
+        return True
+    membership = CommissionMembership.query.filter_by(
+        commission_id=commission.id,
+        user_id=current_user.id,
+        is_active=True,
+    ).first()
+    if not membership:
+        return False
+    return (membership.role or "").strip().lower() == "coordinador"
+
+
+def _parse_resolutions(payload: str | None) -> dict:
+    if not payload:
+        return {}
+    try:
+        resolutions = json.loads(payload)
+    except ValueError:
+        return {}
+    if not isinstance(resolutions, dict):
+        return {}
+    return resolutions
+
+
+def _resolve_commission_folder(commission: Commission) -> str | None:
+    folder_id = ensure_commission_drive_folder(commission)
+    return (folder_id or "").strip() or None
+
+
+def _resolve_project_folder(project: CommissionProject) -> str | None:
+    folder_id = ensure_project_drive_folder(project)
+    return (folder_id or "").strip() or None
+
+
+def _assert_file_in_folder(file_id: str, folder_id: str) -> dict | None:
+    try:
+        meta = get_drive_file_meta(file_id)
+    except Exception:
+        return None
+    parents = meta.get("parents") or []
+    if folder_id not in parents:
+        return None
+    return meta
+
+
+@api_bp.route("/drive-files/commissions/<int:commission_id>", methods=["GET"])
+@login_required
+def commission_drive_files_list(commission_id: int):
+    commission = Commission.query.get_or_404(commission_id)
+    if not _can_access_commission_files(commission):
+        abort(403)
+    folder_id = _resolve_commission_folder(commission)
+    if not folder_id:
+        return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
+
+    shared_drive_id = current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID") or None
+    try:
+        files = list_drive_files(folder_id, drive_id=shared_drive_id)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    return jsonify({"ok": True, "files": files}), 200
+
+
+@api_bp.route("/drive-files/commissions/<int:commission_id>", methods=["POST"])
+@csrf.exempt
+@login_required
+def commission_drive_files_upload(commission_id: int):
+    commission = Commission.query.get_or_404(commission_id)
+    if not _can_access_commission_files(commission):
+        abort(403)
+
+    files = request.files.getlist("files")
+    if not files:
+        return jsonify({"ok": False, "error": "No se recibieron archivos."}), 400
+
+    folder_id = _resolve_commission_folder(commission)
+    if not folder_id:
+        return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
+
+    shared_drive_id = current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID") or None
+    resolutions = _parse_resolutions(request.form.get("resolutions"))
+    existing_map: dict[str, dict] = {}
+    conflicts: list[dict] = []
+
+    for file in files:
+        name = (file.filename or "").strip()
+        if not name:
+            continue
+        try:
+            existing = find_drive_file_by_name(folder_id, name, drive_id=shared_drive_id)
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"ok": False, "error": str(exc)}), 500
+        existing_map[name] = existing
+        if existing and name not in resolutions:
+            conflicts.append(
+                {
+                    "name": name,
+                    "createdTime": existing.get("createdTime"),
+                    "modifiedTime": existing.get("modifiedTime"),
+                }
+            )
+
+    if conflicts:
+        return jsonify({"ok": False, "conflicts": conflicts}), 409
+
+    uploaded: list[dict] = []
+    skipped: list[str] = []
+
+    for file in files:
+        name = (file.filename or "").strip()
+        if not name:
+            continue
+        existing = existing_map.get(name)
+        decision = resolutions.get(name, {}) if existing else {}
+        action = (decision.get("action") or "").lower()
+        try:
+            if existing:
+                if action == "skip":
+                    skipped.append(name)
+                    continue
+                if action == "overwrite":
+                    result = upload_drive_file(
+                        folder_id,
+                        file,
+                        drive_id=shared_drive_id,
+                        overwrite_file_id=existing.get("id"),
+                    )
+                elif action == "rename":
+                    new_name = (decision.get("new_name") or "").strip()
+                    if not new_name:
+                        return jsonify({"ok": False, "error": f"Nombre nuevo invalido para {name}."}), 400
+                    result = upload_drive_file(
+                        folder_id,
+                        file,
+                        name=new_name,
+                        drive_id=shared_drive_id,
+                    )
+                else:
+                    skipped.append(name)
+                    continue
+            else:
+                result = upload_drive_file(folder_id, file, drive_id=shared_drive_id)
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
+        uploaded.append(
+            {
+                "id": result.get("id"),
+                "name": result.get("name"),
+                "createdTime": result.get("createdTime"),
+                "modifiedTime": result.get("modifiedTime"),
+            }
+        )
+
+    return jsonify({"ok": True, "uploaded": uploaded, "skipped": skipped}), 200
+
+
+@api_bp.route("/drive-files/commissions/<int:commission_id>/download/<file_id>", methods=["GET"])
+@login_required
+def commission_drive_files_download(commission_id: int, file_id: str):
+    commission = Commission.query.get_or_404(commission_id)
+    if not _can_access_commission_files(commission):
+        abort(403)
+
+    folder_id = _resolve_commission_folder(commission)
+    if not folder_id:
+        return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
+
+    meta = _assert_file_in_folder(file_id, folder_id)
+    if meta is None:
+        return jsonify({"ok": False, "error": "Archivo no encontrado."}), 404
+
+    try:
+        content, meta = download_drive_file(file_id)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+    return send_file(
+        content,
+        as_attachment=True,
+        download_name=meta.get("name") or "archivo",
+        mimetype=meta.get("mimeType") or "application/octet-stream",
+    )
+
+
+@api_bp.route("/drive-files/commissions/<int:commission_id>/delete/<file_id>", methods=["DELETE"])
+@csrf.exempt
+@login_required
+def commission_drive_files_delete(commission_id: int, file_id: str):
+    commission = Commission.query.get_or_404(commission_id)
+    if not _can_manage_commission_files(commission):
+        abort(403)
+
+    folder_id = _resolve_commission_folder(commission)
+    if not folder_id:
+        return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
+
+    meta = _assert_file_in_folder(file_id, folder_id)
+    if meta is None:
+        return jsonify({"ok": False, "error": "Archivo no encontrado."}), 404
+
+    try:
+        delete_drive_file(file_id)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+    return jsonify({"ok": True, "deleted": {"id": file_id}}), 200
+
+
+@api_bp.route("/drive-files/projects/<int:project_id>", methods=["GET"])
+@login_required
+def project_drive_files_list(project_id: int):
+    project = CommissionProject.query.get_or_404(project_id)
+    commission = project.commission or Commission.query.get(project.commission_id)
+    if commission is None:
+        return jsonify({"ok": False, "error": "Comision no encontrada."}), 404
+    if not _can_access_commission_files(commission):
+        abort(403)
+
+    folder_id = _resolve_project_folder(project)
+    if not folder_id:
+        return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
+
+    shared_drive_id = current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID") or None
+    try:
+        files = list_drive_files(folder_id, drive_id=shared_drive_id)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    return jsonify({"ok": True, "files": files}), 200
+
+
+@api_bp.route("/drive-files/projects/<int:project_id>", methods=["POST"])
+@csrf.exempt
+@login_required
+def project_drive_files_upload(project_id: int):
+    project = CommissionProject.query.get_or_404(project_id)
+    commission = project.commission or Commission.query.get(project.commission_id)
+    if commission is None:
+        return jsonify({"ok": False, "error": "Comision no encontrada."}), 404
+    if not _can_access_commission_files(commission):
+        abort(403)
+
+    files = request.files.getlist("files")
+    if not files:
+        return jsonify({"ok": False, "error": "No se recibieron archivos."}), 400
+
+    folder_id = _resolve_project_folder(project)
+    if not folder_id:
+        return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
+
+    shared_drive_id = current_app.config.get("GOOGLE_DRIVE_SHARED_DRIVE_ID") or None
+    resolutions = _parse_resolutions(request.form.get("resolutions"))
+    existing_map: dict[str, dict] = {}
+    conflicts: list[dict] = []
+
+    for file in files:
+        name = (file.filename or "").strip()
+        if not name:
+            continue
+        try:
+            existing = find_drive_file_by_name(folder_id, name, drive_id=shared_drive_id)
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"ok": False, "error": str(exc)}), 500
+        existing_map[name] = existing
+        if existing and name not in resolutions:
+            conflicts.append(
+                {
+                    "name": name,
+                    "createdTime": existing.get("createdTime"),
+                    "modifiedTime": existing.get("modifiedTime"),
+                }
+            )
+
+    if conflicts:
+        return jsonify({"ok": False, "conflicts": conflicts}), 409
+
+    uploaded: list[dict] = []
+    skipped: list[str] = []
+
+    for file in files:
+        name = (file.filename or "").strip()
+        if not name:
+            continue
+        existing = existing_map.get(name)
+        decision = resolutions.get(name, {}) if existing else {}
+        action = (decision.get("action") or "").lower()
+        try:
+            if existing:
+                if action == "skip":
+                    skipped.append(name)
+                    continue
+                if action == "overwrite":
+                    result = upload_drive_file(
+                        folder_id,
+                        file,
+                        drive_id=shared_drive_id,
+                        overwrite_file_id=existing.get("id"),
+                    )
+                elif action == "rename":
+                    new_name = (decision.get("new_name") or "").strip()
+                    if not new_name:
+                        return jsonify({"ok": False, "error": f"Nombre nuevo invalido para {name}."}), 400
+                    result = upload_drive_file(
+                        folder_id,
+                        file,
+                        name=new_name,
+                        drive_id=shared_drive_id,
+                    )
+                else:
+                    skipped.append(name)
+                    continue
+            else:
+                result = upload_drive_file(folder_id, file, drive_id=shared_drive_id)
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
+        uploaded.append(
+            {
+                "id": result.get("id"),
+                "name": result.get("name"),
+                "createdTime": result.get("createdTime"),
+                "modifiedTime": result.get("modifiedTime"),
+            }
+        )
+
+    return jsonify({"ok": True, "uploaded": uploaded, "skipped": skipped}), 200
+
+
+@api_bp.route("/drive-files/projects/<int:project_id>/download/<file_id>", methods=["GET"])
+@login_required
+def project_drive_files_download(project_id: int, file_id: str):
+    project = CommissionProject.query.get_or_404(project_id)
+    commission = project.commission or Commission.query.get(project.commission_id)
+    if commission is None:
+        return jsonify({"ok": False, "error": "Comision no encontrada."}), 404
+    if not _can_access_commission_files(commission):
+        abort(403)
+
+    folder_id = _resolve_project_folder(project)
+    if not folder_id:
+        return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
+
+    meta = _assert_file_in_folder(file_id, folder_id)
+    if meta is None:
+        return jsonify({"ok": False, "error": "Archivo no encontrado."}), 404
+
+    try:
+        content, meta = download_drive_file(file_id)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+    return send_file(
+        content,
+        as_attachment=True,
+        download_name=meta.get("name") or "archivo",
+        mimetype=meta.get("mimeType") or "application/octet-stream",
+    )
+
+
+@api_bp.route("/drive-files/projects/<int:project_id>/delete/<file_id>", methods=["DELETE"])
+@csrf.exempt
+@login_required
+def project_drive_files_delete(project_id: int, file_id: str):
+    project = CommissionProject.query.get_or_404(project_id)
+    commission = project.commission or Commission.query.get(project.commission_id)
+    if commission is None:
+        return jsonify({"ok": False, "error": "Comision no encontrada."}), 404
+    if not _can_manage_commission_files(commission):
+        abort(403)
+
+    folder_id = _resolve_project_folder(project)
+    if not folder_id:
+        return jsonify({"ok": False, "error": "No se pudo resolver la carpeta de Drive."}), 500
+
+    meta = _assert_file_in_folder(file_id, folder_id)
+    if meta is None:
+        return jsonify({"ok": False, "error": "Archivo no encontrado."}), 404
+
+    try:
+        delete_drive_file(file_id)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+    return jsonify({"ok": True, "deleted": {"id": file_id}}), 200

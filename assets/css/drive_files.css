@@ -1,0 +1,366 @@
+.drive-files-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.12);
+}
+
+.drive-files-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.drive-files-card {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.drive-files-dropzone {
+  flex: 1 1 280px;
+  border: 2px dashed #94a3b8;
+  border-radius: 1rem;
+  background: #f8fafc;
+  padding: 1rem 1.2rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  min-height: 90px;
+  touch-action: manipulation;
+}
+
+.drive-files-dropzone.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.drive-files-dropzone.is-dragover {
+  border-color: #38bdf8;
+  background: #e0f2fe;
+  box-shadow: 0 10px 26px rgba(14, 116, 144, 0.18);
+}
+
+.drive-files-dropzone:focus {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.drive-files-dropzone__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: #0f172a;
+}
+
+.drive-files-title {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.drive-files-help {
+  margin: 0;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.drive-files-input {
+  display: none;
+}
+
+.drive-files-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.drive-files-count {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #475569;
+}
+
+.drive-files-btn {
+  border: 1px solid #e2e8f0;
+  background: #0f172a;
+  color: #f8fafc;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.drive-files-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+}
+
+.drive-files-status {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #0f172a;
+  min-height: 20px;
+}
+
+.drive-files-status.is-error { color: #b91c1c; }
+.drive-files-status.is-success { color: #15803d; }
+.drive-files-status.is-loading::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 0.4rem;
+  border-radius: 50%;
+  border: 2px solid #cbd5f5;
+  border-top-color: #0f172a;
+  animation: drive-spin 0.8s linear infinite;
+  vertical-align: -2px;
+}
+
+.drive-files-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 1300;
+}
+
+.drive-files-modal.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drive-files-modal__dialog {
+  background: #ffffff;
+  border-radius: 1rem;
+  width: min(92vw, 720px);
+  max-height: 80vh;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.drive-files-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.drive-files-modal__header h3 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.drive-files-modal__close {
+  border: none;
+  background: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.drive-files-modal__body {
+  padding: 1rem 1.25rem 1.25rem;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.drive-files-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.drive-files-table th,
+.drive-files-table td {
+  text-align: left;
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.drive-files-table th {
+  color: #475569;
+  font-weight: 800;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.drive-files-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.drive-files-actions-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.drive-files-empty {
+  color: #64748b;
+  font-weight: 600;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.drive-files-link,
+.drive-files-name {
+  color: #0f172a;
+  font-weight: 700;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.drive-files-link:hover { text-decoration: underline; }
+
+.drive-files-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.drive-files-download svg {
+  width: 18px;
+  height: 18px;
+}
+
+.drive-files-download:hover {
+  background: #f1f5f9;
+}
+
+.drive-files-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #b91c1c;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.drive-files-delete:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(185, 28, 28, 0.2);
+}
+
+.drive-files-delete svg {
+  width: 18px;
+  height: 18px;
+}
+
+.drive-conflict-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.drive-conflict-row {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.85rem;
+  padding: 0.85rem 0.9rem;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.drive-conflict-name {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.drive-conflict-meta {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.drive-conflict-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.drive-conflict-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.drive-conflict-rename {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+  min-width: 200px;
+}
+
+.drive-conflict-rename.is-error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.drive-files-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 0.85rem 1.25rem 1.25rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.drive-files-btn--ghost {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+@media (max-width: 720px) {
+  .drive-files-card {
+    flex-direction: column;
+  }
+  .drive-files-actions {
+    justify-content: flex-start;
+    align-items: flex-start;
+  }
+  .drive-files-table th:nth-child(3),
+  .drive-files-table td:nth-child(3) {
+    display: none;
+  }
+}
+
+@keyframes drive-spin {
+  to { transform: rotate(360deg); }
+}

@@ -680,6 +680,7 @@ def commission_detail(commission_id: int):
     can_manage_meetings = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
     can_edit_commission = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
     can_create_discussions = can_manage_discussions
+    can_manage_drive_files = current_user.has_permission("manage_commissions") or user_is_privileged(current_user)
 
     return render_template(
         "admin/comision_detalle.html",
@@ -699,6 +700,7 @@ def commission_detail(commission_id: int):
         can_manage_meetings=can_manage_meetings,
         can_edit_commission=can_edit_commission,
         can_create_discussions=can_create_discussions,
+        can_manage_drive_files=can_manage_drive_files,
     )
 
 

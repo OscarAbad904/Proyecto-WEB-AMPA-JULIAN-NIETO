@@ -6,6 +6,8 @@
   {% if return_to %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
   {% endif %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/drive_files.css', v='20260106') }}" />
+  <script src="{{ url_for('static', filename='js/drive_files.js', v='20260106') }}" defer></script>
   <style>
     /* {% if return_to %} */
     .project-detail { padding-bottom: 4rem; }
@@ -409,6 +411,18 @@
           </div>
         </div>
       </div>
+
+      {% set drive_label = "proyecto" %}
+      {% set drive_upload_title = "Sube archivos al proyecto" %}
+      {% set drive_list_title = "Archivos del proyecto" %}
+      {% set drive_list_button = "Ver archivos del proyecto" %}
+      {% set drive_list_url = url_for('api.project_drive_files_list', project_id=project.id) %}
+      {% set drive_upload_url = url_for('api.project_drive_files_upload', project_id=project.id) %}
+      {% set drive_download_url = url_for('api.project_drive_files_download', project_id=project.id, file_id='__FILE_ID__') %}
+      {% set drive_delete_url = url_for('api.project_drive_files_delete', project_id=project.id, file_id='__FILE_ID__') %}
+      {% set drive_can_delete = can_manage_drive_files %}
+      {% include 'shared/drive_files_widget.html' %}
+
       </div>
 
       <div class="detail-column--shell">
@@ -437,7 +451,9 @@
             <p class="muted" style="margin:0;">No hay discusiones todavía.</p>
           {% endfor %}
         </div>
+
       </div>
+
       </div>
     </div>
 
@@ -564,8 +580,19 @@
             </div>
           </div>
         </div>
-        </div>
       </div>
+      </div>
+
+      {% set drive_label = "proyecto" %}
+      {% set drive_upload_title = "Sube archivos al proyecto" %}
+      {% set drive_list_title = "Archivos del proyecto" %}
+      {% set drive_list_button = "Ver archivos del proyecto" %}
+      {% set drive_list_url = url_for('api.project_drive_files_list', project_id=project.id) %}
+      {% set drive_upload_url = url_for('api.project_drive_files_upload', project_id=project.id) %}
+      {% set drive_download_url = url_for('api.project_drive_files_download', project_id=project.id, file_id='__FILE_ID__') %}
+      {% set drive_delete_url = url_for('api.project_drive_files_delete', project_id=project.id, file_id='__FILE_ID__') %}
+      {% set drive_can_delete = can_manage_drive_files %}
+      {% include 'shared/drive_files_widget.html' %}
 
       <div class="card">
         <div class="card-header">
