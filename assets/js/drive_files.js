@@ -73,8 +73,10 @@
     const newChipEl = widget.querySelector('[data-drive-new-chip]');
 
     let pendingFiles = [];
-  let currentListMode = 'active';
+    let currentListMode = 'active';
     let currentListColCount = 5;
+    let lastActiveFiles = [];
+    let isMarkingOnClose = false;
     let pendingUploadDescription = '';
     let pendingDescMode = null; // 'upload' | 'edit'
     let pendingDescFileId = null;
@@ -111,26 +113,49 @@
 
     const markFilesSeen = async (files) => {
       const list = Array.isArray(files) ? files : [];
-      const pending = list
-        .filter((file) => file && file.isNew && file.dbId)
-        .map((file) => file.dbId);
-      if (!pending.length) return;
+      const pendingFiles = list.filter((file) => file && file.isNew && file.dbId);
+      const pending = Array.from(new Set(pendingFiles.map((file) => file.dbId)));
+      if (!pending.length) return 0;
 
       try {
+        let marked = 0;
         for (const dbId of pending) {
-          await fetch('/api/me/seen', {
+          const response = await fetch('/api/me/seen', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Accept': 'application/json'
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
             },
             credentials: 'same-origin',
             body: JSON.stringify({ item_type: 'drivefile', item_id: dbId })
           }).catch(() => null);
+
+          let ok = false;
+          if (response && response.ok) {
+            try {
+              const data = await response.json();
+              ok = Boolean(data && data.ok);
+            } catch (err) {
+              ok = false;
+            }
+          }
+
+          if (ok) {
+            marked += 1;
+            pendingFiles
+              .filter((file) => file && file.dbId === dbId)
+              .forEach((file) => {
+                file.isNew = false;
+              });
+          }
         }
+        return marked;
       } catch (err) {
         // Silencioso: el UI no depende de esto.
       }
+
+      return 0;
     };
 
     const toggleModal = (modal, show) => {
@@ -255,7 +280,7 @@
     const closeModalOnEscape = (event) => {
       if (event.key !== 'Escape') return;
       if (dialogModal && dialogModal.classList.contains('open')) return;
-      if (listModal && listModal.classList.contains('open')) toggleModal(listModal, false);
+      if (listModal && listModal.classList.contains('open')) closeListModal();
       if (conflictModal && conflictModal.classList.contains('open')) {
         toggleModal(conflictModal, false);
         cancelConflicts();
@@ -520,6 +545,7 @@
         }
 
         const files = data.files || [];
+        if (resolvedMode === 'active') lastActiveFiles = files;
         if (resolvedMode === 'active') setCount(files.length);
         if (resolvedMode === 'active') setNewChip(files);
         if (!files.length) {
@@ -641,13 +667,6 @@
         });
 
         applySearchFilter();
-
-        if (resolvedMode === 'active') {
-          // Marcamos como vistos al abrir el modal/lista.
-          setTimeout(() => {
-            markFilesSeen(files);
-          }, 0);
-        }
       } catch (err) {
         if (resolvedMode === 'active') setCount(null);
         if (resolvedMode === 'active') setNewChip([]);
@@ -825,6 +844,8 @@
 
     if (listBtn) {
       listBtn.addEventListener('click', () => {
+        // UX: al abrir el modal, quitamos el chip de "Nuevo" del contador (se va a revisar en el modal).
+        setNewChip([]);
         toggleModal(listModal, true);
         loadFileList('active');
         if (listSearch) {
@@ -837,10 +858,32 @@
       listSearch.addEventListener('input', () => applySearchFilter());
     }
 
+    async function closeListModal() {
+      if (!listModal) return;
+      toggleModal(listModal, false);
+
+      if (currentListMode !== 'active') return;
+      const hadNew = Array.isArray(lastActiveFiles)
+        ? lastActiveFiles.some((file) => file && file.isNew && file.dbId)
+        : false;
+      if (!hadNew) return;
+      if (isMarkingOnClose) return;
+      isMarkingOnClose = true;
+      try {
+        const marked = await markFilesSeen(lastActiveFiles);
+        await refreshCount();
+        if (marked > 0 && typeof window.refreshUnreadCounts === 'function') {
+          window.refreshUnreadCounts();
+        }
+      } finally {
+        isMarkingOnClose = false;
+      }
+    }
+
     if (listClose && listModal) {
-      listClose.addEventListener('click', () => toggleModal(listModal, false));
+      listClose.addEventListener('click', () => closeListModal());
       listModal.addEventListener('click', (event) => {
-        if (event.target === listModal) toggleModal(listModal, false);
+        if (event.target === listModal) closeListModal();
       });
     }
 

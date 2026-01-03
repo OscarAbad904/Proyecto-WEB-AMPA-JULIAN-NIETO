@@ -379,6 +379,25 @@ def me_mark_seen():
             if not can_view_scoped:
                 return jsonify({"ok": False, "error": "No autorizado"}), 403
 
+        if project_id is not None:
+            project = CommissionProject.query.filter_by(id=project_id).first()
+            if not project:
+                return jsonify({"ok": False, "error": "Discusión no encontrada"}), 404
+            can_view_scoped = (
+                bool(
+                    CommissionMembership.query.filter_by(
+                        user_id=current_user.id,
+                        commission_id=project.commission_id,
+                        is_active=True,
+                    ).first()
+                )
+                or current_user.has_permission("manage_commission_members")
+                or current_user.has_permission("manage_commissions")
+                or user_is_privileged(current_user)
+            )
+            if not can_view_scoped:
+                return jsonify({"ok": False, "error": "No autorizado"}), 403
+
     if item_type == "drivefile":
         drive_file = DriveFile.query.filter_by(id=item_id_int).first()
         if not drive_file:
@@ -408,25 +427,6 @@ def me_mark_seen():
                 return jsonify({"ok": False, "error": "No autorizado"}), 403
         else:
             return jsonify({"ok": False, "error": "Archivo no encontrado"}), 404
-
-        if project_id is not None:
-            project = CommissionProject.query.filter_by(id=project_id).first()
-            if not project:
-                return jsonify({"ok": False, "error": "Discusión no encontrada"}), 404
-            can_view_scoped = (
-                bool(
-                    CommissionMembership.query.filter_by(
-                        user_id=current_user.id,
-                        commission_id=project.commission_id,
-                        is_active=True,
-                    ).first()
-                )
-                or current_user.has_permission("manage_commission_members")
-                or current_user.has_permission("manage_commissions")
-                or user_is_privileged(current_user)
-            )
-            if not can_view_scoped:
-                return jsonify({"ok": False, "error": "No autorizado"}), 403
 
     now_dt = get_local_now()
     try:

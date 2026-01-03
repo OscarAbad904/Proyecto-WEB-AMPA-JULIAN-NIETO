@@ -63,7 +63,7 @@
     .stack { display:flex; flex-direction:column; gap: 0.75rem; }
     .item { border: 1px solid #e2e8f0; border-radius: 1rem; padding: 0.9rem 1rem; background: #ffffff; box-shadow: 0 10px 26px rgba(15, 23, 42, 0.14); }
     .stack a.item,
-    .stack .discussion-item { box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18); transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease; }
+    .stack .discussion-item { cursor: pointer; box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18); transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease; }
     .stack a.item:hover,
     .stack .discussion-item:hover { transform: translateY(-2px); border-color: rgba(139,92,246,0.35); box-shadow: 0 22px 50px rgba(15,23,42,0.22); }
     .item-top { display:flex; align-items:center; justify-content:space-between; gap: 0.75rem; flex-wrap:wrap; }
@@ -439,7 +439,7 @@
         </div>
         <div class="stack">
           {% for discussion in project_discussions %}
-            <article class="item discussion-item" role="link" tabindex="0" data-href="{{ url_for('members.detalle_sugerencia', suggestion_id=discussion.id, return_to=project_self_url) }}">
+            <a class="item discussion-item" href="{{ url_for('members.detalle_sugerencia', suggestion_id=discussion.id, return_to=project_self_url) }}" style="display:block; text-decoration:none; color:inherit;">
               <div class="item-top">
                 <div class="meta">
                   <span class="chip">{{ discussion.status }}</span>
@@ -453,7 +453,7 @@
                 </div>
               </div>
               <h4>{{ discussion.title }}</h4>
-            </article>
+            </a>
           {% else %}
             <p class="muted" style="margin:0;">No hay discusiones todavía.</p>
           {% endfor %}
@@ -615,7 +615,7 @@
 
         <div class="stack">
           {% for discussion in project_discussions %}
-            <a class="compact" href="{{ url_for('members.detalle_sugerencia', suggestion_id=discussion.id, return_to=project_self_url) }}" style="display:block; text-decoration:none; color:inherit;">
+            <a class="item discussion-item" href="{{ url_for('members.detalle_sugerencia', suggestion_id=discussion.id, return_to=project_self_url) }}" style="display:block; text-decoration:none; color:inherit;">
               <div class="meta">
                 <span class="badge">{{ discussion.status }}</span>
                 {% if is_new_by_discussion_id is defined and is_new_by_discussion_id.get(discussion.id) %}

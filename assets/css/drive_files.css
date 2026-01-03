@@ -124,6 +124,14 @@
   flex: 0 0 auto;
 }
 
+.drive-files-meta {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
 .drive-files-count {
   font-size: 0.85rem;
   font-weight: 800;

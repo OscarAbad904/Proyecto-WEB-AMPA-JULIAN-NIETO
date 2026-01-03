@@ -164,11 +164,18 @@ def _ensure_can_access_commission_discussion(suggestion: Suggestion) -> None:
     ).first()
     can_view_commission = (
         bool(membership)
+        or current_user.has_permission("view_commissions")
         or current_user.has_permission("manage_commission_members")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
     if not can_view_commission:
+        current_app.logger.info(
+            "Access denied to commission discussion: user_id=%s commission_id=%s suggestion_id=%s",
+            getattr(current_user, "id", None),
+            commission_id,
+            getattr(suggestion, "id", None),
+        )
         abort(403)
 
 
@@ -179,6 +186,13 @@ def _ensure_can_access_project_discussion(suggestion: Suggestion) -> None:
 
     project = CommissionProject.query.get(project_id)
     if not project:
+        current_app.logger.info(
+            "Project discussion points to missing project: user_id=%s project_id=%s suggestion_id=%s category=%r",
+            getattr(current_user, "id", None),
+            project_id,
+            getattr(suggestion, "id", None),
+            getattr(suggestion, "category", None),
+        )
         abort(404)
 
     membership = CommissionMembership.query.filter_by(
@@ -186,11 +200,19 @@ def _ensure_can_access_project_discussion(suggestion: Suggestion) -> None:
     ).first()
     can_view_commission = (
         bool(membership)
+        or current_user.has_permission("view_commissions")
         or current_user.has_permission("manage_commission_members")
         or current_user.has_permission("manage_commissions")
         or user_is_privileged(current_user)
     )
     if not can_view_commission:
+        current_app.logger.info(
+            "Access denied to project discussion: user_id=%s project_id=%s commission_id=%s suggestion_id=%s",
+            getattr(current_user, "id", None),
+            project_id,
+            getattr(project, "commission_id", None),
+            getattr(suggestion, "id", None),
+        )
         abort(403)
 
 
