@@ -756,6 +756,7 @@ def calendario_mis_eventos():
                 "id": f"event-{event.id}",
                 "titulo": event.title,
                 "descripcion": event.description_html or "",
+                "cover_image": event.cover_image or "",
                 "inicio": event.start_at.isoformat(),
                 "fin": event.end_at.isoformat(),
                 "ubicacion": event.location or "",

@@ -26,6 +26,99 @@ const MONTHS_ES = [
 const DAYS_ES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const DAYS_SHORT_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
+const DRIVE_PATTERNS = [
+  /https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\//,
+  /https?:\/\/drive\.google\.com\/file\/d\/([^/]+)\/view/,
+  /https?:\/\/drive\.google\.com\/open\?id=([^&]+)/,
+  /https?:\/\/drive\.google\.com\/uc\?id=([^&]+)/,
+  /https?:\/\/drive\.googleusercontent\.com\/d\/([^/]+)/,
+  /https?:\/\/drive\.google\.com\/uc\?export=view&?id=([^&]+)/,
+];
+
+function extractDriveId(url) {
+  if (!url) return null;
+  for (const pattern of DRIVE_PATTERNS) {
+    const match = url.match(pattern);
+    if (match && match[1]) return match[1];
+  }
+  try {
+    const parsed = new URL(url);
+    const id = parsed.searchParams.get('id');
+    if (id) return id;
+  } catch (_) {
+    // ignore
+  }
+  return null;
+}
+
+function normalizeDriveUrl(url) {
+  const id = extractDriveId(url);
+  if (id) return { url: `https://drive.google.com/uc?export=view&id=${id}`, id };
+  return { url: url || '', id: null };
+}
+
+function preloadImage(url, onOk, onFail) {
+  if (!url) {
+    if (typeof onFail === 'function') onFail();
+    return;
+  }
+  const img = new Image();
+  img.referrerPolicy = 'no-referrer';
+  img.onload = () => onOk(url);
+  img.onerror = () => {
+    if (typeof onFail === 'function') onFail();
+  };
+  img.src = url;
+}
+
+function setModalImage(imgEl, rawUrl) {
+  if (!imgEl) return;
+  const coverFigure = document.getElementById('event-modal-cover');
+  const cleaned = (rawUrl || '').trim();
+
+  if (!cleaned) {
+    imgEl.removeAttribute('src');
+    if (coverFigure) coverFigure.style.display = 'none';
+    return;
+  }
+
+  if (coverFigure) coverFigure.style.display = '';
+  const { url, id } = normalizeDriveUrl(cleaned);
+
+  const tryPrimary = () => preloadImage(url, (okUrl) => {
+    imgEl.src = okUrl;
+  }, tryThumb);
+
+  const tryThumb = () => {
+    if (!id) {
+      imgEl.removeAttribute('src');
+      if (coverFigure) coverFigure.style.display = 'none';
+      return;
+    }
+    const thumb = `https://drive.google.com/thumbnail?id=${id}&sz=w1200`;
+    preloadImage(thumb, (okUrl) => {
+      imgEl.src = okUrl;
+    }, tryAlt);
+  };
+
+  const tryAlt = () => {
+    if (!id) {
+      imgEl.removeAttribute('src');
+      if (coverFigure) coverFigure.style.display = 'none';
+      return;
+    }
+    const alt = `https://lh3.googleusercontent.com/d/${id}=w1200`;
+    preloadImage(alt, (okUrl) => {
+      imgEl.src = okUrl;
+    }, () => {
+      imgEl.removeAttribute('src');
+      if (coverFigure) coverFigure.style.display = 'none';
+    });
+  };
+
+  tryPrimary();
+}
+
 // Inicialización
 document.addEventListener('DOMContentLoaded', () => {
   initCalendar();
@@ -516,6 +609,11 @@ function openEventModal(eventId) {
   // Descripción
   const description = document.getElementById('modal-event-description');
   description.textContent = event.descripcion || '';
+  
+  // Imagen
+  const modalImage = document.getElementById('event-modal-image');
+  const coverImage = event.cover_image || event.cover || '';
+  setModalImage(modalImage, coverImage);
 
   // Enlace a Google Calendar (si está disponible)
   const link = document.getElementById('modal-event-link');
