@@ -1,5 +1,6 @@
 import os
 import time
+import unicodedata
 from flask import Flask
 from dotenv import load_dotenv
 from datetime import datetime
@@ -383,18 +384,23 @@ def register_guards(app: Flask) -> None:
                 "members.editar_comentario",
             }:
                 try:
-                    from app.models import Suggestion, Comment
+                    from app.models import Suggestion, Comment, DiscussionPoll
 
                     view_args = request.view_args or {}
                     suggestion_id = view_args.get("suggestion_id")
                     comment_id = view_args.get("comment_id")
+                    poll_id = view_args.get("poll_id")
                     suggestion = None
                     if suggestion_id is not None:
                         suggestion = Suggestion.query.get(int(suggestion_id))
                     elif comment_id is not None:
                         comment = Comment.query.get(int(comment_id))
                         suggestion = comment.suggestion if comment else None
+                    elif poll_id is not None:
+                        poll = DiscussionPoll.query.get(int(poll_id))
+                        suggestion = poll.suggestion if poll else None
                     category = (getattr(suggestion, "category", "") or "").strip().lower()
+                    category = unicodedata.normalize("NFKD", category).encode("ascii", "ignore").decode("ascii")
                     if category.startswith("comision:") or category.startswith("proyecto:"):
                         is_scoped_discussion_endpoint = True
                 except Exception:
