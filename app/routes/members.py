@@ -5,6 +5,7 @@ import json
 import secrets
 import re
 from urllib.parse import urlparse
+import unicodedata
 import sqlalchemy as sa
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -80,8 +81,15 @@ def _get_commission_and_membership(slug: str):
     return commission, membership
 
 
+def _normalize_discussion_category(raw_category: str | None) -> str:
+    if not raw_category:
+        return ""
+    category = raw_category.strip().lower()
+    return unicodedata.normalize("NFKD", category).encode("ascii", "ignore").decode("ascii")
+
+
 def _commission_discussion_commission_id(raw_category: str | None) -> int | None:
-    category = (raw_category or "").strip()
+    category = _normalize_discussion_category(raw_category)
     if not category.startswith("comision:"):
         return None
     raw_id = category.split(":", 1)[1].strip()
@@ -92,7 +100,7 @@ def _commission_discussion_commission_id(raw_category: str | None) -> int | None
 
 
 def _project_discussion_project_id(raw_category: str | None) -> int | None:
-    category = (raw_category or "").strip()
+    category = _normalize_discussion_category(raw_category)
     if not category.startswith("proyecto:"):
         return None
     raw_id = category.split(":", 1)[1].strip()
