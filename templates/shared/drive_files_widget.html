@@ -8,6 +8,8 @@
 {% set drive_history_url = drive_history_url|default("") %}
 {% set drive_restore_url = drive_restore_url|default("") %}
 {% set drive_description_url = drive_description_url|default("") %}
+{% set drive_select_mode = drive_select_mode|default("") %}
+{% set drive_select_label = drive_select_label|default("Agregar") %}
 
 <div class="drive-files-panel">
   <div
@@ -23,6 +25,8 @@
     data-drive-history-url="{{ drive_history_url }}"
     data-drive-restore-url="{{ drive_restore_url }}"
     data-drive-description-url="{{ drive_description_url }}"
+    data-drive-select-mode="{{ drive_select_mode }}"
+    data-drive-select-label="{{ drive_select_label }}"
   >
     <div class="drive-files-card">
       <div class="drive-files-dropzone" data-drive-dropzone role="button" tabindex="0" aria-label="Seleccionar archivos">

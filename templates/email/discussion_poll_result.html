@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultado de votacion - {{ commission_name }}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+            <td style="padding: 20px 0 30px 0;">
+                <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="border-collapse: collapse; border: 1px solid #cccccc; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td align="center" bgcolor="#ffffff" style="padding: 40px 0 30px 0; border-bottom: 1px solid #eeeeee;">
+                            <img src="cid:logo_ampa" alt="AMPA Julian Nieto" width="150" style="display: block;" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td bgcolor="#ffffff" style="padding: 40px 30px 40px 30px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td style="color: #1f3ba2; font-size: 24px; font-weight: bold; text-align: center;">
+                                        Resultado de la votacion
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 18px 0 12px 0; color: #333333; font-size: 16px; line-height: 24px;">
+                                        La votacion ha finalizado. Este es el recuento (anonimo):
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 12px 0 18px 0;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #1f3ba2;">
+                                            <tr>
+                                                <td style="padding: 18px;">
+                                                    <div style="font-size: 18px; font-weight: bold; color: #0f172a; margin-bottom: 8px;">
+                                                        {{ poll_title }}
+                                                    </div>
+                                                    <div style="color: #475569; font-size: 14px; margin-bottom: 6px;">
+                                                        Discusion: <strong>{{ discussion_title }}</strong>
+                                                    </div>
+                                                    <div style="color: #475569; font-size: 14px; margin-bottom: 6px;">
+                                                        Comision: <strong>{{ commission_name }}</strong>
+                                                    </div>
+                                                    {% if project_title %}
+                                                    <div style="color: #475569; font-size: 14px; margin-bottom: 6px;">
+                                                        Proyecto: <strong>{{ project_title }}</strong>
+                                                    </div>
+                                                    {% endif %}
+                                                    <div style="color: #475569; font-size: 14px;">
+                                                        Fecha limite: <strong>{{ poll_deadline }}</strong>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 0 0 18px 0;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="padding: 8px 0; color: #0f172a; font-size: 16px;">
+                                                    A favor: <strong>{{ votes_for }}</strong>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; color: #0f172a; font-size: 16px;">
+                                                    En contra: <strong>{{ votes_against }}</strong>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; color: #0f172a; font-size: 16px;">
+                                                    Abstenciones: <strong>{{ abstentions }}</strong>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 0 0 18px 0; color: #555555; font-size: 14px; line-height: 20px;">
+                                        La votacion es anonima: no se publican votantes, solo recuentos.
+                                    </td>
+                                </tr>
+                                {% if poll_url %}
+                                <tr>
+                                    <td align="center" style="padding: 10px 0 20px 0;">
+                                        <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate;">
+                                            <tr>
+                                                <td align="center" style="border-radius: 50px; background-color: #1f3ba2;">
+                                                    <a href="{{ poll_url }}" target="_blank" style="font-size: 14px; font-family: Helvetica, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 10px 28px; border-radius: 50px; border: 1px solid #1f3ba2; display: inline-block; font-weight: bold;">
+                                                        Ver votacion
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td bgcolor="#f8f9fa" style="padding: 28px 30px 28px 30px; border-top: 1px solid #eeeeee;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td style="color: #999999; font-size: 12px; text-align: center; line-height: 18px;">
+                                        &copy; 2025 AMPA Julian Nieto. Has recibido este correo porque eres miembro de {{ commission_name }}.
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

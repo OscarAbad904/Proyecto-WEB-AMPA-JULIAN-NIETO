@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, abort, jsonify, current_app
 from flask_login import login_required, current_user, login_user, logout_user
 from datetime import datetime, timedelta
+import json
 import secrets
 import re
 from urllib.parse import urlparse
@@ -17,6 +18,8 @@ from app.models import (
     Suggestion,
     Comment,
     Vote,
+    DiscussionPoll,
+    DiscussionPollVote,
     Document,
     Commission,
     CommissionMembership,
@@ -57,6 +60,14 @@ from app.utils import (
 from app.services.permission_registry import ensure_roles_and_permissions, DEFAULT_ROLE_NAMES
 from app.services.calendar_service import sync_commission_meeting_to_calendar
 from app.services.commission_drive_service import ensure_project_drive_folder
+from app.services.discussion_poll_service import (
+    build_discussion_poll_url,
+    get_active_commission_members,
+    get_latest_poll_activity_by_discussion,
+    get_poll_vote_summary,
+    get_user_poll_votes,
+    resolve_discussion_scope,
+)
 
 members_bp = Blueprint("members", __name__, template_folder="../../templates/members")
 
@@ -101,6 +112,41 @@ def _safe_return_to(raw_value: str | None) -> str | None:
     if parsed.scheme or parsed.netloc:
         return None
     return value
+
+
+def _parse_drive_file_ids(raw_value) -> list[str]:
+    if raw_value is None:
+        return []
+    if isinstance(raw_value, (list, tuple)):
+        values = list(raw_value)
+    else:
+        try:
+            values = json.loads(raw_value)
+        except (TypeError, ValueError):
+            values = []
+    ids: list[str] = []
+    for value in values if isinstance(values, list) else []:
+        value_str = str(value).strip()
+        if not value_str:
+            continue
+        if value_str in ids:
+            continue
+        ids.append(value_str)
+    return ids
+
+
+def _filter_drive_file_ids(raw_ids: list[str], scope_type: str | None, scope_id: int | None) -> list[str]:
+    if not raw_ids or not scope_type or not scope_id:
+        return []
+    records = (
+        DriveFile.query.with_entities(DriveFile.drive_file_id)
+        .filter(DriveFile.scope_type == scope_type, DriveFile.scope_id == scope_id)
+        .filter(DriveFile.drive_file_id.in_(raw_ids))
+        .filter(DriveFile.deleted_at.is_(None))
+        .all()
+    )
+    allowed = {drive_file_id for (drive_file_id,) in records}
+    return [file_id for file_id in raw_ids if file_id in allowed]
 
 
 def _discussion_back_target(suggestion: Suggestion, return_to: str | None = None):
@@ -262,9 +308,10 @@ def _vote_counts_for_suggestions(suggestion_ids: list[int]) -> dict[int, int]:
     if not suggestion_ids:
         return {}
     rows = (
-        db.session.query(Vote.suggestion_id, func.count(Vote.id))
-        .filter(Vote.suggestion_id.in_(suggestion_ids))
-        .group_by(Vote.suggestion_id)
+        db.session.query(DiscussionPoll.suggestion_id, func.count(DiscussionPollVote.id))
+        .join(DiscussionPollVote, DiscussionPollVote.poll_id == DiscussionPoll.id)
+        .filter(DiscussionPoll.suggestion_id.in_(suggestion_ids))
+        .group_by(DiscussionPoll.suggestion_id)
         .all()
     )
     return {suggestion_id: count for suggestion_id, count in rows}
@@ -280,6 +327,34 @@ def _commission_can_manage(membership: CommissionMembership | None, area: str) -
     if role == "coordinador":
         return area in {"members", "projects", "meetings", "discussions"}
     return False
+
+
+def _get_discussion_membership(suggestion: Suggestion) -> tuple[CommissionMembership | None, Commission | None, CommissionProject | None]:
+    scope = resolve_discussion_scope(suggestion)
+    commission = scope.commission
+    project = scope.project
+    if not commission:
+        return None, commission, project
+    membership = CommissionMembership.query.filter_by(
+        commission_id=commission.id, user_id=current_user.id, is_active=True
+    ).first()
+    return membership, commission, project
+
+
+def _can_create_discussion_polls(membership: CommissionMembership | None) -> bool:
+    return bool(
+        _user_is_commission_coordinator(membership)
+        or current_user.has_permission("create_discussion_polls")
+        or user_is_privileged(current_user)
+    )
+
+
+def _can_null_discussion_polls(membership: CommissionMembership | None) -> bool:
+    return bool(
+        _user_is_commission_coordinator(membership)
+        or current_user.has_permission("null_discussion_polls")
+        or user_is_privileged(current_user)
+    )
 
 
 @members_bp.route("/login", methods=["GET", "POST"])
@@ -796,6 +871,21 @@ def commission_discussion_edit(slug: str, suggestion_id: int):
         elif action == "delete":
             Comment.query.filter_by(suggestion_id=suggestion.id).delete(synchronize_session=False)
             Vote.query.filter_by(suggestion_id=suggestion.id).delete(synchronize_session=False)
+            poll_ids = [
+                poll_id
+                for (poll_id,) in (
+                    DiscussionPoll.query.with_entities(DiscussionPoll.id)
+                    .filter_by(suggestion_id=suggestion.id)
+                    .all()
+                )
+            ]
+            if poll_ids:
+                DiscussionPollVote.query.filter(DiscussionPollVote.poll_id.in_(poll_ids)).delete(
+                    synchronize_session=False
+                )
+                DiscussionPoll.query.filter(DiscussionPoll.id.in_(poll_ids)).delete(
+                    synchronize_session=False
+                )
             db.session.delete(suggestion)
             db.session.commit()
             flash("Discusión eliminada.", "info")
@@ -842,18 +932,162 @@ def detalle_sugerencia(suggestion_id: int):
     return_to = _safe_return_to(request.args.get("return_to"))
     back_url, back_label, breadcrumb = _discussion_back_target(suggestion, return_to=return_to)
     comment_form = CommentForm()
-    vote_form = VoteForm()
-    user_vote = suggestion.votes.filter_by(user_id=current_user.id).first()
-    if user_vote:
-        vote_form.value.data = str(user_vote.value)
+    scoped_participant = _user_can_participate_in_scoped_discussion(suggestion)
+    membership, commission, project = _get_discussion_membership(suggestion)
+    is_scoped_discussion = bool(commission or project)
+
+    vote_form = None
+    user_vote = None
+    likes_count = 0
+    dislikes_count = 0
+    total_votes = 0
+    is_closed = suggestion.status == "cerrada"
+
+    polls_active: list[dict] = []
+    polls_closed: list[dict] = []
+    polls_nulled: list[dict] = []
+    poll_member_count = 0
+    poll_focus_id = request.args.get("poll")
+
+    if is_scoped_discussion and commission:
+        members = get_active_commission_members(commission.id)
+        poll_member_count = len(members)
+        polls = (
+            DiscussionPoll.query.filter_by(suggestion_id=suggestion.id)
+            .order_by(DiscussionPoll.created_at.desc())
+            .all()
+        )
+        poll_ids = [poll.id for poll in polls]
+        poll_summary = get_poll_vote_summary(poll_ids)
+        poll_user_votes = get_user_poll_votes(current_user.id, poll_ids)
+        now_dt = get_local_now()
+        drive_scope_type = "project" if project else "commission"
+        drive_scope_id = project.id if project else commission.id
+
+        all_drive_file_ids: list[str] = []
+        for poll in polls:
+            for file_id in poll.drive_file_ids or []:
+                value = str(file_id).strip()
+                if not value:
+                    continue
+                all_drive_file_ids.append(value)
+
+        drive_files_by_id: dict[str, DriveFile] = {}
+        if all_drive_file_ids:
+            drive_records = (
+                DriveFile.query.filter(
+                    DriveFile.scope_type == drive_scope_type,
+                    DriveFile.scope_id == drive_scope_id,
+                    DriveFile.drive_file_id.in_(all_drive_file_ids),
+                )
+                .all()
+            )
+            drive_files_by_id = {record.drive_file_id: record for record in drive_records}
+
+        download_url_template = None
+        if project:
+            download_url_template = url_for(
+                "api.project_drive_files_download",
+                project_id=project.id,
+                file_id="__FILE_ID__",
+            )
+        else:
+            download_url_template = url_for(
+                "api.commission_drive_files_download",
+                commission_id=commission.id,
+                file_id="__FILE_ID__",
+            )
+
+        seen_row = UserSeenItem.query.filter_by(
+            user_id=current_user.id, item_type="suggestion", item_id=suggestion.id
+        ).first()
+        seen_at = seen_row.seen_at if seen_row else None
+
+        poll_cards: list[dict] = []
+        for poll in polls:
+            counts = poll_summary.get(poll.id, {})
+            votes_for = int(counts.get(1, 0))
+            votes_against = int(counts.get(-1, 0))
+            votes_total = votes_for + votes_against
+            abstentions = max(poll_member_count - votes_total, 0)
+
+            status = poll.status
+            if status == "activa" and poll.end_at and poll.end_at <= now_dt:
+                status = "finalizada"
+
+            raw_file_ids = [str(file_id).strip() for file_id in (poll.drive_file_ids or []) if str(file_id).strip()]
+            poll_files: list[dict] = []
+            for file_id in raw_file_ids:
+                record = drive_files_by_id.get(file_id)
+                if not record or record.deleted_at:
+                    continue
+                download_url = (
+                    download_url_template.replace("__FILE_ID__", record.drive_file_id)
+                    if download_url_template
+                    else ""
+                )
+                poll_files.append(
+                    {
+                        "id": record.drive_file_id,
+                        "name": record.name or record.drive_file_id,
+                        "download_url": download_url,
+                    }
+                )
+
+            poll_activity_at = max(
+                [dt for dt in (poll.created_at, poll.closed_at, poll.nulled_at) if dt],
+                default=None,
+            )
+            is_new = False
+            if poll_activity_at:
+                is_new = seen_at is None or poll_activity_at > seen_at
+            elif seen_at is None:
+                is_new = True
+
+            poll_link = url_for(
+                "members.detalle_sugerencia",
+                suggestion_id=suggestion.id,
+                poll=poll.id,
+                return_to=return_to,
+            )
+            poll_link = f"{poll_link}#poll-{poll.id}"
+
+            poll_cards.append(
+                {
+                    "id": poll.id,
+                    "title": poll.title,
+                    "description": poll.description or "",
+                    "end_at": poll.end_at,
+                    "status": status,
+                    "notify_enabled": bool(poll.notify_enabled),
+                    "created_at": poll.created_at,
+                    "votes_for": votes_for,
+                    "votes_against": votes_against,
+                    "votes_total": votes_total,
+                    "abstentions": abstentions,
+                    "user_vote": poll_user_votes.get(poll.id),
+                    "is_new": is_new,
+                    "link": poll_link,
+                    "drive_file_ids": raw_file_ids,
+                    "files": poll_files,
+                }
+            )
+
+        polls_active = [poll for poll in poll_cards if poll["status"] == "activa"]
+        polls_closed = [poll for poll in poll_cards if poll["status"] == "finalizada"]
+        polls_nulled = [poll for poll in poll_cards if poll["status"] == "nula"]
+    else:
+        vote_form = VoteForm()
+        user_vote = suggestion.votes.filter_by(user_id=current_user.id).first()
+        if user_vote:
+            vote_form.value.data = str(user_vote.value)
+        likes_count = suggestion.votes.filter_by(value=1).count()
+        dislikes_count = suggestion.votes.filter_by(value=-1).count()
+        total_votes = likes_count + dislikes_count
+
     comments = suggestion.comments.order_by(Comment.created_at.asc()).all()
     child_parent_ids = {comment.parent_id for comment in comments if comment.parent_id}
     leaf_comment_ids = {comment.id for comment in comments if comment.id not in child_parent_ids}
-    likes_count = suggestion.votes.filter_by(value=1).count()
-    dislikes_count = suggestion.votes.filter_by(value=-1).count()
-    total_votes = likes_count + dislikes_count
-    is_closed = suggestion.status == "cerrada"
-    scoped_participant = _user_can_participate_in_scoped_discussion(suggestion)
     return render_template(
         "members/sugerencia_detalle.html",
         suggestion=suggestion,
@@ -867,11 +1101,24 @@ def detalle_sugerencia(suggestion_id: int):
         dislikes_count=dislikes_count,
         total_votes=total_votes,
         is_closed=is_closed,
+        is_scoped_discussion=is_scoped_discussion,
+        commission=commission,
+        project=project,
+        polls_active=polls_active,
+        polls_closed=polls_closed,
+        polls_nulled=polls_nulled,
+        poll_member_count=poll_member_count,
+        poll_focus_id=poll_focus_id,
         can_comment=current_user.has_permission("comment_suggestions") or scoped_participant,
         can_vote=current_user.has_permission("vote_suggestions") or scoped_participant,
+        can_poll_vote=scoped_participant,
+        can_create_polls=_can_create_discussion_polls(membership) if is_scoped_discussion else False,
+        can_null_polls=_can_null_discussion_polls(membership) if is_scoped_discussion else False,
+        now_str=get_local_now().strftime("%Y-%m-%dT%H:%M"),
         back_url=back_url,
         back_label=back_label,
         breadcrumb=breadcrumb,
+        return_to=return_to,
     )
 
 
@@ -948,6 +1195,13 @@ def editar_comentario(comment_id: int):
 def votar_sugerencia(suggestion_id: int):
     suggestion = Suggestion.query.get_or_404(suggestion_id)
     _ensure_can_access_suggestion_detail(suggestion)
+    category = (getattr(suggestion, "category", None) or "").strip().lower()
+    if _commission_discussion_commission_id(category) is not None or _project_discussion_project_id(category) is not None:
+        message = "Esta discusiÃ³n usa votaciones mÃºltiples; el voto por hilo estÃ¡ deshabilitado."
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(success=False, message=message), 400
+        flash(message, "warning")
+        return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion_id))
     if not current_user.has_permission("vote_suggestions") and not _user_can_participate_in_scoped_discussion(suggestion):
         abort(403)
     if suggestion.status == "cerrada":
@@ -1007,6 +1261,549 @@ def votar_sugerencia(suggestion_id: int):
             return jsonify(success=False, message=message), 400
         flash(message, "warning")
     return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion_id))
+
+
+@members_bp.route("/sugerencias/<int:suggestion_id>/votaciones", methods=["GET", "POST"])
+@login_required
+def discussion_polls(suggestion_id: int):
+    suggestion = Suggestion.query.get_or_404(suggestion_id)
+    _ensure_can_access_suggestion_detail(suggestion)
+    return_to = _safe_return_to(request.args.get("return_to"))
+
+    membership, commission, project = _get_discussion_membership(suggestion)
+    if not (commission or project):
+        if request.method == "POST":
+            abort(404)
+        return jsonify({"ok": True, "polls": [], "member_count": 0}), 200
+
+    if request.method == "GET":
+        members = get_active_commission_members(commission.id) if commission else []
+        member_count = len(members)
+        polls = (
+            DiscussionPoll.query.filter_by(suggestion_id=suggestion.id)
+            .order_by(DiscussionPoll.created_at.desc())
+            .all()
+        )
+        poll_ids = [poll.id for poll in polls]
+        poll_summary = get_poll_vote_summary(poll_ids)
+        poll_user_votes = get_user_poll_votes(current_user.id, poll_ids)
+        now_dt = get_local_now()
+
+        poll_payload = []
+        for poll in polls:
+            counts = poll_summary.get(poll.id, {})
+            votes_for = int(counts.get(1, 0))
+            votes_against = int(counts.get(-1, 0))
+            votes_total = votes_for + votes_against
+            abstentions = max(member_count - votes_total, 0)
+            status = poll.status
+            if status == "activa" and poll.end_at and poll.end_at <= now_dt:
+                status = "finalizada"
+            poll_payload.append(
+                {
+                    "id": poll.id,
+                    "title": poll.title,
+                    "description": poll.description or "",
+                    "end_at": poll.end_at.isoformat() if poll.end_at else None,
+                    "status": status,
+                    "notify_enabled": bool(poll.notify_enabled),
+                    "votes_for": votes_for,
+                    "votes_against": votes_against,
+                    "abstentions": abstentions,
+                    "user_vote": poll_user_votes.get(poll.id),
+                    "drive_file_ids": poll.drive_file_ids or [],
+                }
+            )
+        return jsonify({"ok": True, "polls": poll_payload, "member_count": member_count}), 200
+
+    if not _can_create_discussion_polls(membership):
+        abort(403)
+
+    payload = request.get_json(silent=True) or {}
+    data = payload if request.is_json else request.form
+    title = (data.get("title") or "").strip()
+    end_at_raw = (data.get("end_at") or "").strip()
+    notify_raw = str(data.get("notify_enabled") or "").strip().lower()
+    notify_enabled = notify_raw in {"1", "true", "yes", "on"}
+    description = (data.get("description") or "").strip()
+    raw_drive_file_ids = data.get("drive_file_ids")
+
+    if not title:
+        message = "El tema es obligatorio."
+        if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "message": message}), 400
+        flash(message, "warning")
+        return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion.id))
+
+    end_at = _parse_datetime_local(end_at_raw)
+    now_dt = get_local_now()
+    if not end_at or end_at <= now_dt:
+        message = "La fecha y hora de cierre debe ser posterior a la actual."
+        if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "message": message}), 400
+        flash(message, "warning")
+        return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion.id))
+
+    if suggestion.status == "cerrada":
+        message = "La discusiÃ³n estÃ¡ cerrada; no se pueden crear votaciones."
+        if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "message": message}), 400
+        flash(message, "warning")
+        return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion.id))
+
+    drive_scope_type = None
+    drive_scope_id = None
+    if project:
+        drive_scope_type = "project"
+        drive_scope_id = project.id
+    elif commission:
+        drive_scope_type = "commission"
+        drive_scope_id = commission.id
+
+    drive_file_ids = _filter_drive_file_ids(
+        _parse_drive_file_ids(raw_drive_file_ids),
+        drive_scope_type,
+        drive_scope_id,
+    )
+
+    poll = DiscussionPoll(
+        suggestion_id=suggestion.id,
+        title=title,
+        description=description or None,
+        drive_file_ids=drive_file_ids or None,
+        end_at=end_at,
+        status="activa",
+        notify_enabled=notify_enabled,
+        created_by=current_user.id,
+    )
+    suggestion.updated_at = now_dt
+    db.session.add(poll)
+    db.session.commit()
+
+    poll_url = build_discussion_poll_url(
+        suggestion=suggestion,
+        poll_id=poll.id,
+        commission=commission,
+        project=project,
+    )
+
+    if notify_enabled and commission:
+        from app.services.mail_service import send_discussion_poll_invitation
+
+        members = get_active_commission_members(commission.id)
+        for membership in members:
+            user = membership.user
+            if not user or not user.email:
+                continue
+            try:
+                result = send_discussion_poll_invitation(
+                    poll=poll,
+                    suggestion=suggestion,
+                    commission=commission,
+                    project=project,
+                    recipient_email=user.email,
+                    app_config=current_app.config,
+                    poll_url=poll_url,
+                )
+                if not result.get("ok"):
+                    current_app.logger.warning(
+                        "Fallo enviando invitacion de votacion %s a %s: %s",
+                        poll.id,
+                        user.email,
+                        result.get("error"),
+                    )
+            except Exception as exc:  # noqa: BLE001
+                current_app.logger.exception(
+                    "Error enviando invitacion de votacion %s a %s: %s",
+                    poll.id,
+                    user.email,
+                    exc,
+                )
+
+    if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "poll_id": poll.id, "poll_url": poll_url}), 201
+    flash("VotaciÃ³n creada", "success")
+    target = url_for(
+        "members.detalle_sugerencia",
+        suggestion_id=suggestion.id,
+        poll=poll.id,
+        return_to=return_to,
+    )
+    return redirect(f"{target}#poll-{poll.id}")
+
+
+@members_bp.route("/votaciones/<int:poll_id>/editar", methods=["POST"])
+@login_required
+def editar_discussion_poll(poll_id: int):
+    poll = DiscussionPoll.query.get_or_404(poll_id)
+    suggestion = poll.suggestion
+    if not suggestion:
+        abort(404)
+    _ensure_can_access_suggestion_detail(suggestion)
+    return_to = _safe_return_to(request.args.get("return_to") or request.form.get("return_to"))
+
+    membership, commission, project = _get_discussion_membership(suggestion)
+    if not _can_create_discussion_polls(membership):
+        abort(403)
+
+    now_dt = get_local_now()
+    if poll.status != "activa" or (poll.end_at and poll.end_at <= now_dt):
+        message = "La votacion ya esta cerrada; no se puede editar."
+        flash(message, "warning")
+        return redirect(
+            url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, poll=poll.id, return_to=return_to)
+        )
+
+    if poll.votes.count() > 0:
+        message = "La votacion ya tiene votos; no se puede editar."
+        flash(message, "warning")
+        return redirect(
+            url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, poll=poll.id, return_to=return_to)
+        )
+
+    if suggestion.status == "cerrada":
+        message = "La discusion esta cerrada; no se pueden editar votaciones."
+        flash(message, "warning")
+        return redirect(
+            url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, poll=poll.id, return_to=return_to)
+        )
+
+    payload = request.get_json(silent=True) or {}
+    data = payload if request.is_json else request.form
+    title = (data.get("title") or "").strip()
+    end_at_raw = (data.get("end_at") or "").strip()
+    notify_raw = str(data.get("notify_enabled") or "").strip().lower()
+    notify_enabled = notify_raw in {"1", "true", "yes", "on"}
+    description = (data.get("description") or "").strip()
+    raw_drive_file_ids = data.get("drive_file_ids")
+
+    if not title:
+        flash("El tema es obligatorio.", "warning")
+        return redirect(
+            url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, poll=poll.id, return_to=return_to)
+        )
+
+    end_at = _parse_datetime_local(end_at_raw)
+    if not end_at or end_at <= now_dt:
+        flash("La fecha y hora de cierre debe ser posterior a la actual.", "warning")
+        return redirect(
+            url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, poll=poll.id, return_to=return_to)
+        )
+
+    drive_scope_type = None
+    drive_scope_id = None
+    if project:
+        drive_scope_type = "project"
+        drive_scope_id = project.id
+    elif commission:
+        drive_scope_type = "commission"
+        drive_scope_id = commission.id
+
+    if raw_drive_file_ids is None:
+        drive_file_ids = poll.drive_file_ids or []
+    else:
+        drive_file_ids = _filter_drive_file_ids(
+            _parse_drive_file_ids(raw_drive_file_ids),
+            drive_scope_type,
+            drive_scope_id,
+        )
+
+    previous_notify = bool(poll.notify_enabled)
+    if previous_notify:
+        notify_enabled = True
+
+    title_changed = poll.title != title
+    end_changed = poll.end_at != end_at
+    description_value = description or None
+    description_changed = (poll.description or None) != description_value
+    files_changed = (poll.drive_file_ids or []) != drive_file_ids
+    notify_changed = previous_notify != notify_enabled
+
+    if title_changed:
+        poll.title = title
+    if end_changed:
+        poll.end_at = end_at
+    if description_changed:
+        poll.description = description_value
+    if files_changed:
+        poll.drive_file_ids = drive_file_ids or None
+    if notify_changed:
+        poll.notify_enabled = notify_enabled
+
+    if not (title_changed or end_changed or description_changed or files_changed or notify_changed):
+        flash("No hay cambios que guardar.", "info")
+        return redirect(
+            url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, poll=poll.id, return_to=return_to)
+        )
+
+    suggestion.updated_at = now_dt
+    db.session.commit()
+
+    poll_url = build_discussion_poll_url(
+        suggestion=suggestion,
+        poll_id=poll.id,
+        commission=commission,
+        project=project,
+    )
+
+    if commission and notify_enabled:
+        members = get_active_commission_members(commission.id)
+        if not previous_notify and notify_enabled:
+            from app.services.mail_service import send_discussion_poll_invitation
+
+            for membership in members:
+                user = membership.user
+                if not user or not user.email:
+                    continue
+                try:
+                    result = send_discussion_poll_invitation(
+                        poll=poll,
+                        suggestion=suggestion,
+                        commission=commission,
+                        project=project,
+                        recipient_email=user.email,
+                        app_config=current_app.config,
+                        poll_url=poll_url,
+                    )
+                    if not result.get("ok"):
+                        current_app.logger.warning(
+                            "Fallo enviando invitacion de votacion %s a %s: %s",
+                            poll.id,
+                            user.email,
+                            result.get("error"),
+                        )
+                except Exception as exc:  # noqa: BLE001
+                    current_app.logger.exception(
+                        "Error enviando invitacion de votacion %s a %s: %s",
+                        poll.id,
+                        user.email,
+                        exc,
+                    )
+        elif previous_notify and (title_changed or end_changed or description_changed or files_changed):
+            from app.services.mail_service import send_discussion_poll_update
+
+            for membership in members:
+                user = membership.user
+                if not user or not user.email:
+                    continue
+                try:
+                    result = send_discussion_poll_update(
+                        poll=poll,
+                        suggestion=suggestion,
+                        commission=commission,
+                        project=project,
+                        recipient_email=user.email,
+                        app_config=current_app.config,
+                        poll_url=poll_url,
+                    )
+                    if not result.get("ok"):
+                        current_app.logger.warning(
+                            "Fallo enviando actualizacion de votacion %s a %s: %s",
+                            poll.id,
+                            user.email,
+                            result.get("error"),
+                        )
+                except Exception as exc:  # noqa: BLE001
+                    current_app.logger.exception(
+                        "Error enviando actualizacion de votacion %s a %s: %s",
+                        poll.id,
+                        user.email,
+                        exc,
+                    )
+
+    flash("Votacion actualizada", "success")
+    target = url_for(
+        "members.detalle_sugerencia",
+        suggestion_id=suggestion.id,
+        poll=poll.id,
+        return_to=return_to,
+    )
+    return redirect(f"{target}#poll-{poll.id}")
+
+
+@members_bp.route("/votaciones/<int:poll_id>/eliminar", methods=["POST"])
+@login_required
+def eliminar_discussion_poll(poll_id: int):
+    poll = DiscussionPoll.query.get_or_404(poll_id)
+    suggestion = poll.suggestion
+    if not suggestion:
+        abort(404)
+    _ensure_can_access_suggestion_detail(suggestion)
+    return_to = _safe_return_to(request.args.get("return_to") or request.form.get("return_to"))
+
+    membership, commission, project = _get_discussion_membership(suggestion)
+    if not _can_create_discussion_polls(membership):
+        abort(403)
+
+    now_dt = get_local_now()
+    if poll.status != "activa" or (poll.end_at and poll.end_at <= now_dt):
+        flash("La votacion ya esta cerrada; no se puede eliminar.", "warning")
+        return redirect(
+            url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, poll=poll.id, return_to=return_to)
+        )
+
+    if poll.votes.count() > 0:
+        flash("La votacion ya tiene votos; solo se puede marcar como nula.", "warning")
+        return redirect(
+            url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, poll=poll.id, return_to=return_to)
+        )
+
+    if suggestion.status == "cerrada":
+        flash("La discusion esta cerrada; no se pueden eliminar votaciones.", "warning")
+        return redirect(
+            url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, poll=poll.id, return_to=return_to)
+        )
+
+    suggestion.updated_at = now_dt
+    db.session.delete(poll)
+    db.session.commit()
+
+    flash("Votacion eliminada", "success")
+    return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, return_to=return_to))
+
+
+@members_bp.route("/votaciones/<int:poll_id>/votar", methods=["POST"])
+@login_required
+def votar_discussion_poll(poll_id: int):
+    poll = DiscussionPoll.query.get_or_404(poll_id)
+    suggestion = poll.suggestion
+    if not suggestion:
+        abort(404)
+    _ensure_can_access_suggestion_detail(suggestion)
+
+    if not _user_can_participate_in_scoped_discussion(suggestion):
+        abort(403)
+
+    now_dt = get_local_now()
+    if poll.status != "activa" or (poll.end_at and poll.end_at <= now_dt):
+        message = "La votaciÃ³n ya estÃ¡ cerrada."
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(success=False, message=message), 400
+        flash(message, "warning")
+        return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion.id))
+
+    try:
+        value = int(request.form.get("value") or 0)
+    except (TypeError, ValueError):
+        value = 0
+    if value not in (-1, 1):
+        message = "El valor del voto no es vÃ¡lido."
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(success=False, message=message), 400
+        flash(message, "danger")
+        return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion.id))
+
+    vote = DiscussionPollVote.query.filter_by(user_id=current_user.id, poll_id=poll.id).first()
+    if vote and vote.value == value:
+        message = "Tu voto ya estÃ¡ registrado con esa opciÃ³n."
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(success=False, message=message), 200
+        flash(message, "info")
+        return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, poll=poll.id))
+
+    is_new_vote = False
+    if vote:
+        vote.value = value
+    else:
+        vote = DiscussionPollVote(poll_id=poll.id, user_id=current_user.id, value=value)
+        db.session.add(vote)
+        is_new_vote = True
+
+    db.session.commit()
+
+    scope = resolve_discussion_scope(suggestion)
+    member_count = len(get_active_commission_members(scope.commission.id)) if scope.commission else 0
+    summary = get_poll_vote_summary([poll.id]).get(poll.id, {})
+    votes_for = int(summary.get(1, 0))
+    votes_against = int(summary.get(-1, 0))
+    votes_total = votes_for + votes_against
+    abstentions = max(member_count - votes_total, 0)
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify(
+            success=True,
+            message="Voto registrado" if is_new_vote else "Voto actualizado",
+            vote=value,
+            votes_for=votes_for,
+            votes_against=votes_against,
+            abstentions=abstentions,
+        )
+
+    flash("Voto registrado" if is_new_vote else "Voto actualizado", "success")
+    return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, poll=poll.id))
+
+
+@members_bp.route("/votaciones/<int:poll_id>/anular", methods=["POST"])
+@login_required
+def anular_discussion_poll(poll_id: int):
+    poll = DiscussionPoll.query.get_or_404(poll_id)
+    suggestion = poll.suggestion
+    if not suggestion:
+        abort(404)
+    _ensure_can_access_suggestion_detail(suggestion)
+
+    membership, commission, project = _get_discussion_membership(suggestion)
+    if not _can_null_discussion_polls(membership):
+        abort(403)
+
+    if poll.status == "nula":
+        message = "La votaciÃ³n ya estÃ¡ marcada como nula."
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "message": message}), 400
+        flash(message, "warning")
+        return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, poll=poll.id))
+
+    now_dt = get_local_now()
+    poll.status = "nula"
+    poll.nulled_at = now_dt
+    poll.nulled_by = current_user.id
+    suggestion.updated_at = now_dt
+    db.session.commit()
+
+    poll_url = build_discussion_poll_url(
+        suggestion=suggestion,
+        poll_id=poll.id,
+        commission=commission,
+        project=project,
+    )
+
+    if poll.notify_enabled and commission:
+        from app.services.mail_service import send_discussion_poll_nullification
+
+        members = get_active_commission_members(commission.id)
+        for membership in members:
+            user = membership.user
+            if not user or not user.email:
+                continue
+            try:
+                result = send_discussion_poll_nullification(
+                    poll=poll,
+                    suggestion=suggestion,
+                    commission=commission,
+                    project=project,
+                    recipient_email=user.email,
+                    app_config=current_app.config,
+                    poll_url=poll_url,
+                )
+                if not result.get("ok"):
+                    current_app.logger.warning(
+                        "Fallo enviando anulacion de votacion %s a %s: %s",
+                        poll.id,
+                        user.email,
+                        result.get("error"),
+                    )
+            except Exception as exc:  # noqa: BLE001
+                current_app.logger.exception(
+                    "Error enviando anulacion de votacion %s a %s: %s",
+                    poll.id,
+                    user.email,
+                    exc,
+                )
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True}), 200
+    flash("VotaciÃ³n anulada", "info")
+    return redirect(url_for("members.detalle_sugerencia", suggestion_id=suggestion.id, poll=poll.id))
 
 
 @members_bp.route("/comisiones")
@@ -1384,14 +2181,18 @@ def commission_detail(slug: str):
                 latest_comment_at_by_discussion_id = {
                     suggestion_id: latest_at for suggestion_id, latest_at in latest_comment_rows
                 }
+                latest_poll_at_by_discussion_id = get_latest_poll_activity_by_discussion(project_discussion_ids)
 
                 for suggestion_id, category in project_suggestions:
                     seen_at = seen_at_by_discussion_id.get(suggestion_id)
                     latest_comment_at = latest_comment_at_by_discussion_id.get(suggestion_id)
+                    latest_poll_at = latest_poll_at_by_discussion_id.get(suggestion_id)
                     is_new = False
                     if not seen_at:
                         is_new = True
                     elif latest_comment_at and latest_comment_at > seen_at:
+                        is_new = True
+                    elif latest_poll_at and latest_poll_at > seen_at:
                         is_new = True
 
                     if not is_new:
@@ -1452,13 +2253,17 @@ def commission_detail(slug: str):
             latest_comment_at_by_discussion_id = {
                 suggestion_id: latest_at for suggestion_id, latest_at in latest_comment_rows
             }
+            latest_poll_at_by_discussion_id = get_latest_poll_activity_by_discussion(discussion_ids)
 
             for discussion_id in discussion_ids:
                 seen_at = seen_at_by_discussion_id.get(discussion_id)
                 latest_comment_at = latest_comment_at_by_discussion_id.get(discussion_id)
+                latest_poll_at = latest_poll_at_by_discussion_id.get(discussion_id)
                 if not seen_at:
                     is_new_by_discussion_id[discussion_id] = True
                 elif latest_comment_at and latest_comment_at > seen_at:
+                    is_new_by_discussion_id[discussion_id] = True
+                elif latest_poll_at and latest_poll_at > seen_at:
                     is_new_by_discussion_id[discussion_id] = True
                 else:
                     is_new_by_discussion_id[discussion_id] = False
@@ -1543,12 +2348,16 @@ def commission_project_detail(slug: str, project_id: int):
             latest_comment_at_by_discussion_id = {
                 suggestion_id: latest_at for suggestion_id, latest_at in latest_comment_rows
             }
+            latest_poll_at_by_discussion_id = get_latest_poll_activity_by_discussion(discussion_ids)
             for discussion_id in discussion_ids:
                 seen_at = seen_at_by_discussion_id.get(discussion_id)
                 latest_comment_at = latest_comment_at_by_discussion_id.get(discussion_id)
+                latest_poll_at = latest_poll_at_by_discussion_id.get(discussion_id)
                 if not seen_at:
                     is_new_by_discussion_id[discussion_id] = True
                 elif latest_comment_at and latest_comment_at > seen_at:
+                    is_new_by_discussion_id[discussion_id] = True
+                elif latest_poll_at and latest_poll_at > seen_at:
                     is_new_by_discussion_id[discussion_id] = True
                 else:
                     is_new_by_discussion_id[discussion_id] = False

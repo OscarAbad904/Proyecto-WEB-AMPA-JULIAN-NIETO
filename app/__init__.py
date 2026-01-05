@@ -18,6 +18,7 @@ from app.commands import register_commands
 from app.services.permission_registry import ensure_roles_and_permissions
 from app.services.db_backup_scheduler import start_db_backup_scheduler
 from app.services.user_cleanup_scheduler import start_user_cleanup_scheduler
+from app.services.discussion_poll_scheduler import start_discussion_poll_scheduler
 
 
 def _is_werkzeug_reloader_child(app: Flask) -> bool:
@@ -123,6 +124,7 @@ def create_app(config_name: str | None = None) -> Flask:
     if _is_werkzeug_reloader_child(app):
         start_db_backup_scheduler(app)
         start_user_cleanup_scheduler(app)
+        start_discussion_poll_scheduler(app)
 
     return app
 
@@ -374,6 +376,9 @@ def register_guards(app: Flask) -> None:
                 "members.detalle_sugerencia",
                 "members.comentar_sugerencia",
                 "members.votar_sugerencia",
+                "members.discussion_polls",
+                "members.votar_discussion_poll",
+                "members.anular_discussion_poll",
                 "members.eliminar_comentario",
                 "members.editar_comentario",
             }:

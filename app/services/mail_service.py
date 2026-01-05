@@ -99,6 +99,25 @@ def _build_web_subject(base_subject: str, *, section: str, category: str) -> str
         return f"{prefix} - {base}"
     return base or prefix
 
+
+def _build_discussion_poll_subject(
+    *,
+    commission_name: str,
+    discussion_title: str,
+    project_title: str | None = None,
+    poll_title: str | None = None,
+    suffix: str | None = None,
+) -> str:
+    parts = [f"Votación de Comisión {commission_name}".strip()]
+    if project_title:
+        parts.append(f"Proyecto {project_title}".strip())
+    parts.append(f"Discusión {discussion_title}".strip())
+    if poll_title:
+        parts.append(str(poll_title).strip())
+    if suffix:
+        parts.append(str(suffix).strip())
+    return "WEB " + " · ".join([p for p in parts if p])
+
 def send_email_gmail_api(
     *,
     subject: str,
@@ -1021,6 +1040,248 @@ def send_meeting_cancellation_notification(
         body_html=body_html,
         inline_images=inline_images,
         attachments=attachments,
+        recipient=recipient_email,
+        app_config=app_config,
+    )
+
+
+def _format_poll_deadline(end_at) -> str:
+    if not end_at:
+        return ""
+    return end_at.strftime("%d/%m/%Y %H:%M")
+
+
+def send_discussion_poll_invitation(
+    *,
+    poll,
+    suggestion,
+    commission,
+    project=None,
+    recipient_email: str,
+    app_config: Any,
+    poll_url: str,
+) -> dict[str, Any]:
+    commission_name = getattr(commission, "name", "Comisión")
+    discussion_title = getattr(suggestion, "title", "Discusión")
+    poll_title = getattr(poll, "title", "Votación")
+    project_title = getattr(project, "title", None) if project else None
+    poll_deadline = _format_poll_deadline(getattr(poll, "end_at", None))
+
+    subject = _build_discussion_poll_subject(
+        commission_name=commission_name,
+        project_title=project_title,
+        discussion_title=discussion_title,
+        poll_title=poll_title,
+        suffix="Invitación a votar",
+    )
+
+    logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")
+    body_html = render_template(
+        "email/discussion_poll_invitation.html",
+        commission_name=commission_name,
+        project_title=project_title,
+        discussion_title=discussion_title,
+        poll_title=poll_title,
+        poll_deadline=poll_deadline,
+        poll_url=poll_url,
+    )
+
+    inline_images = [{"cid": "logo_ampa", "path": logo_path, "subtype": "png"}]
+    body_text = (
+        f"Se ha abierto una votación en la discusión \"{discussion_title}\":\n\n"
+        f"Tema: {poll_title}\n"
+        f"Comisión: {commission_name}\n"
+    )
+    if project_title:
+        body_text += f"Proyecto: {project_title}\n"
+    if poll_deadline:
+        body_text += f"Fecha límite: {poll_deadline}\n"
+    body_text += (
+        "\nLa votación es anónima: no se publican votantes, solo recuentos.\n\n"
+        f"Enlace directo: {poll_url}\n"
+    )
+
+    return send_email_gmail_api(
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        inline_images=inline_images,
+        recipient=recipient_email,
+        app_config=app_config,
+    )
+
+
+def send_discussion_poll_update(
+    *,
+    poll,
+    suggestion,
+    commission,
+    project=None,
+    recipient_email: str,
+    app_config: Any,
+    poll_url: str,
+) -> dict[str, Any]:
+    commission_name = getattr(commission, "name", "Comision")
+    discussion_title = getattr(suggestion, "title", "Discusion")
+    poll_title = getattr(poll, "title", "Votacion")
+    project_title = getattr(project, "title", None) if project else None
+    poll_deadline = _format_poll_deadline(getattr(poll, "end_at", None))
+
+    subject = _build_discussion_poll_subject(
+        commission_name=commission_name,
+        project_title=project_title,
+        discussion_title=discussion_title,
+        poll_title=poll_title,
+        suffix="Tema actualizado",
+    )
+
+    logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")
+    body_html = render_template(
+        "email/discussion_poll_update.html",
+        commission_name=commission_name,
+        project_title=project_title,
+        discussion_title=discussion_title,
+        poll_title=poll_title,
+        poll_deadline=poll_deadline,
+        poll_url=poll_url,
+    )
+
+    inline_images = [{"cid": "logo_ampa", "path": logo_path, "subtype": "png"}]
+    body_text = (
+        f"Se ha actualizado la votacion de la discusion \"{discussion_title}\":\n\n"
+        f"Tema: {poll_title}\n"
+        f"Comision: {commission_name}\n"
+    )
+    if project_title:
+        body_text += f"Proyecto: {project_title}\n"
+    if poll_deadline:
+        body_text += f"Fecha limite: {poll_deadline}\n"
+    body_text += (
+        "\nLa votacion es anonima: no se publican votantes, solo recuentos.\n\n"
+        f"Enlace directo: {poll_url}\n"
+    )
+
+    return send_email_gmail_api(
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        inline_images=inline_images,
+        recipient=recipient_email,
+        app_config=app_config,
+    )
+
+
+def send_discussion_poll_result(
+    *,
+    poll,
+    suggestion,
+    commission,
+    project=None,
+    recipient_email: str,
+    app_config: Any,
+    poll_url: str | None,
+    votes_for: int,
+    votes_against: int,
+    abstentions: int,
+) -> dict[str, Any]:
+    commission_name = getattr(commission, "name", "Comisión")
+    discussion_title = getattr(suggestion, "title", "Discusión")
+    poll_title = getattr(poll, "title", "Votación")
+    project_title = getattr(project, "title", None) if project else None
+    poll_deadline = _format_poll_deadline(getattr(poll, "end_at", None))
+
+    subject = _build_discussion_poll_subject(
+        commission_name=commission_name,
+        project_title=project_title,
+        discussion_title=discussion_title,
+        poll_title=poll_title,
+        suffix="Resultado",
+    )
+
+    logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")
+    body_html = render_template(
+        "email/discussion_poll_result.html",
+        commission_name=commission_name,
+        project_title=project_title,
+        discussion_title=discussion_title,
+        poll_title=poll_title,
+        poll_deadline=poll_deadline,
+        poll_url=poll_url,
+        votes_for=votes_for,
+        votes_against=votes_against,
+        abstentions=abstentions,
+    )
+
+    inline_images = [{"cid": "logo_ampa", "path": logo_path, "subtype": "png"}]
+    body_text = (
+        f"Resultado de la votación \"{poll_title}\":\n\n"
+        f"A favor: {votes_for}\n"
+        f"En contra: {votes_against}\n"
+        f"Abstenciones: {abstentions}\n\n"
+        "La votación es anónima: no se publican votantes, solo recuentos.\n"
+    )
+    if poll_url:
+        body_text += f"\nEnlace directo: {poll_url}\n"
+
+    return send_email_gmail_api(
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        inline_images=inline_images,
+        recipient=recipient_email,
+        app_config=app_config,
+    )
+
+
+def send_discussion_poll_nullification(
+    *,
+    poll,
+    suggestion,
+    commission,
+    project=None,
+    recipient_email: str,
+    app_config: Any,
+    poll_url: str | None,
+) -> dict[str, Any]:
+    commission_name = getattr(commission, "name", "Comisión")
+    discussion_title = getattr(suggestion, "title", "Discusión")
+    poll_title = getattr(poll, "title", "Votación")
+    project_title = getattr(project, "title", None) if project else None
+
+    subject = _build_discussion_poll_subject(
+        commission_name=commission_name,
+        project_title=project_title,
+        discussion_title=discussion_title,
+        poll_title=poll_title,
+        suffix="Votación anulada",
+    )
+
+    logo_path = os.path.join(current_app.static_folder, "images/current/Logo_AMPA_400x400.png")
+    body_html = render_template(
+        "email/discussion_poll_nullification.html",
+        commission_name=commission_name,
+        project_title=project_title,
+        discussion_title=discussion_title,
+        poll_title=poll_title,
+        poll_url=poll_url,
+    )
+
+    inline_images = [{"cid": "logo_ampa", "path": logo_path, "subtype": "png"}]
+    body_text = (
+        f"La votación \"{poll_title}\" ha sido marcada como nula.\n\n"
+        f"Discusión: {discussion_title}\n"
+        f"Comisión: {commission_name}\n"
+    )
+    if project_title:
+        body_text += f"Proyecto: {project_title}\n"
+    if poll_url:
+        body_text += f"\nEnlace directo: {poll_url}\n"
+
+    return send_email_gmail_api(
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        inline_images=inline_images,
         recipient=recipient_email,
         app_config=app_config,
     )

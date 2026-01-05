@@ -3,6 +3,11 @@
 {% block title %}{{ suggestion.title }} · Foro{% endblock %}
 
 {% block head %}
+{% if is_scoped_discussion %}
+  {% include "includes/_datetime_split_picker_assets.html" %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/drive_files.css', v='20260106') }}" />
+  <script src="{{ url_for('static', filename='js/drive_files.js', v='20260106') }}" defer></script>
+{% endif %}
 <style>
   .comment-item {
     position: relative;
@@ -83,223 +88,1189 @@
     font-size: 0.85rem !important;
     min-width: 80px !important;
   }
+
+  .thread-container.thread-container--discussion {
+    max-width: 95vw;
+  }
+  .thread-container.thread-container--discussion.has-poll-panel .discussion-grid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.85fr);
+  }
+  .discussion-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .discussion-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .discussion-polls-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    position: sticky;
+    top: 7.5rem;
+  }
+
+  .discussion-polls-panel .card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid var(--color-border, rgba(100, 116, 139, 0.2));
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    padding: 1.25rem !important;
+  }
+
+  .poll-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .poll-panel-header h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .poll-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-top: 1rem;
+  }
+
+  .poll-section:first-of-type {
+    margin-top: 0.75rem;
+  }
+
+  .poll-section-title {
+    margin: 0;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #475569;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-border, rgba(100, 116, 139, 0.15));
+  }
+
+  .poll-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .poll-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-border, rgba(100, 116, 139, 0.15));
+    background: #ffffff;
+    color: inherit;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .poll-item-title-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .poll-item-title-link:hover {
+    text-decoration: underline;
+  }
+
+  .poll-item:hover {
+    border-color: rgba(59, 130, 246, 0.35);
+    background: #f8fafc;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .poll-item.is-focus {
+    border-color: #f97316;
+    background: #fffbf5;
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+  }
+
+  .poll-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .poll-item-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #0f172a;
+    line-height: 1.3;
+    flex: 1;
+  }
+
+  .poll-item-meta {
+    font-size: 0.8rem;
+    color: var(--color-text-soft, #64748b);
+  }
+
+  .poll-item-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .poll-item-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .poll-item-results {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.8rem;
+    color: var(--color-text-soft, #64748b);
+  }
+  .poll-item-result {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+  }
+  .poll-item-result strong {
+    color: #0f172a;
+  }
+  .poll-item-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .poll-item-vote {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .poll-item-controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .status-pill {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    border-radius: 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .status-pill.status-activa {
+    background: rgba(34, 197, 94, 0.12);
+    color: #15803d;
+  }
+
+  .status-pill.status-finalizada {
+    background: rgba(148, 163, 184, 0.15);
+    color: #475569;
+  }
+
+  .status-pill.status-nula {
+    background: rgba(220, 38, 38, 0.12);
+    color: #991b1b;
+  }
+  .poll-card {
+    border-radius: 1.25rem;
+    border: 1px solid var(--color-border, rgba(148, 163, 184, 0.35));
+    background: #ffffff;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .poll-card.poll-highlight {
+    border-color: #f97316;
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+  }
+  .poll-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .poll-card__header h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #0f172a;
+  }
+  .poll-meta {
+    margin: 0.35rem 0 0;
+    font-size: 0.9rem;
+    color: var(--color-text-soft, #64748b);
+  }
+  .poll-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+  .poll-new-chip {
+    align-self: center;
+  }
+  .poll-card__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+  .poll-counts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.75rem;
+  }
+  .poll-count-box {
+    background: #f8fafc;
+    border-radius: 0.9rem;
+    padding: 0.75rem 0.9rem;
+  }
+  .poll-count-label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-muted, #64748b);
+  }
+  .poll-count-value-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .poll-count-icon,
+  .poll-count-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+  .poll-count-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+  }
+  .poll-count-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .poll-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .poll-vote-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .poll-vote-btn .vote-icon,
+  .poll-vote-btn .vote-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+  .poll-vote-btn .vote-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+  }
+  .poll-vote-btn {
+    flex: 1;
+    min-width: 140px;
+  }
+  .poll-hint {
+    font-size: 0.8rem;
+    color: var(--color-text-soft, #64748b);
+    line-height: 1.4;
+  }
+
+  .discussion-polls-panel .poll-hint {
+    margin: 0.25rem 0 0;
+  }
+  .poll-alert {
+    padding: 0.75rem 0.9rem;
+    border-radius: 0.9rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    font-weight: 600;
+  }
+  .poll-empty {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--color-text-soft, #64748b);
+    padding: 1rem 0.5rem;
+    text-align: center;
+  }
+
+  .discussion-polls-panel .poll-empty {
+    padding: 0.5rem;
+  }
+  .poll-null-btn {
+    align-self: flex-start;
+  }
+
+  .poll-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 50;
+  }
+  .poll-modal.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .poll-modal__dialog {
+    background: #ffffff;
+    border-radius: 1.5rem;
+    width: min(560px, 92vw);
+    padding: 1.5rem;
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.25);
+    max-height: 90vh;
+    overflow: auto;
+  }
+  .poll-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .poll-modal__header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+  .poll-modal__close {
+    border: none;
+    background: transparent;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #64748b;
+  }
+  .poll-modal__form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .poll-modal__field label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+  }
+  .poll-modal__field input[type="text"] {
+    width: 100%;
+    border-radius: 0.85rem;
+    border: 1.5px solid color-mix(in srgb, var(--color-border, rgba(139, 92, 246, 0.15)) 80%, #cbd5e1);
+    background: var(--color-bg-mid, #ffffff);
+    color: var(--color-text-base, #1e293b);
+    padding: 0.85rem 1rem;
+    font-size: 0.95rem;
+  }
+  .poll-modal__field textarea {
+    width: 100%;
+    border-radius: 0.85rem;
+    border: 1.5px solid color-mix(in srgb, var(--color-border, rgba(139, 92, 246, 0.15)) 80%, #cbd5e1);
+    background: var(--color-bg-mid, #ffffff);
+    color: var(--color-text-base, #1e293b);
+    padding: 0.85rem 1rem;
+    font-size: 0.95rem;
+    resize: vertical;
+    min-height: 110px;
+  }
+  .poll-modal__field input[type="text"]:focus {
+    outline: none;
+    border-color: var(--color-accent, #f97316);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent, #f97316) 18%, transparent);
+  }
+  .poll-modal__field textarea:focus {
+    outline: none;
+    border-color: var(--color-accent, #f97316);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent, #f97316) 18%, transparent);
+  }
+  .poll-modal__checkbox {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    font-size: 0.95rem;
+    color: #334155;
+  }
+  .poll-modal__warnings {
+    background: #f8fafc;
+    border-radius: 1rem;
+    border: 1px solid #e2e8f0;
+    padding: 0.85rem 1rem;
+    font-size: 0.85rem;
+    color: #475569;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .poll-modal__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+  .poll-detail-description {
+    background: #f8fafc;
+    border-radius: 0.85rem;
+    border: 1px solid #e2e8f0;
+    padding: 0.85rem 1rem;
+    font-size: 0.9rem;
+    color: #0f172a;
+    white-space: pre-wrap;
+  }
+  .poll-detail-files {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .poll-detail-file {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: 0.85rem;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #0f172a;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .poll-detail-file:hover {
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  }
+  .poll-detail-file.is-static {
+    cursor: default;
+  }
+  .poll-detail-file.is-delete {
+    border-color: rgba(248, 113, 113, 0.35);
+    color: #b91c1c;
+  }
+  .poll-detail-file.is-delete:hover {
+    border-color: rgba(239, 68, 68, 0.6);
+    box-shadow: 0 10px 24px rgba(239, 68, 68, 0.12);
+  }
+
+  @media (max-width: 980px) {
+    .thread-container.thread-container--discussion {
+      max-width: 100%;
+      width: 100%;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+      box-sizing: border-box;
+    }
+    .thread-container.thread-container--discussion.has-poll-panel .discussion-grid {
+      grid-template-columns: 1fr;
+    }
+    .discussion-grid {
+      grid-template-columns: 1fr;
+      width: 100%;
+    }
+    .discussion-main {
+      order: 1;
+      min-width: 0;
+    }
+    .discussion-polls-panel {
+      position: static;
+      order: 2;
+      min-width: 0;
+    }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
+  {% set poll_focus_int = poll_focus_id|int if poll_focus_id else 0 %}
   <section class="page-section suggestion-thread">
-    <div class="thread-container">
-      <header class="thread-hero card gradient-bg">
-        <div class="thread-headline">
-          <div class="thread-hero-top">
-            <p class="thread-breadcrumb">{{ breadcrumb }}</p>
-            <a href="{{ back_url }}" class="thread-back">{{ back_label }}</a>
-          </div>
-          <div class="thread-title-row">
-            <h1 class="thread-title">{{ suggestion.title }}</h1>
-          </div>
-          <div class="thread-stats-line">
-            <div class="thread-mini-totals">
-              <span class="mini-pill up" id="likes-count-hero">👍 {{ likes_count }}</span>
-              <span class="mini-pill down" id="dislikes-count-hero">👎 {{ dislikes_count }}</span>
-            </div>
-            <span class="status-pill status-{{ suggestion.status }}">{{ suggestion.status|capitalize }}</span>
-            <span class="thread-meta inline">Por {{ suggestion.creator.display_name if suggestion.creator else 'Socio' }} · Estado {{ suggestion.status }} · {{ total_votes }} votos totales</span>
-          </div>
-        </div>
-      </header>
-
-      <article class="thread-body card">
-        <div class="rich-text">{{ suggestion.body_html | safe }}</div>
-      </article>
-
-      <section class="thread-comments card">
-        <div class="comments-header">
-          <div>
-            <p class="eyebrow">Comentarios</p>
-            <h3>{{ comments|length }} aportes</h3>
-          </div>
-        </div>
-        <div class="comment-list">
-          {% macro render_comment(comment, is_reply=False, is_last_overall=False) %}
-            {% set is_leaf = comment.id in leaf_comment_ids %}
-            <article class="comment-item {{ 'is-own' if comment.created_by == current_user.id else '' }} {{ 'is-reply' if is_reply else '' }}" id="comment-{{ comment.id }}" {% if is_last_overall %}onclick="focusMainInput(event)"{% endif %}>
-              <div class="comment-meta">
-                <span class="author">{{ comment.author.display_name if comment.author else 'Socio' }}</span>
-                {% if comment.created_at %}
-                  <span class="date">
-                    {{ comment.created_at.strftime("%d/%m/%Y %H:%M") }}
-                    {% if comment.is_edited %}
-                      <small class="edited-label" style="opacity: 0.7; margin-left: 5px;">(Editado)</small>
-                    {% endif %}
-                  </span>
-                {% endif %}
+    <div class="thread-container thread-container--discussion{% if is_scoped_discussion %} has-poll-panel{% endif %}">
+      <div class="discussion-grid">
+        <div class="discussion-main">
+          <header class="thread-hero card gradient-bg">
+            <div class="thread-headline">
+              <div class="thread-hero-top">
+                <p class="thread-breadcrumb">{{ breadcrumb }}</p>
+                <a href="{{ back_url }}" class="thread-back">{{ back_label }}</a>
               </div>
-              <div class="comment-content-wrapper" id="comment-body-{{ comment.id }}">
-                <p class="comment-body">{{ comment.body_html }}</p>
+              <div class="thread-title-row">
+                <h1 class="thread-title">{{ suggestion.title }}</h1>
               </div>
-
-              {# Formulario de edición (oculto por defecto) #}
-              {% if comment.created_by == current_user.id and is_leaf %}
-                <div class="edit-form-inline" id="edit-form-{{ comment.id }}">
-                  <form method="post" action="{{ url_for('members.editar_comentario', comment_id=comment.id) }}">
-                    {{ comment_form.hidden_tag() }}
-                    <textarea name="content" class="comment-textarea">{{ comment.body_html }}</textarea>
-                    <div class="comment-actions">
-                      <button type="button" class="nav-auth-btn nav-auth-btn--cancel btn-mini" onclick="toggleEdit('{{ comment.id }}', event)">Cancelar</button>
-                      <button type="submit" class="nav-auth-btn nav-auth-btn--logout btn-mini">Guardar</button>
-                    </div>
-                  </form>
-                </div>
-              {% endif %}
-
-              <div class="comment-actions-hover">
-                {# Icono de responder #}
-                {% if can_comment %}
-                  <button class="action-icon-btn" title="Responder a este mensaje" onclick="showReplyForm('{{ comment.id }}', event)">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M3 10h10a8 8 0 0 1 8 8v2M3 10l6 6m-6-6l6-6"></path>
-                    </svg>
-                  </button>
-                {% endif %}
-
-                {# Icono de editar (solo si es el ultimo mensaje del usuario en la rama) #}
-                {% if comment.created_by == current_user.id and is_leaf %}
-                  <button class="action-icon-btn" title="Editar mensaje" onclick="toggleEdit('{{ comment.id }}', event)">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                    </svg>
-                  </button>
-                {% endif %}
-
-                {% if comment.created_by == current_user.id and is_leaf %}
-                  <form method="post" action="{{ url_for('members.eliminar_comentario', comment_id=comment.id) }}" onsubmit="return confirm('Eliminar este comentario?');">
-                    {{ comment_form.csrf_token }}
-                    <button class="action-icon-btn" title="Eliminar mensaje">
-                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 6h18"></path>
-                        <path d="M8 6V4h8v2"></path>
-                        <path d="M6 6l1 14h10l1-14"></path>
-                        <path d="M10 11v6"></path>
-                        <path d="M14 11v6"></path>
-                      </svg>
-                    </button>
-                  </form>
-                {% endif %}
-              </div>
-            </article>
-
-            {# Formulario de respuesta (oculto por defecto) #}
-            {% if can_comment %}
-              <div class="reply-form-inline" id="reply-form-{{ comment.id }}">
-                <form method="post" action="{{ url_for('members.comentar_sugerencia', suggestion_id=suggestion.id) }}">
-                  {{ comment_form.hidden_tag() }}
-                  <input type="hidden" name="parent_id" value="{{ comment.id }}">
-                  <textarea name="content" class="comment-textarea" placeholder="Escribe tu respuesta..."></textarea>
-                  <div class="comment-actions">
-                    <button type="button" class="nav-auth-btn nav-auth-btn--cancel btn-mini" onclick="showReplyForm('{{ comment.id }}', event)">Cancelar</button>
-                    <button type="submit" class="nav-auth-btn nav-auth-btn--logout btn-mini">Responder</button>
+              <div class="thread-stats-line">
+                {% if not is_scoped_discussion %}
+                  <div class="thread-mini-totals">
+                    <span class="mini-pill up" id="likes-count-hero">+1 {{ likes_count }}</span>
+                    <span class="mini-pill down" id="dislikes-count-hero">-1 {{ dislikes_count }}</span>
                   </div>
-                </form>
+                {% endif %}
+                <span class="status-pill status-{{ suggestion.status }}">{{ suggestion.status|capitalize }}</span>
+                <span class="thread-meta inline">Por {{ suggestion.creator.display_name if suggestion.creator else 'Socio' }}</span>
+                {% if is_scoped_discussion %}
+                  {% if commission %}
+                    <span class="thread-meta inline">Comision {{ commission.name }}</span>
+                  {% endif %}
+                  {% if project %}
+                    <span class="thread-meta inline">Proyecto {{ project.title }}</span>
+                  {% endif %}
+                {% else %}
+                  <span class="thread-meta inline">Estado {{ suggestion.status }} - {{ total_votes }} votos totales</span>
+                {% endif %}
               </div>
-            {% endif %}
-
-            {% for child in comment.children.order_by(Comment.created_at.asc()) %}
-              {{ render_comment(child, is_reply=True, is_last_overall=(child.id == comments[-1].id if comments else False)) }}
-            {% endfor %}
-          {% endmacro %}
-
-          {% for comment in comments if not comment.parent_id %}
-            {{ render_comment(comment, is_last_overall=(comment.id == comments[-1].id if comments else False)) }}
-          {% else %}
-            <p class="comment-empty">Todavía no hay comentarios, sé el primero en participar.</p>
-          {% endfor %}
-        </div>
-
-        {% if can_comment %}
-          <form
-            method="post"
-            action="{{ url_for('members.comentar_sugerencia', suggestion_id=suggestion.id) }}"
-            class="comment-form"
-          >
-            {{ comment_form.hidden_tag() }}
-            <label for="comment-content">Añadir comentario</label>
-            {{ comment_form.content(id="comment-content", class_="comment-textarea", placeholder="Comparte tu idea o duda...") }}
-            <div class="comment-actions">
-              {{ comment_form.submit(class_="nav-auth-btn nav-auth-btn--logout comment-submit-btn") }}
             </div>
-          </form>
-        {% else %}
-          <p class="comment-empty">No tienes permisos para comentar.</p>
-        {% endif %}
-      </section>
+          </header>
 
-      <section class="thread-vote card">
-        <div class="vote-header">
-          <div>
-            <p class="eyebrow">Votar</p>
-            <h3>¿Qué opinas?</h3>
-            <p class="vote-copy">
-              {% if is_closed %}
-                El hilo está cerrado, los votos quedan fijados.
+          <article class="thread-body card">
+            <div class="rich-text">{{ suggestion.body_html | safe }}</div>
+          </article>
+
+          <section class="thread-comments card">
+            <div class="comments-header">
+              <div>
+                <p class="eyebrow">Comentarios</p>
+                <h3>{{ comments|length }} aportes</h3>
+              </div>
+            </div>
+            <div class="comment-list">
+              {% macro render_comment(comment, is_reply=False, is_last_overall=False) %}
+                {% set is_leaf = comment.id in leaf_comment_ids %}
+                <article class="comment-item {{ 'is-own' if comment.created_by == current_user.id else '' }} {{ 'is-reply' if is_reply else '' }}" id="comment-{{ comment.id }}" {% if is_last_overall %}onclick="focusMainInput(event)"{% endif %}>
+                  <div class="comment-meta">
+                    <span class="author">{{ comment.author.display_name if comment.author else 'Socio' }}</span>
+                    {% if comment.created_at %}
+                      <span class="date">
+                        {{ comment.created_at.strftime("%d/%m/%Y %H:%M") }}
+                        {% if comment.is_edited %}
+                          <small class="edited-label" style="opacity: 0.7; margin-left: 5px;">(Editado)</small>
+                        {% endif %}
+                      </span>
+                    {% endif %}
+                  </div>
+                  <div class="comment-content-wrapper" id="comment-body-{{ comment.id }}">
+                    <p class="comment-body">{{ comment.body_html }}</p>
+                  </div>
+
+                  {# Formulario de edicion (oculto por defecto) #}
+                  {% if comment.created_by == current_user.id and is_leaf %}
+                    <div class="edit-form-inline" id="edit-form-{{ comment.id }}">
+                      <form method="post" action="{{ url_for('members.editar_comentario', comment_id=comment.id) }}">
+                        {{ comment_form.hidden_tag() }}
+                        <textarea name="content" class="comment-textarea">{{ comment.body_html }}</textarea>
+                        <div class="comment-actions">
+                          <button type="button" class="nav-auth-btn nav-auth-btn--cancel btn-mini" onclick="toggleEdit('{{ comment.id }}', event)">Cancelar</button>
+                          <button type="submit" class="nav-auth-btn nav-auth-btn--logout btn-mini">Guardar</button>
+                        </div>
+                      </form>
+                    </div>
+                  {% endif %}
+
+                  <div class="comment-actions-hover">
+                    {# Icono de responder #}
+                    {% if can_comment %}
+                      <button class="action-icon-btn" title="Responder a este mensaje" onclick="showReplyForm('{{ comment.id }}', event)">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M3 10h10a8 8 0 0 1 8 8v2M3 10l6 6m-6-6l6-6"></path>
+                        </svg>
+                      </button>
+                    {% endif %}
+
+                    {# Icono de editar (solo si es el ultimo mensaje del usuario en la rama) #}
+                    {% if comment.created_by == current_user.id and is_leaf %}
+                      <button class="action-icon-btn" title="Editar mensaje" onclick="toggleEdit('{{ comment.id }}', event)">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                      </button>
+                    {% endif %}
+
+                    {% if comment.created_by == current_user.id and is_leaf %}
+                      <form method="post" action="{{ url_for('members.eliminar_comentario', comment_id=comment.id) }}" onsubmit="return confirm('Eliminar este comentario?');">
+                        {{ comment_form.csrf_token }}
+                        <button class="action-icon-btn" title="Eliminar mensaje">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18"></path>
+                            <path d="M8 6V4h8v2"></path>
+                            <path d="M6 6l1 14h10l1-14"></path>
+                            <path d="M10 11v6"></path>
+                            <path d="M14 11v6"></path>
+                          </svg>
+                        </button>
+                      </form>
+                    {% endif %}
+                  </div>
+                </article>
+
+                {# Formulario de respuesta (oculto por defecto) #}
+                {% if can_comment %}
+                  <div class="reply-form-inline" id="reply-form-{{ comment.id }}">
+                    <form method="post" action="{{ url_for('members.comentar_sugerencia', suggestion_id=suggestion.id) }}">
+                      {{ comment_form.hidden_tag() }}
+                      <input type="hidden" name="parent_id" value="{{ comment.id }}">
+                      <textarea name="content" class="comment-textarea" placeholder="Escribe tu respuesta..."></textarea>
+                      <div class="comment-actions">
+                        <button type="button" class="nav-auth-btn nav-auth-btn--cancel btn-mini" onclick="showReplyForm('{{ comment.id }}', event)">Cancelar</button>
+                        <button type="submit" class="nav-auth-btn nav-auth-btn--logout btn-mini">Responder</button>
+                      </div>
+                    </form>
+                  </div>
+                {% endif %}
+
+                {% for child in comment.children.order_by(Comment.created_at.asc()) %}
+                  {{ render_comment(child, is_reply=True, is_last_overall=(child.id == comments[-1].id if comments else False)) }}
+                {% endfor %}
+              {% endmacro %}
+
+              {% for comment in comments if not comment.parent_id %}
+                {{ render_comment(comment, is_last_overall=(comment.id == comments[-1].id if comments else False)) }}
               {% else %}
-                Puedes cambiar tu voto en cualquier momento mientras siga abierto.
-              {% endif %}
-            </p>
-          </div>
-        </div>
-        {% if can_vote %}
-        <form
-          method="post"
-          action="{{ url_for('members.votar_sugerencia', suggestion_id=suggestion.id) }}"
-          class="vote-form"
-          id="voteForm"
-          data-likes="{{ likes_count }}"
-          data-dislikes="{{ dislikes_count }}"
-          data-current-vote="{{ user_vote.value if user_vote else '' }}"
-          data-is-closed="{{ 'true' if is_closed else 'false' }}"
-        >
-          {{ vote_form.csrf_token }}
-          {{ vote_form.value(id="voteValue") }}
-          <div class="vote-actions inline">
-            <button
-              type="button"
-              class="vote-btn up {% if user_vote and user_vote.value == 1 %}active{% endif %}"
-              data-value="1"
-              {% if is_closed %}disabled{% endif %}
-            >
-              <span class="emoji">👍</span>
-              <span>Me gusta</span>
-            </button>
-            <button
-              type="button"
-              class="vote-btn down {% if user_vote and user_vote.value == -1 %}active{% endif %}"
-              data-value="-1"
-              {% if is_closed %}disabled{% endif %}
-            >
-              <span class="emoji">👎</span>
-              <span>No me gusta</span>
-            </button>
-          </div>
-          <div class="vote-footer">
-            {% if is_closed %}
-              <span class="vote-locked">Hilo cerrado: los votos ya no se pueden mover.</span>
+                <p class="comment-empty">Todavia no hay comentarios, se el primero en participar.</p>
+              {% endfor %}
+            </div>
+
+            {% if can_comment %}
+              <form
+                method="post"
+                action="{{ url_for('members.comentar_sugerencia', suggestion_id=suggestion.id) }}"
+                class="comment-form"
+              >
+                {{ comment_form.hidden_tag() }}
+                <label for="comment-content">Anadir comentario</label>
+                {{ comment_form.content(id="comment-content", class_="comment-textarea", placeholder="Comparte tu idea o duda...") }}
+                <div class="comment-actions">
+                  {{ comment_form.submit(class_="nav-auth-btn nav-auth-btn--logout comment-submit-btn") }}
+                </div>
+              </form>
             {% else %}
-              <span class="vote-hint">Haz clic en Me gusta o No me gusta para guardar el voto al instante.</span>
+              <p class="comment-empty">No tienes permisos para comentar.</p>
             {% endif %}
-          </div>
-        </form>
-        {% else %}
-          <p class="vote-locked">No tienes permisos para votar.</p>
+          </section>
+
+          {% if not is_scoped_discussion %}
+            <section class="thread-vote card">
+              <div class="vote-header">
+                <div>
+                  <p class="eyebrow">Votar</p>
+                  <h3>Que opinas?</h3>
+                  <p class="vote-copy">
+                    {% if is_closed %}
+                      El hilo esta cerrado, los votos quedan fijados.
+                    {% else %}
+                      Puedes cambiar tu voto en cualquier momento mientras siga abierto.
+                    {% endif %}
+                  </p>
+                </div>
+              </div>
+              {% if can_vote %}
+              <form
+                method="post"
+                action="{{ url_for('members.votar_sugerencia', suggestion_id=suggestion.id) }}"
+                class="vote-form"
+                id="voteForm"
+                data-likes="{{ likes_count }}"
+                data-dislikes="{{ dislikes_count }}"
+                data-current-vote="{{ user_vote.value if user_vote else '' }}"
+                data-is-closed="{{ 'true' if is_closed else 'false' }}"
+              >
+                {{ vote_form.csrf_token }}
+                {{ vote_form.value(id="voteValue") }}
+                <div class="vote-actions inline">
+                  <button
+                    type="button"
+                    class="vote-btn up {% if user_vote and user_vote.value == 1 %}active{% endif %}"
+                    data-value="1"
+                    {% if is_closed %}disabled{% endif %}
+                  >
+                    <span class="emoji">+</span>
+                    <span>Me gusta</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="vote-btn down {% if user_vote and user_vote.value == -1 %}active{% endif %}"
+                    data-value="-1"
+                    {% if is_closed %}disabled{% endif %}
+                  >
+                    <span class="emoji">-</span>
+                    <span>No me gusta</span>
+                  </button>
+                </div>
+                <div class="vote-footer">
+                  {% if is_closed %}
+                    <span class="vote-locked">Hilo cerrado: los votos ya no se pueden mover.</span>
+                  {% else %}
+                    <span class="vote-hint">Haz clic en Me gusta o No me gusta para guardar el voto al instante.</span>
+                  {% endif %}
+                </div>
+              </form>
+              {% else %}
+                <p class="vote-locked">No tienes permisos para votar.</p>
+              {% endif %}
+            </section>
+          {% endif %}
+        </div>
+
+        {% if is_scoped_discussion %}
+          <aside class="discussion-polls-panel">
+            <div class="card">
+              <div class="poll-panel-header">
+                <h3>Votaciones</h3>
+                {% if can_create_polls %}
+                  <button type="button" class="nav-auth-btn nav-auth-btn--logout btn-mini" id="openPollModal">Nueva votacion</button>
+                {% endif %}
+              </div>
+              <p class="poll-hint">Votaciones anonimas. Recuentos visibles al finalizar.</p>
+
+              <div class="poll-section">
+                <p class="poll-section-title">Votaciones activas</p>
+                <div class="poll-list">
+                  {% for poll in polls_active %}
+                    <div class="poll-item{% if poll_focus_int and poll.id == poll_focus_int %} is-focus{% endif %}" id="poll-{{ poll.id }}" data-poll-id="{{ poll.id }}">
+                      <div class="poll-item-header">
+                        <a class="poll-item-title poll-item-title-link" href="{{ poll.link }}" data-no-loader="true">{{ poll.title }}</a>
+                        {% if poll.is_new %}
+                          <span class="chip chip--new poll-new-chip">Nuevo</span>
+                        {% endif %}
+                      </div>
+                      <div class="poll-item-meta">
+                        {% if poll.end_at %}
+                          Cierra {{ poll.end_at.strftime("%d/%m/%Y %H:%M") }}
+                        {% else %}
+                          Sin fecha limite
+                        {% endif %}
+                      </div>
+                      <div class="poll-item-footer">
+                        <span class="status-pill status-{{ poll.status }}">{{ poll.status|upper }}</span>
+                      </div>
+                      <div class="poll-item-body">
+                        <div class="poll-item-actions">
+                          {% if can_poll_vote %}
+                            <form
+                              class="poll-vote-form"
+                              method="post"
+                              action="{{ url_for('members.votar_discussion_poll', poll_id=poll.id) }}"
+                              data-poll-id="{{ poll.id }}"
+                              data-current-vote="{{ poll.user_vote if poll.user_vote is not none else '' }}"
+                              data-is-active="true"
+                            >
+                              {{ comment_form.csrf_token }}
+                              <div class="poll-item-vote">
+                                <button
+                                  type="button"
+                                  class="vote-btn up poll-vote-btn {% if poll.user_vote == 1 %}active{% endif %}"
+                                  data-value="1"
+                                >
+                                  <span class="vote-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75h3.011a1.5 1.5 0 0 0 1.423-1.04l1.272-3.818a1.5 1.5 0 0 1 2.935.568v3.04a1.5 1.5 0 0 0 1.5 1.5h4.493a1.5 1.5 0 0 1 1.46 1.803l-1.2 5.4a1.5 1.5 0 0 1-1.46 1.197H7.5a1.5 1.5 0 0 1-1.5-1.5v-6.75H2.25" />
+                                    </svg>
+                                  </span>
+                                  <span>A favor</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  class="vote-btn down poll-vote-btn {% if poll.user_vote == -1 %}active{% endif %}"
+                                  data-value="-1"
+                                >
+                                  <span class="vote-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 11.25h-3.011a1.5 1.5 0 0 0-1.423 1.04l-1.272 3.818a1.5 1.5 0 0 1-2.935-.568v-3.04a1.5 1.5 0 0 0-1.5-1.5H6.116a1.5 1.5 0 0 1-1.46-1.803l1.2-5.4A1.5 1.5 0 0 1 7.316 2.5H16.5a1.5 1.5 0 0 1 1.5 1.5v6.75h3.75" />
+                                    </svg>
+                                  </span>
+                                  <span>En contra</span>
+                                </button>
+                              </div>
+                            </form>
+                          {% endif %}
+
+                          <div class="poll-item-controls">
+                            <button
+                              type="button"
+                              class="nav-auth-btn nav-auth-btn--cancel btn-mini poll-details-btn"
+                              data-poll-details="true"
+                              data-poll-title="{{ poll.title | e }}"
+                              data-poll-description="{{ (poll.description or '') | e }}"
+                              data-poll-files='{{ poll.files | tojson }}'
+                            >
+                              Detalles
+                            </button>
+                            {% if can_create_polls and poll.votes_total == 0 %}
+                              <button
+                                type="button"
+                                class="nav-auth-btn nav-auth-btn--cancel btn-mini"
+                                data-edit-poll="true"
+                                data-poll-id="{{ poll.id }}"
+                                data-poll-title="{{ poll.title | e }}"
+                                data-poll-description="{{ (poll.description or '') | e }}"
+                                data-poll-end="{{ poll.end_at.strftime('%Y-%m-%dT%H:%M') if poll.end_at else '' }}"
+                                data-poll-notify="{{ '1' if poll.notify_enabled else '0' }}"
+                                data-poll-file-ids='{{ poll.drive_file_ids | tojson }}'
+                                data-poll-files='{{ poll.files | tojson }}'
+                                data-edit-url="{{ url_for('members.editar_discussion_poll', poll_id=poll.id, return_to=return_to) }}"
+                              >
+                                Editar
+                              </button>
+                              <form
+                                method="post"
+                                action="{{ url_for('members.eliminar_discussion_poll', poll_id=poll.id, return_to=return_to) }}"
+                                onsubmit="return confirm('Eliminar esta votacion? Esta accion es irreversible.');"
+                              >
+                                {{ comment_form.csrf_token }}
+                                <button type="submit" class="nav-auth-btn nav-auth-btn--logout btn-mini">Eliminar</button>
+                              </form>
+                            {% elif can_null_polls %}
+                              <form
+                                method="post"
+                                action="{{ url_for('members.anular_discussion_poll', poll_id=poll.id) }}"
+                                data-confirm="¿Marcar esta votacion como nula? Esta accion es irreversible."
+                                data-confirm-title="Marcar votacion como nula"
+                                data-confirm-accept="Marcar como nula"
+                                data-confirm-variant="warning"
+                              >
+                                {{ comment_form.csrf_token }}
+                                <button type="submit" class="nav-auth-btn nav-auth-btn--cancel btn-mini">Votacion nula</button>
+                              </form>
+                            {% endif %}
+                          </div>
+                        </div>
+                        <p class="poll-hint">Resultados disponibles al finalizar la votacion.</p>
+                      </div>
+                    </div>
+                  {% else %}
+                    <p class="poll-empty">Sin votaciones activas.</p>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div class="poll-section">
+                <p class="poll-section-title">Votaciones cerradas</p>
+                <div class="poll-list">
+                  {% for poll in polls_closed %}
+                    <div class="poll-item{% if poll_focus_int and poll.id == poll_focus_int %} is-focus{% endif %}" id="poll-{{ poll.id }}" data-poll-id="{{ poll.id }}">
+                      <div class="poll-item-header">
+                        <a class="poll-item-title poll-item-title-link" href="{{ poll.link }}" data-no-loader="true">{{ poll.title }}</a>
+                        {% if poll.is_new %}
+                          <span class="chip chip--new poll-new-chip">Nuevo</span>
+                        {% endif %}
+                      </div>
+                      <div class="poll-item-meta">
+                        {% if poll.end_at %}
+                          Finalizada {{ poll.end_at.strftime("%d/%m/%Y %H:%M") }}
+                        {% else %}
+                          Finalizada
+                        {% endif %}
+                      </div>
+                      <div class="poll-item-footer">
+                        <span class="status-pill status-{{ poll.status }}">{{ poll.status|upper }}</span>
+                      </div>
+                      <div class="poll-item-body">
+                        <div class="poll-item-results">
+                          <span class="poll-item-result">
+                            <span class="poll-count-icon" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75h3.011a1.5 1.5 0 0 0 1.423-1.04l1.272-3.818a1.5 1.5 0 0 1 2.935.568v3.04a1.5 1.5 0 0 0 1.5 1.5h4.493a1.5 1.5 0 0 1 1.46 1.803l-1.2 5.4a1.5 1.5 0 0 1-1.46 1.197H7.5a1.5 1.5 0 0 1-1.5-1.5v-6.75H2.25" />
+                              </svg>
+                            </span>
+                            A favor <strong>{{ poll.votes_for }}</strong>
+                          </span>
+                          <span class="poll-item-result">
+                            <span class="poll-count-icon" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 11.25h-3.011a1.5 1.5 0 0 0-1.423 1.04l-1.272 3.818a1.5 1.5 0 0 1-2.935-.568v-3.04a1.5 1.5 0 0 0-1.5-1.5H6.116a1.5 1.5 0 0 1-1.46-1.803l1.2-5.4A1.5 1.5 0 0 1 7.316 2.5H16.5a1.5 1.5 0 0 1 1.5 1.5v6.75h3.75" />
+                              </svg>
+                            </span>
+                            En contra <strong>{{ poll.votes_against }}</strong>
+                          </span>
+                          <span class="poll-item-result">
+                            Abstenciones <strong>{{ poll.abstentions }}</strong>
+                          </span>
+                        </div>
+                        <div class="poll-item-controls">
+                          <button
+                            type="button"
+                            class="nav-auth-btn nav-auth-btn--cancel btn-mini poll-details-btn"
+                            data-poll-details="true"
+                            data-poll-title="{{ poll.title | e }}"
+                            data-poll-description="{{ (poll.description or '') | e }}"
+                            data-poll-files='{{ poll.files | tojson }}'
+                          >
+                            Detalles
+                          </button>
+                          {% if can_null_polls %}
+                            <form
+                              method="post"
+                              action="{{ url_for('members.anular_discussion_poll', poll_id=poll.id) }}"
+                              data-confirm="¿Marcar esta votacion como nula? Esta accion es irreversible."
+                              data-confirm-title="Marcar votacion como nula"
+                              data-confirm-accept="Marcar como nula"
+                              data-confirm-variant="warning"
+                            >
+                              {{ comment_form.csrf_token }}
+                              <button type="submit" class="nav-auth-btn nav-auth-btn--cancel btn-mini">Votacion nula</button>
+                            </form>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+                  {% else %}
+                    <p class="poll-empty">Sin votaciones cerradas.</p>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div class="poll-section">
+                <p class="poll-section-title">Votaciones nulas</p>
+                <div class="poll-list">
+                  {% for poll in polls_nulled %}
+                    <div class="poll-item{% if poll_focus_int and poll.id == poll_focus_int %} is-focus{% endif %}" id="poll-{{ poll.id }}" data-poll-id="{{ poll.id }}">
+                      <div class="poll-item-header">
+                        <a class="poll-item-title poll-item-title-link" href="{{ poll.link }}" data-no-loader="true">{{ poll.title }}</a>
+                        {% if poll.is_new %}
+                          <span class="chip chip--new poll-new-chip">Nuevo</span>
+                        {% endif %}
+                      </div>
+                      <div class="poll-item-meta">Votacion anulada</div>
+                      <div class="poll-item-footer">
+                        <span class="status-pill status-{{ poll.status }}">{{ poll.status|upper }}</span>
+                      </div>
+                      <div class="poll-item-controls">
+                        <button
+                          type="button"
+                          class="nav-auth-btn nav-auth-btn--cancel btn-mini poll-details-btn"
+                          data-poll-details="true"
+                          data-poll-title="{{ poll.title | e }}"
+                          data-poll-description="{{ (poll.description or '') | e }}"
+                          data-poll-files='{{ poll.files | tojson }}'
+                        >
+                          Detalles
+                        </button>
+                      </div>
+                    </div>
+                  {% else %}
+                    <p class="poll-empty">Sin votaciones nulas.</p>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </aside>
         {% endif %}
-      </section>
+      </div>
     </div>
   </section>
+
+  {% if is_scoped_discussion and can_create_polls %}
+    <div class="poll-modal" id="pollModal" aria-hidden="true" role="dialog" aria-modal="true">
+      <div class="poll-modal__dialog">
+        <div class="poll-modal__header">
+          <h3>Nueva votacion</h3>
+          <button type="button" class="poll-modal__close" id="pollModalClose" aria-label="Cerrar">x</button>
+        </div>
+        <form
+          method="post"
+          action="{{ url_for('members.discussion_polls', suggestion_id=suggestion.id, return_to=return_to) }}"
+          class="poll-modal__form"
+          id="pollCreateForm"
+        >
+          {{ comment_form.csrf_token }}
+          <div class="poll-modal__field">
+            <label for="pollTitle">Tema</label>
+            <input type="text" id="pollTitle" name="title" required maxlength="255" />
+          </div>
+          <div class="poll-modal__field">
+            <label for="pollDescription">Descripcion</label>
+            <textarea id="pollDescription" name="description" rows="4" placeholder="Agrega una descripcion si es necesaria..."></textarea>
+          </div>
+          <div class="poll-modal__field">
+            <label for="pollEndDate">Fecha y hora limite</label>
+            <input type="hidden" id="pollEndAt" name="end_at" />
+            <div class="datetime-split" style="margin-top: 0.5rem;">
+              <input type="text" id="pollEndDate" placeholder="Fecha" autocomplete="off" />
+              <div class="timepicker-anchor">
+                <input type="text" id="pollEndTime" placeholder="Hora" autocomplete="off" />
+                <div class="timepicker-popover" id="pollEndTimePopover" aria-hidden="true"></div>
+              </div>
+            </div>
+          </div>
+          <input type="hidden" id="pollDriveFileIds" name="drive_file_ids" value="[]" />
+          <div class="poll-modal__field">
+            <label>Archivos adjuntos</label>
+            <div class="poll-drive-widget" data-poll-drive="create">
+              {% if commission or project %}
+                {% if project %}
+                  {% set drive_label = "proyecto" %}
+                  {% set drive_list_url = url_for('api.project_drive_files_list', project_id=project.id) %}
+                  {% set drive_upload_url = url_for('api.project_drive_files_upload', project_id=project.id) %}
+                  {% set drive_download_url = url_for('api.project_drive_files_download', project_id=project.id, file_id='__FILE_ID__') %}
+                {% else %}
+                  {% set drive_label = "comision" %}
+                  {% set drive_list_url = url_for('api.commission_drive_files_list', commission_id=commission.id) %}
+                  {% set drive_upload_url = url_for('api.commission_drive_files_upload', commission_id=commission.id) %}
+                  {% set drive_download_url = url_for('api.commission_drive_files_download', commission_id=commission.id, file_id='__FILE_ID__') %}
+                {% endif %}
+                {% set drive_upload_title = "Adjunta archivos a la votacion" %}
+                {% set drive_list_title = "Archivos de la " ~ drive_label %}
+                {% set drive_list_button = "Ver archivos" %}
+                {% set drive_can_delete = False %}
+                {% set drive_can_history = False %}
+                {% set drive_select_mode = "attach" %}
+                {% set drive_select_label = "Agregar" %}
+                {% include 'shared/drive_files_widget.html' %}
+              {% endif %}
+            </div>
+            <div class="poll-detail-files" id="pollCreateFiles"></div>
+          </div>
+          <label class="poll-modal__checkbox">
+            <input type="checkbox" name="notify_enabled" value="1" />
+            Enviar correo a los miembros para participar
+          </label>
+          <div class="poll-modal__warnings">
+            <span>La votacion es anonima (no se publican votantes).</span>
+            <span>La votacion se cierra automaticamente en la fecha/hora indicada.</span>
+            <span>No se puede editar una votacion si ya hay votos.</span>
+            <span>Si marcas el envio de correo, se enviara un email al crear y otro automatico con el resultado al finalizar; y si se anula, se enviara un email de anulacion.</span>
+          </div>
+          <div class="poll-modal__actions">
+            <button type="button" class="nav-auth-btn nav-auth-btn--cancel" id="pollModalCancel">Cancelar</button>
+            <button type="submit" class="nav-auth-btn nav-auth-btn--logout">Crear votacion</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="poll-modal" id="pollEditModal" aria-hidden="true" role="dialog" aria-modal="true">
+      <div class="poll-modal__dialog">
+        <div class="poll-modal__header">
+          <h3>Editar votacion</h3>
+          <button type="button" class="poll-modal__close" id="pollEditModalClose" aria-label="Cerrar">x</button>
+        </div>
+        <form
+          method="post"
+          action=""
+          class="poll-modal__form"
+          id="pollEditForm"
+        >
+          {{ comment_form.csrf_token }}
+          <div class="poll-modal__field">
+            <label for="pollEditTitle">Tema</label>
+            <input type="text" id="pollEditTitle" name="title" required maxlength="255" />
+          </div>
+          <div class="poll-modal__field">
+            <label for="pollEditDescription">Descripcion</label>
+            <textarea id="pollEditDescription" name="description" rows="4" placeholder="Agrega una descripcion si es necesaria..."></textarea>
+          </div>
+          <div class="poll-modal__field">
+            <label for="pollEditEndDate">Fecha y hora limite</label>
+            <input type="hidden" id="pollEditEndAt" name="end_at" />
+            <div class="datetime-split" style="margin-top: 0.5rem;">
+              <input type="text" id="pollEditEndDate" placeholder="Fecha" autocomplete="off" />
+              <div class="timepicker-anchor">
+                <input type="text" id="pollEditEndTime" placeholder="Hora" autocomplete="off" />
+                <div class="timepicker-popover" id="pollEditEndTimePopover" aria-hidden="true"></div>
+              </div>
+            </div>
+          </div>
+          <input type="hidden" id="pollEditDriveFileIds" name="drive_file_ids" value="[]" />
+          <div class="poll-modal__field">
+            <label>Archivos adjuntos</label>
+            <div class="poll-drive-widget" data-poll-drive="edit">
+              {% if commission or project %}
+                {% if project %}
+                  {% set drive_label = "proyecto" %}
+                  {% set drive_list_url = url_for('api.project_drive_files_list', project_id=project.id) %}
+                  {% set drive_upload_url = url_for('api.project_drive_files_upload', project_id=project.id) %}
+                  {% set drive_download_url = url_for('api.project_drive_files_download', project_id=project.id, file_id='__FILE_ID__') %}
+                {% else %}
+                  {% set drive_label = "comision" %}
+                  {% set drive_list_url = url_for('api.commission_drive_files_list', commission_id=commission.id) %}
+                  {% set drive_upload_url = url_for('api.commission_drive_files_upload', commission_id=commission.id) %}
+                  {% set drive_download_url = url_for('api.commission_drive_files_download', commission_id=commission.id, file_id='__FILE_ID__') %}
+                {% endif %}
+                {% set drive_upload_title = "Adjunta archivos a la votacion" %}
+                {% set drive_list_title = "Archivos de la " ~ drive_label %}
+                {% set drive_list_button = "Ver archivos" %}
+                {% set drive_can_delete = False %}
+                {% set drive_can_history = False %}
+                {% set drive_select_mode = "attach" %}
+                {% set drive_select_label = "Agregar" %}
+                {% include 'shared/drive_files_widget.html' %}
+              {% endif %}
+            </div>
+            <div class="poll-detail-files" id="pollEditFiles"></div>
+          </div>
+          <label class="poll-modal__checkbox">
+            <input type="checkbox" id="pollEditNotify" name="notify_enabled" value="1" />
+            Enviar correo a los miembros para participar
+          </label>
+          <div class="poll-modal__warnings">
+            <span>La votacion es anonima (no se publican votantes).</span>
+            <span>Solo se puede editar si no hay votos emitidos.</span>
+            <span>Si el envio de correo estaba activo, no se puede desmarcar.</span>
+            <span>Si activas el envio de correo ahora, se enviara la invitacion.</span>
+          </div>
+          <div class="poll-modal__actions">
+            <button type="button" class="nav-auth-btn nav-auth-btn--cancel" id="pollEditModalCancel">Cancelar</button>
+            <button type="submit" class="nav-auth-btn nav-auth-btn--logout">Guardar cambios</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  {% endif %}
+  {% if is_scoped_discussion %}
+    <div class="poll-modal" id="pollDetailsModal" aria-hidden="true" role="dialog" aria-modal="true">
+      <div class="poll-modal__dialog">
+        <div class="poll-modal__header">
+          <h3 id="pollDetailsTitle">Detalles de la votacion</h3>
+          <button type="button" class="poll-modal__close" id="pollDetailsClose" aria-label="Cerrar">x</button>
+        </div>
+        <div class="poll-modal__form">
+          <div class="poll-modal__field">
+            <label>Descripcion</label>
+            <div class="poll-detail-description" id="pollDetailsDescription"></div>
+          </div>
+          <div class="poll-modal__field">
+            <label>Archivos adjuntos</label>
+            <div class="poll-detail-files" id="pollDetailsFiles"></div>
+          </div>
+          <div class="poll-modal__actions">
+            <button type="button" class="nav-auth-btn nav-auth-btn--cancel" id="pollDetailsCloseBtn">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
 {% endblock %}
 
+
 {% block scripts %}
+  {% if is_scoped_discussion %}
+    {% include "includes/_datetime_split_picker_scripts.html" %}
+  {% endif %}
   <script>
+    function clearPollNewBadges() {
+      const badges = document.querySelectorAll('.poll-new-chip');
+      if (!badges.length) return;
+      badges.forEach((badge) => badge.remove());
+    }
+
     (function () {
       try {
         const endpoint = {{ url_for('api.me_mark_seen') | tojson }};
@@ -317,6 +1288,7 @@
           if (typeof window.refreshUnreadCounts === 'function') {
             window.refreshUnreadCounts();
           }
+          clearPollNewBadges();
         }).catch(function () {});
       } catch (e) {}
     })();
@@ -381,8 +1353,8 @@
       const dislikesHero = document.getElementById('dislikes-count-hero');
 
       const updateCounts = () => {
-        if (likesHero) likesHero.textContent = `👍 ${likes}`;
-        if (dislikesHero) dislikesHero.textContent = `👎 ${dislikes}`;
+        if (likesHero) likesHero.textContent = `+1 ${likes}`;
+        if (dislikesHero) dislikesHero.textContent = `-1 ${dislikes}`;
       };
 
       const syncActive = (value) => {
@@ -455,6 +1427,845 @@
         syncActive(currentVote);
       }
       updateCounts();
+    })();
+
+    (function () {
+      const hasPolls = {{ 'true' if is_scoped_discussion else 'false' }};
+      if (!hasPolls) return;
+
+      const safeAlert = (message) => {
+        if (window.ampaAlert) return window.ampaAlert(message);
+        return window.alert(message);
+      };
+
+      const createModal = document.getElementById('pollModal');
+      const openBtn = document.getElementById('openPollModal');
+      const createCloseBtn = document.getElementById('pollModalClose');
+      const createCancelBtn = document.getElementById('pollModalCancel');
+      const createForm = document.getElementById('pollCreateForm');
+      const createTitleInput = document.getElementById('pollTitle');
+
+      const editModal = document.getElementById('pollEditModal');
+      const editCloseBtn = document.getElementById('pollEditModalClose');
+      const editCancelBtn = document.getElementById('pollEditModalCancel');
+      const editForm = document.getElementById('pollEditForm');
+      const editTitleInput = document.getElementById('pollEditTitle');
+      const editNotifyInput = document.getElementById('pollEditNotify');
+      const editDescriptionInput = document.getElementById('pollEditDescription');
+      const editDriveIdsInput = document.getElementById('pollEditDriveFileIds');
+
+      const detailsModal = document.getElementById('pollDetailsModal');
+      const detailsCloseBtn = document.getElementById('pollDetailsClose');
+      const detailsCloseBtnAlt = document.getElementById('pollDetailsCloseBtn');
+      const detailsTitle = document.getElementById('pollDetailsTitle');
+      const detailsDescription = document.getElementById('pollDetailsDescription');
+      const detailsFiles = document.getElementById('pollDetailsFiles');
+
+      const createDescriptionInput = document.getElementById('pollDescription');
+      const createDriveIdsInput = document.getElementById('pollDriveFileIds');
+      const createDriveWidget = document.querySelector('[data-poll-drive="create"] [data-drive-widget]');
+      const editDriveWidget = document.querySelector('[data-poll-drive="edit"] [data-drive-widget]');
+      const createFilesContainer = document.getElementById('pollCreateFiles');
+      const editFilesContainer = document.getElementById('pollEditFiles');
+      const createFilesMap = new Map();
+      const editFilesMap = new Map();
+
+      const openModal = (modalEl, focusEl) => {
+        if (!modalEl) return;
+        modalEl.classList.add('open');
+        modalEl.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => {
+          if (focusEl) focusEl.focus();
+        }, 50);
+      };
+
+      const closeModal = (modalEl) => {
+        if (!modalEl) return;
+        modalEl.classList.remove('open');
+        modalEl.setAttribute('aria-hidden', 'true');
+        if (
+          !createModal?.classList.contains('open') &&
+          !editModal?.classList.contains('open') &&
+          !detailsModal?.classList.contains('open')
+        ) {
+          document.body.style.overflow = '';
+        }
+      };
+
+      if (openBtn && createModal) {
+        openBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          openModal(createModal, createTitleInput);
+          if (createTitleInput) {
+            setDriveAutoDescription(createDriveWidget, createTitleInput.value);
+          }
+          if (createDescriptionInput) {
+            createDescriptionInput.value = '';
+          }
+          setDriveIdsValue(createDriveIdsInput, []);
+          createFilesMap.clear();
+          renderSelectedFiles(createFilesContainer, createFilesMap, 'create');
+        });
+      }
+
+      if (createCloseBtn && createModal) {
+        createCloseBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          closeModal(createModal);
+        });
+      }
+
+      if (createCancelBtn && createModal) {
+        createCancelBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          closeModal(createModal);
+        });
+      }
+
+      if (createModal) {
+        createModal.addEventListener('click', (event) => {
+          if (event.target === createModal) closeModal(createModal);
+        });
+      }
+
+      if (editCloseBtn && editModal) {
+        editCloseBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          closeModal(editModal);
+        });
+      }
+
+      if (editCancelBtn && editModal) {
+        editCancelBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          closeModal(editModal);
+        });
+      }
+
+      if (editModal) {
+        editModal.addEventListener('click', (event) => {
+          if (event.target === editModal) closeModal(editModal);
+        });
+      }
+
+      if (detailsCloseBtn && detailsModal) {
+        detailsCloseBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          closeModal(detailsModal);
+        });
+      }
+
+      if (detailsCloseBtnAlt && detailsModal) {
+        detailsCloseBtnAlt.addEventListener('click', (event) => {
+          event.preventDefault();
+          closeModal(detailsModal);
+        });
+      }
+
+      if (detailsModal) {
+        detailsModal.addEventListener('click', (event) => {
+          if (event.target === detailsModal) closeModal(detailsModal);
+        });
+      }
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        if (createModal?.classList.contains('open')) closeModal(createModal);
+        if (editModal?.classList.contains('open')) closeModal(editModal);
+        if (detailsModal?.classList.contains('open')) closeModal(detailsModal);
+      });
+
+      if (createTitleInput) {
+        createTitleInput.addEventListener('input', () => {
+          setDriveAutoDescription(createDriveWidget, createTitleInput.value);
+        });
+      }
+
+      if (editTitleInput) {
+        editTitleInput.addEventListener('input', () => {
+          setDriveAutoDescription(editDriveWidget, editTitleInput.value);
+        });
+      }
+
+      const nowStr = {{ now_str | tojson }};
+      const endAtInput = document.getElementById('pollEndAt');
+      const endDateInput = document.getElementById('pollEndDate');
+      const endTimeInput = document.getElementById('pollEndTime');
+      const endTimePopover = document.getElementById('pollEndTimePopover');
+
+      const editEndAtInput = document.getElementById('pollEditEndAt');
+      const editEndDateInput = document.getElementById('pollEditEndDate');
+      const editEndTimeInput = document.getElementById('pollEditEndTime');
+      const editEndTimePopover = document.getElementById('pollEditEndTimePopover');
+      const pollContext = {
+        discussionTitle: {{ suggestion.title | tojson }},
+        commissionName: {{ (commission.name if commission else "") | tojson }},
+        projectTitle: {{ project.title | tojson if project else "null" }}
+      };
+
+      const buildPollFilesDescription = (pollTitle) => {
+        const cleanTitle = (pollTitle || '').trim();
+        const base = cleanTitle ? `Archivos Votacion "${cleanTitle}"` : 'Archivos de votacion';
+        const parts = [];
+        if (pollContext.discussionTitle) {
+          parts.push(`de la discusion "${pollContext.discussionTitle}"`);
+        }
+        if (pollContext.projectTitle) {
+          parts.push(`del proyecto "${pollContext.projectTitle}"`);
+        }
+        if (pollContext.commissionName) {
+          parts.push(`en la comision "${pollContext.commissionName}"`);
+        }
+        return `${base} ${parts.join(' ')}`.trim();
+      };
+
+      const setDriveAutoDescription = (widget, pollTitle) => {
+        if (!widget) return;
+        widget.dataset.driveAutoDescription = 'true';
+        widget.dataset.driveUploadDescription = buildPollFilesDescription(pollTitle);
+      };
+
+      const parseDriveIds = (value) => {
+        if (!value) return [];
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (err) {
+          return [];
+        }
+      };
+
+      const setDriveIdsValue = (input, ids) => {
+        if (!input) return;
+        input.value = JSON.stringify(ids || []);
+      };
+
+      const addDriveIds = (input, ids) => {
+        if (!input) return;
+        const current = parseDriveIds(input.value);
+        let changed = false;
+        ids.forEach((fileId) => {
+          const cleaned = String(fileId || '').trim();
+          if (!cleaned || current.includes(cleaned)) return;
+          current.push(cleaned);
+          changed = true;
+        });
+        if (changed) setDriveIdsValue(input, current);
+      };
+
+      const normalizeFileEntry = (file) => {
+        const id = String(file?.id || '').trim();
+        const name = String(file?.name || '').trim();
+        if (!id) return null;
+        return { id, name: name || id };
+      };
+
+      const renderSelectedFiles = (container, filesMap, mode) => {
+        if (!container) return;
+        container.innerHTML = '';
+        const entries = Array.from(filesMap.values());
+        if (!entries.length) {
+          const empty = document.createElement('p');
+          empty.className = 'poll-empty';
+          empty.textContent = 'Sin archivos adjuntos.';
+          container.appendChild(empty);
+          return;
+        }
+        entries.forEach((entry) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `poll-detail-file ${mode === 'edit' ? 'is-delete' : 'is-static'}`;
+          button.dataset.fileId = entry.id;
+          button.textContent = mode === 'edit' ? `Eliminar ${entry.name}` : entry.name;
+          container.appendChild(button);
+        });
+      };
+
+      const addUploadedFiles = (filesMap, uploaded) => {
+        if (!filesMap) return;
+        (uploaded || []).forEach((file) => {
+          const entry = normalizeFileEntry(file);
+          if (!entry) return;
+          filesMap.set(entry.id, entry);
+        });
+      };
+
+      const attachDriveUploads = (widget, input, filesMap, container, mode) => {
+        if (!widget || !input) return;
+        widget.addEventListener('drive:uploaded', (event) => {
+          const uploaded = event?.detail?.uploaded || [];
+          const ids = uploaded.map((file) => file?.id).filter(Boolean);
+          if (!ids.length) return;
+          addDriveIds(input, ids);
+          addUploadedFiles(filesMap, uploaded);
+          renderSelectedFiles(container, filesMap, mode);
+        });
+        widget.addEventListener('drive:selected', (event) => {
+          const selected = event?.detail?.selected || [];
+          const ids = selected.map((file) => file?.id).filter(Boolean);
+          if (!ids.length) return;
+          addDriveIds(input, ids);
+          addUploadedFiles(filesMap, selected);
+          renderSelectedFiles(container, filesMap, mode);
+        });
+      };
+
+      function pad2(n) {
+        return String(n).padStart(2, '0');
+      }
+
+      function formatDateYMD(d) {
+        return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+      }
+
+      function formatDateDMY(d) {
+        return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+      }
+
+      function formatTimeHM(d) {
+        return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+      }
+
+      function parseDMY(dmy) {
+        const parts = (dmy || '').split('/').map(Number);
+        if (parts.length !== 3) return null;
+        const [day, month, year] = parts;
+        if (!day || !month || !year) return null;
+        return new Date(year, month - 1, day, 0, 0, 0, 0);
+      }
+
+      function parseHM(hm) {
+        const parts = (hm || '').split(':').map(Number);
+        if (parts.length < 2) return null;
+        const [hours, minutes] = parts;
+        if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+        return { h: hours, m: minutes };
+      }
+
+      function parseIsoLocal(iso) {
+        if (!iso) return null;
+        const [datePart, timePart] = iso.split('T');
+        if (!datePart || !timePart) return null;
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hours, minutes] = timePart.split(':').map(Number);
+        if (!year || !month || !day) return null;
+        const date = new Date(year, month - 1, day, hours || 0, minutes || 0, 0, 0);
+        if (Number.isNaN(date.getTime())) return null;
+        return date;
+      }
+
+      function buildLocalDateTime(dateStr, timeStr) {
+        const date = parseDMY(dateStr);
+        const time = parseHM(timeStr);
+        if (!date || !time) return null;
+        date.setHours(time.h, time.m, 0, 0);
+        return date;
+      }
+
+      const timePopovers = [endTimePopover, editEndTimePopover].filter(Boolean);
+      const timeInputs = [endTimeInput, editEndTimeInput].filter(Boolean);
+
+      function closeTimePopovers(exceptPopover) {
+        timePopovers.forEach((popover) => {
+          if (!popover || popover === exceptPopover) return;
+          popover.classList.remove('is-open');
+          popover.setAttribute('aria-hidden', 'true');
+        });
+      }
+
+      function dockLatestTimepickerModalInto(popoverEl) {
+        if (!popoverEl) return false;
+        const modals = document.querySelectorAll('.tp-ui-modal');
+        if (!modals || !modals.length) return false;
+
+        const modalEl = modals[modals.length - 1];
+        if (!popoverEl.contains(modalEl)) {
+          popoverEl.replaceChildren(modalEl);
+        }
+
+        popoverEl.classList.add('is-open');
+        popoverEl.setAttribute('aria-hidden', 'false');
+        return true;
+      }
+
+      function dockOnOpen(popoverEl) {
+        if (!popoverEl) return;
+        closeTimePopovers(popoverEl);
+
+        let tries = 0;
+        const tick = function () {
+          tries += 1;
+          if (dockLatestTimepickerModalInto(popoverEl) || tries > 12) return;
+          requestAnimationFrame(tick);
+        };
+
+        requestAnimationFrame(tick);
+      }
+      function createPollPicker(config) {
+        const endAtInput = config.endAtInput;
+        const endDateInput = config.endDateInput;
+        const endTimeInput = config.endTimeInput;
+        const endTimePopover = config.endTimePopover;
+        const form = config.form;
+        if (!endAtInput || !endDateInput || !endTimeInput) return null;
+
+        const now = nowStr ? new Date(nowStr) : new Date();
+        const minDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        let datePicker = null;
+
+        const setHiddenFromVisible = () => {
+          const dt = buildLocalDateTime(endDateInput.value, endTimeInput.value);
+          if (!dt) return;
+          endAtInput.value = `${formatDateYMD(dt)}T${formatTimeHM(dt)}`;
+        };
+
+        const setDefaults = () => {
+          if (!endDateInput.value || !endTimeInput.value) {
+            const base = nowStr ? new Date(nowStr) : new Date();
+            base.setMinutes(base.getMinutes() + 60);
+            endDateInput.value = formatDateDMY(base);
+            endTimeInput.value = formatTimeHM(base);
+          }
+        };
+
+        const syncPicker = () => {
+          if (!datePicker) return;
+          const selected = parseDMY(endDateInput.value);
+          if (selected) {
+            datePicker.set('select', [selected.getFullYear(), selected.getMonth(), selected.getDate()], { muted: true });
+          }
+        };
+
+        if (window.jQuery && window.jQuery.fn && window.jQuery.fn.pickadate) {
+          window.jQuery(function () {
+            window.jQuery(endDateInput).pickadate({
+              format: 'dd/mm/yyyy',
+              formatSubmit: 'yyyy-mm-dd',
+              hiddenName: true,
+              editable: true,
+              min: minDate,
+              monthsFull: [
+                'Enero',
+                'Febrero',
+                'Marzo',
+                'Abril',
+                'Mayo',
+                'Junio',
+                'Julio',
+                'Agosto',
+                'Septiembre',
+                'Octubre',
+                'Noviembre',
+                'Diciembre',
+              ],
+              monthsShort: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+              weekdaysFull: ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'],
+              weekdaysShort: ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'],
+              today: 'Hoy',
+              clear: 'Limpiar',
+              close: 'Cerrar',
+              firstDay: 1,
+              onSet: function () {
+                setHiddenFromVisible();
+              },
+            });
+
+            datePicker = window.jQuery(endDateInput).pickadate('picker');
+            setDefaults();
+            syncPicker();
+            setHiddenFromVisible();
+          });
+        } else {
+          setDefaults();
+          setHiddenFromVisible();
+        }
+
+        const TimepickerUI = window.TimepickerUI;
+        if (TimepickerUI) {
+          const pickerInstance = new TimepickerUI(endTimeInput, {
+            clock: {
+              type: '24h',
+              incrementHours: 1,
+              incrementMinutes: 1,
+              autoSwitchToMinutes: true,
+            },
+            ui: {
+              theme: 'm2',
+              animation: true,
+              backdrop: false,
+              editable: false,
+            },
+            labels: {
+              time: 'Elige una hora',
+              ok: 'Aceptar',
+              cancel: 'Cancelar',
+              mobileHour: 'Hora',
+              mobileMinute: 'Minutos',
+            },
+            callbacks: {
+              onConfirm: function () {
+                setHiddenFromVisible();
+              },
+              onUpdate: function () {
+                setHiddenFromVisible();
+              },
+            },
+          });
+          pickerInstance.create();
+        }
+
+        endTimeInput.addEventListener('click', function () {
+          dockOnOpen(endTimePopover);
+        });
+        endTimeInput.addEventListener('focus', function () {
+          dockOnOpen(endTimePopover);
+        });
+        endDateInput.addEventListener('change', setHiddenFromVisible);
+        endTimeInput.addEventListener('change', setHiddenFromVisible);
+
+        if (form) {
+          form.addEventListener('submit', function (e) {
+            setHiddenFromVisible();
+            if (!endAtInput.value) {
+              e.preventDefault();
+              safeAlert('Debes seleccionar fecha y hora de cierre.');
+              return;
+            }
+            const endAtDate = new Date(endAtInput.value);
+            const nowDate = nowStr ? new Date(nowStr) : new Date();
+            if (endAtDate <= nowDate) {
+              e.preventDefault();
+              safeAlert('La fecha y hora de cierre debe ser posterior a la actual.');
+            }
+          });
+        }
+
+        return { setHiddenFromVisible, setDefaults, syncPicker };
+      }
+
+      if (timePopovers.length || timeInputs.length) {
+        document.addEventListener('mousedown', function (e) {
+          const t = e.target;
+          const insideTimepickerModal = !!(t && t.closest && t.closest('.tp-ui-modal'));
+          const insideAny = timePopovers.some((popover) => popover && popover.contains(t))
+            || timeInputs.some((input) => input && input.contains(t));
+          if (insideAny || insideTimepickerModal) return;
+          closeTimePopovers(null);
+        });
+      }
+
+      const createPicker = createPollPicker({
+        endAtInput,
+        endDateInput,
+        endTimeInput,
+        endTimePopover,
+        form: createForm,
+      });
+
+      const editPicker = createPollPicker({
+        endAtInput: editEndAtInput,
+        endDateInput: editEndDateInput,
+        endTimeInput: editEndTimeInput,
+        endTimePopover: editEndTimePopover,
+        form: editForm,
+      });
+
+      attachDriveUploads(createDriveWidget, createDriveIdsInput, createFilesMap, createFilesContainer, 'create');
+      attachDriveUploads(editDriveWidget, editDriveIdsInput, editFilesMap, editFilesContainer, 'edit');
+
+      const setEditNotifyLocked = (locked) => {
+        if (!editNotifyInput) return;
+        editNotifyInput.dataset.locked = locked ? '1' : '0';
+        if (locked) {
+          editNotifyInput.checked = true;
+        }
+      };
+
+      if (editNotifyInput) {
+        const enforceNotifyLock = (event) => {
+          if (editNotifyInput.dataset.locked !== '1') return;
+          event.preventDefault();
+          editNotifyInput.checked = true;
+          safeAlert('El envio de correo ya estaba activado y no se puede desmarcar.');
+        };
+        editNotifyInput.addEventListener('click', enforceNotifyLock);
+        editNotifyInput.addEventListener('change', enforceNotifyLock);
+      }
+
+      const editButtons = Array.from(document.querySelectorAll('[data-edit-poll="true"]'));
+      editButtons.forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          event.preventDefault();
+          if (!editModal || !editForm) return;
+
+          const title = btn.dataset.pollTitle || '';
+          const description = btn.dataset.pollDescription || '';
+          const endIso = btn.dataset.pollEnd || '';
+          const notifyLocked = btn.dataset.pollNotify === '1';
+          const editUrl = btn.dataset.editUrl || '';
+          const fileIdsRaw = btn.dataset.pollFileIds || '[]';
+          const filesRaw = btn.dataset.pollFiles || '[]';
+          let fileIds = [];
+          let files = [];
+          try {
+            const parsed = JSON.parse(fileIdsRaw);
+            fileIds = Array.isArray(parsed) ? parsed : [];
+          } catch (err) {
+            fileIds = [];
+          }
+          try {
+            const parsed = JSON.parse(filesRaw);
+            files = Array.isArray(parsed) ? parsed : [];
+          } catch (err) {
+            files = [];
+          }
+
+          if (editTitleInput) editTitleInput.value = title;
+          if (editDescriptionInput) editDescriptionInput.value = description;
+          if (editNotifyInput) editNotifyInput.checked = notifyLocked;
+          setEditNotifyLocked(notifyLocked);
+          setDriveIdsValue(editDriveIdsInput, fileIds);
+          setDriveAutoDescription(editDriveWidget, title);
+          editFilesMap.clear();
+          files.forEach((file) => {
+            const entry = normalizeFileEntry(file);
+            if (!entry) return;
+            editFilesMap.set(entry.id, entry);
+          });
+          if (!editFilesMap.size && fileIds.length) {
+            fileIds.forEach((fileId) => {
+              const cleaned = String(fileId || '').trim();
+              if (!cleaned) return;
+              editFilesMap.set(cleaned, { id: cleaned, name: cleaned });
+            });
+          }
+          renderSelectedFiles(editFilesContainer, editFilesMap, 'edit');
+
+          if (editEndDateInput && editEndTimeInput && editEndAtInput) {
+            const dt = parseIsoLocal(endIso);
+            if (dt) {
+              editEndDateInput.value = formatDateDMY(dt);
+              editEndTimeInput.value = formatTimeHM(dt);
+              editEndAtInput.value = `${formatDateYMD(dt)}T${formatTimeHM(dt)}`;
+            } else {
+              editEndDateInput.value = '';
+              editEndTimeInput.value = '';
+              editEndAtInput.value = '';
+            }
+            if (editPicker) {
+              editPicker.syncPicker();
+              editPicker.setHiddenFromVisible();
+            }
+          }
+
+          editForm.action = editUrl;
+          openModal(editModal, editTitleInput);
+        });
+      });
+
+      if (editFilesContainer && editDriveIdsInput) {
+        editFilesContainer.addEventListener('click', (event) => {
+          const target = event.target.closest('[data-file-id]');
+          if (!target) return;
+          const fileId = String(target.dataset.fileId || '').trim();
+          if (!fileId) return;
+          editFilesMap.delete(fileId);
+          const remaining = parseDriveIds(editDriveIdsInput.value).filter(
+            (id) => String(id || '').trim() !== fileId
+          );
+          setDriveIdsValue(editDriveIdsInput, remaining);
+          renderSelectedFiles(editFilesContainer, editFilesMap, 'edit');
+        });
+      }
+
+      const supportsDirectoryPicker = typeof window.showDirectoryPicker === 'function';
+
+      const downloadWithPicker = async (downloadUrl, fileName) => {
+        if (!supportsDirectoryPicker) return false;
+        try {
+          const dirHandle = await window.showDirectoryPicker();
+          if (!dirHandle) return true;
+          const response = await fetch(downloadUrl, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+          });
+          if (!response.ok) throw new Error('download_failed');
+          const blob = await response.blob();
+          const safeName = fileName || 'archivo';
+          const fileHandle = await dirHandle.getFileHandle(safeName, { create: true });
+          const writable = await fileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          return true;
+        } catch (err) {
+          if (err && err.name === 'AbortError') return true;
+          safeAlert('No se pudo descargar el archivo.');
+          return true;
+        }
+      };
+
+      const renderDetailsFiles = (files) => {
+        if (!detailsFiles) return;
+        detailsFiles.innerHTML = '';
+        const list = Array.isArray(files) ? files : [];
+        if (!list.length) {
+          const empty = document.createElement('p');
+          empty.className = 'poll-empty';
+          empty.textContent = 'Sin archivos adjuntos.';
+          detailsFiles.appendChild(empty);
+          return;
+        }
+        list.forEach((file) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'poll-detail-file';
+          button.dataset.downloadUrl = file?.download_url || '';
+          button.dataset.fileName = file?.name || 'archivo';
+          button.textContent = file?.name || 'archivo';
+          detailsFiles.appendChild(button);
+        });
+      };
+
+      if (detailsFiles) {
+        detailsFiles.addEventListener('click', (event) => {
+          const target = event.target.closest('[data-download-url]');
+          if (!target) return;
+          const downloadUrl = target.dataset.downloadUrl;
+          if (!downloadUrl) return;
+          const fileName = target.dataset.fileName || 'archivo';
+          if (!supportsDirectoryPicker) {
+            window.location.href = downloadUrl;
+            return;
+          }
+          event.preventDefault();
+          downloadWithPicker(downloadUrl, fileName);
+        });
+      }
+
+      const detailButtons = Array.from(document.querySelectorAll('[data-poll-details="true"]'));
+      detailButtons.forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          event.preventDefault();
+          if (!detailsModal) return;
+          const title = btn.dataset.pollTitle || '';
+          const description = btn.dataset.pollDescription || '';
+          const filesRaw = btn.dataset.pollFiles || '[]';
+          let files = [];
+          try {
+            const parsed = JSON.parse(filesRaw);
+            files = Array.isArray(parsed) ? parsed : [];
+          } catch (err) {
+            files = [];
+          }
+          if (detailsTitle) {
+            detailsTitle.textContent = title ? `Detalles de la votacion: ${title}` : 'Detalles de la votacion';
+          }
+          if (detailsDescription) {
+            const cleanDescription = (description || '').trim();
+            detailsDescription.textContent = cleanDescription || 'Sin descripcion.';
+          }
+          renderDetailsFiles(files);
+          openModal(detailsModal, detailsCloseBtn || detailsCloseBtnAlt);
+        });
+      });
+
+      async function confirmVoteChange() {
+        if (window.ampaConfirm) {
+          return window.ampaConfirm({
+            title: 'Cambiar voto',
+            message: 'Ya habias votado. Quieres cambiar tu voto?',
+            confirmText: 'Cambiar voto',
+            cancelText: 'Cancelar',
+            variant: 'warning'
+          });
+        }
+        return window.confirm('Ya habias votado. Quieres cambiar tu voto?');
+      }
+
+      const pollVoteForms = Array.from(document.querySelectorAll('.poll-vote-form'));
+      pollVoteForms.forEach((pollForm) => {
+        const buttons = Array.from(pollForm.querySelectorAll('.poll-vote-btn'));
+        const csrf = pollForm.querySelector('input[name="csrf_token"]')?.value;
+        let currentVote = pollForm.dataset.currentVote ? parseInt(pollForm.dataset.currentVote, 10) : null;
+        const pollId = pollForm.dataset.pollId;
+
+        const syncActive = (value) => {
+          buttons.forEach((btn) => {
+            const isActive = parseInt(btn.dataset.value, 10) === value;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+          });
+        };
+
+
+        const sendVote = async (value) => {
+          if (pollForm.dataset.isActive !== 'true') {
+            safeAlert('La votacion ya esta cerrada.');
+            return;
+          }
+          if (currentVote && currentVote === value) {
+            return;
+          }
+          if (currentVote && !(await confirmVoteChange())) {
+            return;
+          }
+          if (!csrf) {
+            safeAlert('No se pudo validar la sesion. Recarga la pagina.');
+            return;
+          }
+
+          const wasUpdate = Boolean(currentVote);
+          const body = new FormData();
+          body.append('csrf_token', csrf);
+          body.append('value', String(value));
+
+          try {
+            const res = await fetch(pollForm.action, {
+              method: 'POST',
+              headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+              },
+              body,
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok || !data?.success) {
+              safeAlert(data?.message || 'No se pudo registrar el voto.');
+              return;
+            }
+            currentVote = data.vote;
+            pollForm.dataset.currentVote = String(currentVote || '');
+            syncActive(currentVote);
+            const message = data?.message || (wasUpdate ? 'Voto actualizado.' : 'Votacion realizada.');
+            if (window.ampaAlert) {
+              window.ampaAlert({
+                title: wasUpdate ? 'Voto actualizado' : 'Votacion realizada',
+                message,
+                confirmText: 'Aceptar',
+                variant: 'info'
+              });
+            } else {
+              safeAlert(message);
+            }
+          } catch (err) {
+            console.error(err);
+            safeAlert('No se pudo registrar el voto. Intentalo de nuevo.');
+          }
+        };
+
+        buttons.forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const value = parseInt(btn.dataset.value, 10);
+            if (Number.isNaN(value)) return;
+            sendVote(value);
+          });
+        });
+
+        if (currentVote) {
+          syncActive(currentVote);
+        }
+      });
     })();
   </script>
 {% endblock %}

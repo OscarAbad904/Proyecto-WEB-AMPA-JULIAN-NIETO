@@ -35,6 +35,9 @@
     const historyUrl = widget.dataset.driveHistoryUrl;
     const restoreUrlTemplate = widget.dataset.driveRestoreUrl;
     const descriptionUrlTemplate = widget.dataset.driveDescriptionUrl;
+    const selectMode = (widget.dataset.driveSelectMode || '').trim();
+    const isSelectMode = selectMode && selectMode !== 'false';
+    const selectLabel = (widget.dataset.driveSelectLabel || 'Agregar').trim();
     const canDelete = widget.dataset.driveCanDelete === 'true';
     const canHistory = widget.dataset.driveCanHistory === 'true';
     const dropzone = widget.querySelector('[data-drive-dropzone]');
@@ -292,6 +295,13 @@
     const prepareFiles = (files) => {
       if (!files || !files.length) return;
       pendingFiles = Array.from(files);
+      const autoMode = widget.dataset.driveAutoDescription === 'true';
+      const autoDescription = (widget.dataset.driveUploadDescription || '').trim();
+      if (autoMode) {
+        pendingUploadDescription = autoDescription || '';
+        uploadFiles();
+        return;
+      }
       openDescriptionModalForUpload(pendingFiles);
     };
 
@@ -403,6 +413,12 @@
         setStatus(message, 'success', false);
 
         if (uploaded.length) {
+          widget.dispatchEvent(new CustomEvent('drive:uploaded', {
+            detail: {
+              uploaded,
+              description: pendingUploadDescription || ''
+            }
+          }));
           await showDialog({
             title: 'Normas de edición',
             message:
@@ -434,6 +450,19 @@
             <th>Modificado</th>
             <th>Eliminado</th>
             <th></th>
+          </tr>
+        `;
+        return;
+      }
+
+      if (isSelectMode) {
+        listHead.innerHTML = `
+          <tr>
+            <th>Nombre</th>
+            <th>Descripción</th>
+            <th>Modificado</th>
+            <th>Subido</th>
+            <th>Seleccionar</th>
           </tr>
         `;
         return;
@@ -615,16 +644,28 @@
           const actionWrap = document.createElement('div');
           actionWrap.className = 'drive-files-actions-cell';
 
-          const downloadLink = document.createElement('a');
-          downloadLink.className = 'drive-files-download';
-          downloadLink.href = downloadUrl;
-          downloadLink.setAttribute('aria-label', 'Descargar archivo');
-          downloadLink.setAttribute('title', 'Descargar');
-          downloadLink.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M12 3v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /><path d="M7 11l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /><path d="M5 21h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>';
-          downloadLink.setAttribute('data-no-loader', '');
-          downloadLink.setAttribute('data-drive-download', '');
-          downloadLink.dataset.fileName = file.name || 'archivo';
-          actionWrap.appendChild(downloadLink);
+          if (isSelectMode && resolvedMode === 'active') {
+            const selectBtn = document.createElement('button');
+            selectBtn.type = 'button';
+            selectBtn.className = 'drive-files-select';
+            selectBtn.setAttribute('data-drive-select', '');
+            selectBtn.dataset.fileId = file.id;
+            selectBtn.dataset.fileName = file.name || 'archivo';
+            selectBtn.dataset.fileDescription = (file.description || '').toString();
+            selectBtn.textContent = selectLabel || 'Agregar';
+            actionWrap.appendChild(selectBtn);
+          } else {
+            const downloadLink = document.createElement('a');
+            downloadLink.className = 'drive-files-download';
+            downloadLink.href = downloadUrl;
+            downloadLink.setAttribute('aria-label', 'Descargar archivo');
+            downloadLink.setAttribute('title', 'Descargar');
+            downloadLink.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M12 3v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /><path d="M7 11l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /><path d="M5 21h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>';
+            downloadLink.setAttribute('data-no-loader', '');
+            downloadLink.setAttribute('data-drive-download', '');
+            downloadLink.dataset.fileName = file.name || 'archivo';
+            actionWrap.appendChild(downloadLink);
+          }
 
           const canDeleteFile =
             file && typeof file.canDelete === 'boolean' ? file.canDelete : canDelete;
@@ -908,6 +949,22 @@
 
     if (listBody) {
       listBody.addEventListener('click', (event) => {
+        const selectBtn = event.target.closest('[data-drive-select]');
+        if (selectBtn && isSelectMode) {
+          event.preventDefault();
+          if (selectBtn.dataset.selected === 'true') return;
+          selectBtn.dataset.selected = 'true';
+          selectBtn.classList.add('is-selected');
+          selectBtn.disabled = true;
+          selectBtn.textContent = 'Agregado';
+          const payload = {
+            id: selectBtn.dataset.fileId,
+            name: selectBtn.dataset.fileName || 'archivo',
+            description: selectBtn.dataset.fileDescription || ''
+          };
+          widget.dispatchEvent(new CustomEvent('drive:selected', { detail: { selected: [payload] } }));
+          return;
+        }
         const deleteBtn = event.target.closest('[data-drive-delete]');
         if (deleteBtn) {
           event.preventDefault();
@@ -1054,3 +1111,5 @@
     refreshCount();
   });
 })();
+
+

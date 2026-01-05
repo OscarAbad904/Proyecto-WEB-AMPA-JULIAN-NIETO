@@ -137,6 +137,18 @@ PERMISSION_DEFINITIONS = [
         "section": "Sugerencias",
     },
     {
+        "key": "create_discussion_polls",
+        "name": "Crear votaciones en discusiones",
+        "description": "Permite abrir nuevas votaciones en discusiones de comisiones y proyectos.",
+        "section": "Comisiones",
+    },
+    {
+        "key": "null_discussion_polls",
+        "name": "Anular votaciones en discusiones",
+        "description": "Permite marcar votaciones como nulas en discusiones de comisiones y proyectos.",
+        "section": "Comisiones",
+    },
+    {
         "key": "view_commissions",
         "name": "Ver todas las comisiones",
         "description": "Permite visualizar todas las comisiones existentes (listado y fichas completas). Los usuarios sin este permiso solo pueden ver las comisiones en las que están inscritos.",

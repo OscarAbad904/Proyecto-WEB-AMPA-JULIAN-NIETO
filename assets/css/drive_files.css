@@ -387,6 +387,31 @@
   background: #f1f5f9;
 }
 
+.drive-files-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.drive-files-select:hover {
+  background: #f1f5f9;
+}
+
+.drive-files-select.is-selected,
+.drive-files-select:disabled {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+  cursor: default;
+}
+
 .drive-files-delete {
   display: inline-flex;
   align-items: center;

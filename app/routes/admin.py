@@ -19,6 +19,8 @@ from app.models import (
     Suggestion,
     Comment,
     Vote,
+    DiscussionPoll,
+    DiscussionPollVote,
     Media,
     Commission,
     CommissionMembership,
@@ -38,6 +40,7 @@ from app.services.mail_service import (
     send_member_reactivation_email
 )
 from app.services.calendar_service import sync_commission_meeting_to_calendar
+from app.services.discussion_poll_service import get_latest_poll_activity_by_discussion
 from app.services.commission_drive_service import (
     ensure_commission_drive_folder,
     ensure_project_drive_folder,
@@ -648,6 +651,7 @@ def commissions_index():
                 latest_comment_at_by_discussion_id = {
                     suggestion_id: latest_at for suggestion_id, latest_at in latest_comment_rows
                 }
+                latest_poll_at_by_discussion_id = get_latest_poll_activity_by_discussion(discussion_ids)
 
                 for suggestion_id, category in suggestions:
                     is_new = False
@@ -658,6 +662,10 @@ def commissions_index():
                         latest_comment_at = latest_comment_at_by_discussion_id.get(suggestion_id)
                         if latest_comment_at and latest_comment_at > seen_at:
                             is_new = True
+                        else:
+                            latest_poll_at = latest_poll_at_by_discussion_id.get(suggestion_id)
+                            if latest_poll_at and latest_poll_at > seen_at:
+                                is_new = True
 
                     if not is_new:
                         continue
@@ -841,9 +849,10 @@ def commission_detail(commission_id: int):
     discussion_vote_counts = {}
     if discussions:
         rows = (
-            db.session.query(Vote.suggestion_id, func.count(Vote.id))
-            .filter(Vote.suggestion_id.in_([discussion.id for discussion in discussions]))
-            .group_by(Vote.suggestion_id)
+            db.session.query(DiscussionPoll.suggestion_id, func.count(DiscussionPollVote.id))
+            .join(DiscussionPollVote, DiscussionPollVote.poll_id == DiscussionPoll.id)
+            .filter(DiscussionPoll.suggestion_id.in_([discussion.id for discussion in discussions]))
+            .group_by(DiscussionPoll.suggestion_id)
             .all()
         )
         discussion_vote_counts = {suggestion_id: count for suggestion_id, count in rows}
@@ -894,14 +903,18 @@ def commission_detail(commission_id: int):
                 latest_comment_at_by_discussion_id = {
                     suggestion_id: latest_at for suggestion_id, latest_at in latest_comment_rows
                 }
+                latest_poll_at_by_discussion_id = get_latest_poll_activity_by_discussion(project_discussion_ids)
 
                 for suggestion_id, category in project_suggestions:
                     seen_at = seen_at_by_discussion_id.get(suggestion_id)
                     latest_comment_at = latest_comment_at_by_discussion_id.get(suggestion_id)
+                    latest_poll_at = latest_poll_at_by_discussion_id.get(suggestion_id)
                     is_new = False
                     if not seen_at:
                         is_new = True
                     elif latest_comment_at and latest_comment_at > seen_at:
+                        is_new = True
+                    elif latest_poll_at and latest_poll_at > seen_at:
                         is_new = True
 
                     if not is_new:
@@ -962,13 +975,17 @@ def commission_detail(commission_id: int):
             latest_comment_at_by_discussion_id = {
                 suggestion_id: latest_at for suggestion_id, latest_at in latest_comment_rows
             }
+            latest_poll_at_by_discussion_id = get_latest_poll_activity_by_discussion(discussion_ids)
 
             for discussion_id in discussion_ids:
                 seen_at = seen_at_by_discussion_id.get(discussion_id)
                 latest_comment_at = latest_comment_at_by_discussion_id.get(discussion_id)
+                latest_poll_at = latest_poll_at_by_discussion_id.get(discussion_id)
                 if not seen_at:
                     is_new_by_discussion_id[discussion_id] = True
                 elif latest_comment_at and latest_comment_at > seen_at:
+                    is_new_by_discussion_id[discussion_id] = True
+                elif latest_poll_at and latest_poll_at > seen_at:
                     is_new_by_discussion_id[discussion_id] = True
                 else:
                     is_new_by_discussion_id[discussion_id] = False
@@ -1329,6 +1346,21 @@ def commission_project_delete(commission_id: int, project_id: int):
     for suggestion in project_suggestions:
         # Eliminar votos de la discusión
         Vote.query.filter_by(suggestion_id=suggestion.id).delete(synchronize_session=False)
+        poll_ids = [
+            poll_id
+            for (poll_id,) in (
+                DiscussionPoll.query.with_entities(DiscussionPoll.id)
+                .filter_by(suggestion_id=suggestion.id)
+                .all()
+            )
+        ]
+        if poll_ids:
+            DiscussionPollVote.query.filter(DiscussionPollVote.poll_id.in_(poll_ids)).delete(
+                synchronize_session=False
+            )
+            DiscussionPoll.query.filter(DiscussionPoll.id.in_(poll_ids)).delete(
+                synchronize_session=False
+            )
         # Eliminar comentarios de la discusión
         Comment.query.filter_by(suggestion_id=suggestion.id).delete(synchronize_session=False)
     # Eliminar las discusiones

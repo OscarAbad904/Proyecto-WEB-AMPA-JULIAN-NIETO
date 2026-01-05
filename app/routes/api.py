@@ -36,6 +36,7 @@ from app.services.drive_files_service import (
     delete_drive_file,
     restore_drive_file,
 )
+from app.services.discussion_poll_service import get_latest_poll_activity_by_discussion
 
 api_bp = Blueprint("api", __name__)
 
@@ -199,11 +200,16 @@ def me_unread_counts():
                 latest_comment_at_by_discussion_id = {
                     suggestion_id: latest_at for suggestion_id, latest_at in latest_comment_rows
                 }
+                latest_poll_at_by_discussion_id = get_latest_poll_activity_by_discussion(discussion_ids)
 
                 updated_discussion_ids = set()
                 for discussion_id, seen_at in seen_at_by_discussion_id.items():
                     latest_comment_at = latest_comment_at_by_discussion_id.get(discussion_id)
+                    latest_poll_at = latest_poll_at_by_discussion_id.get(discussion_id)
                     if latest_comment_at and seen_at and latest_comment_at > seen_at:
+                        updated_discussion_ids.add(discussion_id)
+                        continue
+                    if latest_poll_at and seen_at and latest_poll_at > seen_at:
                         updated_discussion_ids.add(discussion_id)
 
                 discussions_new = len(unseen_discussion_ids) + len(updated_discussion_ids)

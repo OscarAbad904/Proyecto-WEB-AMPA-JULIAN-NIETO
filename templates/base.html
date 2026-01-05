@@ -100,6 +100,14 @@
         loader.classList.remove('active');
       });
 
+      document.addEventListener('DOMContentLoaded', function () {
+        loader.classList.remove('active');
+      });
+
+      window.setTimeout(function () {
+        loader.classList.remove('active');
+      }, 6000);
+
       // Mostrar loader al hacer clic en enlaces internos
       document.addEventListener('click', function (e) {
         const link = e.target.closest('a');

@@ -152,6 +152,19 @@ class User(db.Model, UserMixin):
     suggestions = db.relationship("Suggestion", back_populates="creator", lazy="dynamic", cascade="all, delete-orphan")
     comments = db.relationship("Comment", back_populates="author", lazy="dynamic", cascade="all, delete-orphan")
     votes = db.relationship("Vote", back_populates="user", lazy="dynamic", cascade="all, delete-orphan")
+    discussion_polls_created = db.relationship(
+        "DiscussionPoll",
+        back_populates="creator",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+        foreign_keys="DiscussionPoll.created_by",
+    )
+    discussion_poll_votes = db.relationship(
+        "DiscussionPollVote",
+        back_populates="user",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
     media = db.relationship("Media", back_populates="uploader", lazy="dynamic", cascade="all, delete-orphan")
     enrollments = db.relationship("Enrollment", back_populates="user", lazy="dynamic", cascade="all, delete-orphan")
     commission_memberships = db.relationship(
@@ -430,6 +443,12 @@ class Suggestion(db.Model):
     creator = db.relationship("User", back_populates="suggestions")
     comments = db.relationship("Comment", back_populates="suggestion", lazy="dynamic")
     votes = db.relationship("Vote", back_populates="suggestion", lazy="dynamic")
+    polls = db.relationship(
+        "DiscussionPoll",
+        back_populates="suggestion",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
 
 
 class UserSeenItem(db.Model):
@@ -480,6 +499,67 @@ class Vote(db.Model):
     user = db.relationship("User", back_populates="votes")
 
     __table_args__ = (UniqueConstraint("suggestion_id", "user_id", name="uq_vote_user_suggestion"),)
+
+
+class DiscussionPoll(db.Model):
+    __tablename__ = "discussion_polls"
+
+    id = db.Column(db.Integer, primary_key=True)
+    suggestion_id = db.Column(db.Integer, db.ForeignKey("suggestions.id"), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    drive_file_ids = db.Column(sa.JSON, nullable=True)
+    end_at = db.Column(db.DateTime, nullable=False, index=True)
+    status = db.Column(
+        db.Enum("activa", "finalizada", "nula", name="discussion_poll_status"),
+        default="activa",
+        nullable=False,
+        index=True,
+    )
+    notify_enabled = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=False,
+        server_default=sa.false(),
+    )
+    created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, server_default=func.now())
+    closed_at = db.Column(db.DateTime, nullable=True)
+    nulled_at = db.Column(db.DateTime, nullable=True)
+    nulled_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    result_notified_at = db.Column(db.DateTime, nullable=True)
+
+    suggestion = db.relationship("Suggestion", back_populates="polls")
+    creator = db.relationship(
+        "User",
+        foreign_keys=[created_by],
+        back_populates="discussion_polls_created",
+    )
+    nulled_by_user = db.relationship("User", foreign_keys=[nulled_by])
+    votes = db.relationship(
+        "DiscussionPollVote",
+        back_populates="poll",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
+
+
+class DiscussionPollVote(db.Model):
+    __tablename__ = "discussion_poll_votes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    poll_id = db.Column(db.Integer, db.ForeignKey("discussion_polls.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    value = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=func.now())
+
+    poll = db.relationship("DiscussionPoll", back_populates="votes")
+    user = db.relationship("User", back_populates="discussion_poll_votes")
+
+    __table_args__ = (
+        UniqueConstraint("poll_id", "user_id", name="uq_discussion_poll_vote_user"),
+        sa.CheckConstraint("value IN (-1, 1)", name="ck_discussion_poll_vote_value"),
+    )
 
 
 class Media(db.Model):
