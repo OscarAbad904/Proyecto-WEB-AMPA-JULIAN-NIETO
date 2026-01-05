@@ -212,8 +212,17 @@
   }
 
   .poll-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
     font-size: 0.8rem;
     color: var(--color-text-soft, #64748b);
+  }
+  .poll-item-meta-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
   }
 
   .poll-item-footer {
@@ -394,6 +403,18 @@
     font-size: 0.8rem;
     color: var(--color-text-soft, #64748b);
     line-height: 1.4;
+  }
+  .poll-hint-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+  }
+  .poll-hint-count {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #0f172a;
   }
 
   .discussion-polls-panel .poll-hint {
@@ -851,11 +872,23 @@
                         {% endif %}
                       </div>
                       <div class="poll-item-meta">
-                        {% if poll.end_at %}
-                          Cierra {{ poll.end_at.strftime("%d/%m/%Y %H:%M") }}
-                        {% else %}
-                          Sin fecha limite
-                        {% endif %}
+                        <button
+                          type="button"
+                          class="nav-auth-btn nav-auth-btn--cancel btn-mini poll-details-btn"
+                          data-poll-details="true"
+                          data-poll-title="{{ poll.title | e }}"
+                          data-poll-description="{{ (poll.description or '') | e }}"
+                          data-poll-files='{{ poll.files | tojson }}'
+                        >
+                          Detalles
+                        </button>
+                        <span class="poll-item-meta-text">
+                          {% if poll.end_at %}
+                            Cierra {{ poll.end_at.strftime("%d/%m/%Y %H:%M") }}
+                          {% else %}
+                            Sin fecha limite
+                          {% endif %}
+                        </span>
                       </div>
                       <div class="poll-item-footer">
                         <span class="status-pill status-{{ poll.status }}">{{ poll.status|upper }}</span>
@@ -902,16 +935,6 @@
                           {% endif %}
 
                           <div class="poll-item-controls">
-                            <button
-                              type="button"
-                              class="nav-auth-btn nav-auth-btn--cancel btn-mini poll-details-btn"
-                              data-poll-details="true"
-                              data-poll-title="{{ poll.title | e }}"
-                              data-poll-description="{{ (poll.description or '') | e }}"
-                              data-poll-files='{{ poll.files | tojson }}'
-                            >
-                              Detalles
-                            </button>
                             {% if can_create_polls and poll.votes_total == 0 %}
                               <button
                                 type="button"
@@ -951,7 +974,12 @@
                             {% endif %}
                           </div>
                         </div>
-                        <p class="poll-hint">Resultados disponibles al finalizar la votacion.</p>
+                        <div class="poll-hint-row">
+                          <span class="poll-hint-count">
+                            {{ poll.votes_total }} votos de {{ poll_member_count }} miembros
+                          </span>
+                          <span class="poll-hint">Resultados disponibles al finalizar la votacion.</span>
+                        </div>
                       </div>
                     </div>
                   {% else %}
@@ -972,11 +1000,23 @@
                         {% endif %}
                       </div>
                       <div class="poll-item-meta">
-                        {% if poll.end_at %}
-                          Finalizada {{ poll.end_at.strftime("%d/%m/%Y %H:%M") }}
-                        {% else %}
-                          Finalizada
-                        {% endif %}
+                        <button
+                          type="button"
+                          class="nav-auth-btn nav-auth-btn--cancel btn-mini poll-details-btn"
+                          data-poll-details="true"
+                          data-poll-title="{{ poll.title | e }}"
+                          data-poll-description="{{ (poll.description or '') | e }}"
+                          data-poll-files='{{ poll.files | tojson }}'
+                        >
+                          Detalles
+                        </button>
+                        <span class="poll-item-meta-text">
+                          {% if poll.end_at %}
+                            Finalizada {{ poll.end_at.strftime("%d/%m/%Y %H:%M") }}
+                          {% else %}
+                            Finalizada
+                          {% endif %}
+                        </span>
                       </div>
                       <div class="poll-item-footer">
                         <span class="status-pill status-{{ poll.status }}">{{ poll.status|upper }}</span>
@@ -1004,16 +1044,6 @@
                           </span>
                         </div>
                         <div class="poll-item-controls">
-                          <button
-                            type="button"
-                            class="nav-auth-btn nav-auth-btn--cancel btn-mini poll-details-btn"
-                            data-poll-details="true"
-                            data-poll-title="{{ poll.title | e }}"
-                            data-poll-description="{{ (poll.description or '') | e }}"
-                            data-poll-files='{{ poll.files | tojson }}'
-                          >
-                            Detalles
-                          </button>
                           {% if can_null_polls %}
                             <form
                               method="post"
@@ -1047,11 +1077,7 @@
                           <span class="chip chip--new poll-new-chip">Nuevo</span>
                         {% endif %}
                       </div>
-                      <div class="poll-item-meta">Votacion anulada</div>
-                      <div class="poll-item-footer">
-                        <span class="status-pill status-{{ poll.status }}">{{ poll.status|upper }}</span>
-                      </div>
-                      <div class="poll-item-controls">
+                      <div class="poll-item-meta">
                         <button
                           type="button"
                           class="nav-auth-btn nav-auth-btn--cancel btn-mini poll-details-btn"
@@ -1062,6 +1088,10 @@
                         >
                           Detalles
                         </button>
+                        <span class="poll-item-meta-text">Votacion anulada</span>
+                      </div>
+                      <div class="poll-item-footer">
+                        <span class="status-pill status-{{ poll.status }}">{{ poll.status|upper }}</span>
                       </div>
                     </div>
                   {% else %}
