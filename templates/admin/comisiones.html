@@ -12,6 +12,11 @@
 {% set empty_text = empty_text|default("Todavía no hay comisiones registradas.") %}
 {% set show_create_button = show_create_button if show_create_button is defined else (not is_member_view) %}
 {% set show_empty_action = show_empty_action if show_empty_action is defined else (not is_member_view) %}
+{% set commission_cards = commission_cards|default({}) %}
+{% set icon_discusion = url_for('static', filename='images/png/Discusion.png') %}
+{% set icon_proyecto = url_for('static', filename='images/png/Proyecto.png') %}
+{% set icon_votacion = url_for('static', filename='images/png/Votacion.png') %}
+{% set icon_reunion = url_for('static', filename='images/png/Reunion.png') %}
 
 {% block head %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
@@ -115,153 +120,327 @@
       box-shadow: 0 10px 24px rgba(139, 92, 246, 0.3);
     }
 
-    .commission-grid { 
-      margin-top: 1rem; 
-      display: grid; 
-      grid-template-columns: repeat(4, 1fr); 
+    .commission-grid {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.2rem;
+    }
+
+    .commission-card {
+      display: flex;
+      flex-direction: column;
       gap: 0.85rem;
-    }
-
-    .commission-card { 
-      display: flex; 
-      flex-direction: column; 
-      gap: 0.6rem; 
-      text-decoration: none; 
-      color: inherit; 
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      background: linear-gradient(135deg, #ffffff 0%, rgba(248, 250, 252, 0.7) 100%);
-      border: 1px solid rgba(139, 92, 246, 0.15);
-      border-radius: 1.1rem;
-      padding: 1rem;
-      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+      text-decoration: none;
+      color: #111111;
+      background: #ffffff;
+      border: 2px solid #111111;
+      border-radius: 1.8rem;
+      padding: 1.25rem 1.35rem 1.35rem;
       position: relative;
-      overflow: hidden;
-    }
-
-    .commission-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(
-        90deg,
-        color-mix(in srgb, var(--color-accent-primary, #f97316) 78%, #000),
-        var(--color-accent-primary, #f97316),
-        var(--color-accent-secondary, #fb923c)
-      );
-      opacity: 0;
-      transition: opacity 0.3s ease;
+      box-shadow: none;
+      transition: none;
+      --commission-accent: var(--color-accent-primary, #f97316);
+      --project-accent: var(--color-accent-cool, #06b6d4);
+      --discussion-accent: var(--color-accent-primary, #f97316);
+      --vote-accent: var(--color-accent-bright, #fbbf24);
+      --meeting-accent: #22c55e;
     }
 
     .commission-card:hover {
-      transform: translateY(-3px);
-      border-color: color-mix(in srgb, var(--color-accent-primary, #f97316) 45%, transparent);
-      box-shadow: 0 16px 40px rgba(249, 115, 22, 0.18), 0 0 35px rgba(249, 115, 22, 0.08);
+      transform: none;
+      box-shadow: none;
     }
 
-    .commission-card:hover::before {
-      opacity: 1;
-    }
-
-    .commission-card-head { 
-      display: flex; 
-      align-items: center; 
-      justify-content: space-between; 
-      gap: 0.5rem;
+    .commission-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
       padding-right: 44px;
     }
 
-    .commission-title { 
-      margin: 0; 
-      letter-spacing: -0.02em; 
-      font-size: 1.1rem; 
-      font-weight: 700;
-      color: #0f172a;
+    .commission-title {
+      margin: 0;
+      letter-spacing: -0.01em;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #111111;
       flex: 1;
     }
 
-    .commission-head-right { 
-      display: flex; 
-      align-items: center; 
+    .commission-head-right {
+      display: flex;
+      align-items: center;
       gap: 0.5rem;
       flex-shrink: 0;
     }
 
-    .commission-date { 
-      white-space: nowrap;
-      font-size: 0.8rem;
-      color: #94a3b8;
+    .commission-card .chip {
+      background: #ffffff;
+      color: #111111;
+      border: 2px solid #111111;
+      font-weight: 800;
+      letter-spacing: 0.01em;
     }
 
-    .commission-desc { 
-      margin: 0; 
-      color: #475569; 
-      line-height: 1.4; 
-      max-height: 2rem;
+    .commission-card .chip-live {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #14532d;
+    }
+
+    .commission-card .chip-off {
+      background: #ffffff;
+      color: #111111;
+      border-color: #111111;
+    }
+
+    .commission-card .chip--new {
+      background: #ffffff;
+      color: #111111;
+      border-color: #111111;
+    }
+
+    .commission-desc {
+      margin: 0;
+      color: #111111;
+      line-height: 1.4;
       overflow: hidden;
       text-overflow: ellipsis;
       display: -webkit-box;
-      -webkit-line-clamp: 1;
-      line-clamp: 1;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
       -webkit-box-orient: vertical;
-      font-size: 0.9rem;
+      font-size: 0.95rem;
     }
 
     .commission-card--admin .commission-desc {
       padding-right: 44px;
     }
 
-    .commission-meta-row { 
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-      gap: 0.6rem; 
-      margin-top: 0.5rem;
-      padding-top: 0.6rem;
-      border-top: 1px solid rgba(139, 92, 246, 0.1);
+    .commission-block {
+      border: 2px solid #111111;
+      border-radius: 1rem;
+      padding: 0.75rem 0.85rem;
+      background: #ffffff;
     }
 
-    .commission-meta-item { 
-      background: color-mix(in srgb, var(--color-accent-primary, #f97316) 14%, #ffffff);
-      border: 1px solid color-mix(in srgb, var(--color-accent-primary, #f97316) 35%, transparent);
-      border-radius: 0.85rem; 
-      padding: 0.55rem 0.75rem; 
-      color: var(--color-text-base, #1e293b);
-      display: flex; 
+    .commission-block--commission {
+      border-color: var(--commission-accent);
+      background: rgba(249, 115, 22, 0.06);
+    }
+
+    .commission-block--projects {
+      border-color: var(--project-accent);
+      background: rgba(6, 182, 212, 0.06);
+    }
+
+    .commission-block + .commission-block {
+      margin-top: 0.6rem;
+    }
+
+    .commission-block-title {
+      margin: 0 0 0.6rem 0;
+      font-weight: 800;
+      text-decoration: underline;
+      font-size: 0.95rem;
+      color: #111111;
+    }
+
+    .commission-block--commission .commission-block-title {
+      color: var(--commission-accent);
+      text-decoration-color: var(--commission-accent);
+    }
+
+    .commission-block--projects .commission-block-title {
+      color: var(--project-accent);
+      text-decoration-color: var(--project-accent);
+    }
+
+    .commission-block-body {
+      display: flex;
       flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .commission-link,
+    .commission-item-link,
+    .commission-poll-link,
+    .project-link {
+      text-decoration: none;
+      color: inherit;
+    }
+    .commission-link {
+      display: block;
+    }
+    .commission-thread {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .commission-block-scroll {
+      max-height: 150px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+
+    .commission-item {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 0.5rem;
       align-items: flex-start;
-      justify-content: flex-start; 
-      gap: 0.25rem;
-      transition: all 0.2s ease;
+      padding: 0.3rem 0.4rem;
+      border-radius: 0.65rem;
     }
 
-    .commission-meta-item:hover {
-      background: color-mix(in srgb, var(--color-accent-primary, #f97316) 18%, #ffffff);
-      border-color: color-mix(in srgb, var(--color-accent-primary, #f97316) 45%, transparent);
+    .commission-item--discussion {
+      border-left: 3px solid var(--discussion-accent);
+      background: rgba(249, 115, 22, 0.06);
     }
 
-    .commission-meta-label { 
-      font-size: 0.7rem; 
-      text-transform: uppercase; 
-      letter-spacing: 0.08em; 
-      color: color-mix(in srgb, var(--color-text-base, #1e293b) 85%, transparent);
-      font-weight: 700;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .commission-item--meeting {
+      border-left: 3px solid var(--meeting-accent);
+      background: rgba(34, 197, 94, 0.08);
     }
 
-    .commission-meta-value { 
-      font-size: 0.95rem; 
-      color: var(--color-text-base, #1e293b);
-      font-weight: 700;
+    .commission-item-icon {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
     }
 
-    .commission-meta-value.muted { 
-      font-weight: 600;
-      color: #94a3b8;
+    .commission-item-title {
+      font-size: 0.95rem;
+      color: #111111;
+    }
+
+    .commission-item--discussion .commission-item-title strong {
+      color: var(--discussion-accent);
+    }
+
+    .commission-item--meeting .commission-item-title strong {
+      color: var(--meeting-accent);
+    }
+
+    .commission-item-meta {
       font-size: 0.85rem;
+      color: #111111;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .commission-item-status {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      border: 1px solid #111111;
+      font-weight: 800;
+    }
+
+    .commission-item-status.status-seen {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #14532d;
+    }
+
+    .commission-item-status.status-unseen {
+      background: #ffedd5;
+      color: #c2410c;
+      border-color: #f97316;
+    }
+
+    .commission-poll {
+      display: grid;
+      grid-template-columns: 22px 1fr auto;
+      gap: 0.5rem;
+      align-items: flex-start;
+      margin-top: 0.35rem;
+      margin-left: 1.6rem;
+      padding: 0.35rem 0.4rem;
+      border-radius: 0.65rem;
+      border-left: 3px solid var(--vote-accent);
+      background: rgba(251, 191, 36, 0.12);
+    }
+
+    .commission-poll-title {
+      font-size: 0.9rem;
+      color: #111111;
+    }
+
+    .commission-poll-title strong {
+      color: var(--vote-accent);
+    }
+
+    .commission-poll-meta {
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: #111111;
+    }
+
+    .commission-poll-status {
+      font-size: 0.85rem;
+      font-weight: 800;
+      white-space: nowrap;
+      align-self: center;
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      border: 1px solid #111111;
+    }
+    .commission-poll-status--voted {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #14532d;
+    }
+    .commission-poll-status--pending {
+      background: #ffedd5;
+      color: #c2410c;
+      border-color: #f97316;
+    }
+
+    .project-item {
+      border-top: 1px solid #111111;
+      padding-top: 0.6rem;
+      margin-top: 0.6rem;
+      padding-left: 0.4rem;
+      border-left: 3px solid var(--project-accent);
+    }
+
+    .project-item:first-child {
+      border-top: 0;
+      padding-top: 0;
+      margin-top: 0;
+    }
+
+    .project-title {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.35rem;
+      font-size: 0.95rem;
+      color: #111111;
+      font-weight: 800;
+    }
+
+    .project-title strong {
+      color: var(--project-accent);
+    }
+
+    .project-body {
+      margin-left: 1.7rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .commission-empty-line {
+      font-weight: 700;
+      color: #111111;
     }
 
     .commission-empty { 
@@ -306,17 +485,22 @@
       z-index: 10;
     }
 
-    /* Responsive: 3 columnas en pantallas medianas-grandes */
+    /* Responsive: 2 columnas en pantallas medianas */
     @media (max-width: 1400px) {
-      .commission-grid { 
-        grid-template-columns: repeat(3, 1fr); 
+      .commission-grid {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
 
-    /* Responsive: 2 columnas en tablets */
     @media (max-width: 1024px) {
-      .commission-grid { 
-        grid-template-columns: repeat(2, 1fr); 
+      .commission-grid {
+        grid-template-columns: 1fr;
+      }
+      .commission-poll {
+        grid-template-columns: 22px 1fr;
+      }
+      .commission-poll-status {
+        grid-column: 1 / -1;
       }
     }
 
@@ -328,23 +512,24 @@
       .btn-primary--new-commission {
         width: 100%;
       }
-      .commission-top { 
-        flex-direction: column; 
+      .commission-top {
+        flex-direction: column;
         align-items: stretch;
         padding: 1rem;
       }
       .commission-top .btn-primary { width: 100%; }
-      .commission-grid { 
-        grid-template-columns: 1fr; 
+      .commission-grid {
+        grid-template-columns: 1fr;
         gap: 1rem;
       }
       .commission-card {
-        padding: 1.25rem;
+        padding: 1.1rem;
       }
-      .commission-meta-row {
-        grid-template-columns: 1fr;
+      .commission-block-scroll {
+        max-height: 200px;
       }
     }
+
   </style>
 {% endblock %}
 
@@ -378,51 +563,163 @@
 
   <div class="commission-grid">
     {% for commission in commissions %}
-      {% set commission_stats = stats.get(commission.id, {}) %}
-      {% set next_meeting = commission_stats.get("proxima_reunion") %}
       {% if is_member_view %}
         {% set commission_href = url_for('members.commission_detail', slug=commission.slug) %}
       {% else %}
         {% set commission_href = url_for('admin.commission_detail', commission_id=commission.id) %}
       {% endif %}
+      {% set card = commission_cards.get(commission.id, {}) %}
+      {% set commission_discussions = card.get("discussions", []) %}
+      {% set commission_meetings = card.get("meetings", []) %}
+      {% set project_cards = card.get("projects", []) %}
       <div class="commission-card admin-card{% if not is_member_view %} commission-card--admin{% endif %}">
-        <a href="{{ commission_href }}" style="text-decoration: none; color: inherit; display: block;">
+        <a class="commission-link" href="{{ commission_href }}">
           <div class="commission-card-head">
             <h3 class="commission-title">{{ commission.name }}</h3>
             <div class="commission-head-right">
-              <span class="chip {% if commission.is_active %}chip-live{% else %}chip-off{% endif %}">
-                {{ "✓ Activa" if commission.is_active else "✕ Inactiva" }}
-              </span>
-              {% if is_new_by_commission_id.get(commission.id) %}
-              <span class="chip chip--new">Nuevo</span>
-              {% endif %}
             </div>
           </div>
           {% if commission.description_html %}
-            <p class="commission-desc">{{ commission.description_html|striptags|truncate(170) }}</p>
+            <p class="commission-desc">{{ commission.description_html|striptags|truncate(160) }}</p>
           {% else %}
-            <p class="commission-desc muted">Aún no hay descripción guardada.</p>
+            <p class="commission-desc">Aun no hay descripcion guardada.</p>
           {% endif %}
+        </a>
 
-          <div class="commission-meta-row">
-            <div class="commission-meta-item">
-              <span class="commission-meta-label">👥 Miembros</span>
-              <span class="commission-meta-value">{{ commission_stats.get("miembros", 0) }}</span>
-            </div>
-            <div class="commission-meta-item">
-              <span class="commission-meta-label">📋 Proyectos</span>
-              <span class="commission-meta-value">{{ commission_stats.get("proyectos_activos", 0) }}</span>
-            </div>
-            <div class="commission-meta-item">
-              <span class="commission-meta-label">📅 Próxima reunión</span>
-              {% if next_meeting %}
-                <span class="commission-meta-value">{{ next_meeting.start_at.strftime("%d/%m/%Y %H:%M") }}</span>
+          <div class="commission-block commission-block--commission">
+            <p class="commission-block-title">Comision</p>
+            <div class="commission-block-body commission-block-scroll">
+              {% if commission_discussions %}
+                {% for discussion in commission_discussions %}
+                  {% set discussion_href = url_for('members.detalle_sugerencia', suggestion_id=discussion.id) %}
+                  {% set poll_href = None %}
+                  {% if discussion.poll %}
+                    {% set poll_href = url_for('members.detalle_sugerencia', suggestion_id=discussion.id, poll=discussion.poll.id) ~ '#poll-' ~ discussion.poll.id %}
+                  {% endif %}
+                  <div class="commission-thread">
+                    <a class="commission-item commission-item--discussion commission-item-link" href="{{ discussion_href }}">
+                      <img src="{{ icon_discusion }}" alt="" class="commission-item-icon" />
+                      <div>
+                        <div class="commission-item-title"><strong>Discusion:</strong> {{ discussion.title }}</div>
+                        <div class="commission-item-meta">
+                          <span><strong>Ultimo mensaje: {% if discussion.last_message_at %}{{ discussion.last_message_at.strftime("%d/%m/%Y %H:%M") }}{% else %}Sin mensajes{% endif %}</strong></span>
+                          <span class="commission-item-status {{ 'status-seen' if discussion.seen else 'status-unseen' }}">{{ "Visto" if discussion.seen else "No Visto" }}</span>
+                        </div>
+                      </div>
+                    </a>
+                    {% if discussion.poll %}
+                      <a class="commission-poll commission-poll--vote commission-poll-link" href="{{ poll_href }}">
+                        <img src="{{ icon_votacion }}" alt="" class="commission-item-icon" />
+                        <div>
+                          <div class="commission-poll-title"><strong>Votacion:</strong> {{ discussion.poll.title }}</div>
+                          <div class="commission-poll-meta">
+                            {{ discussion.poll.votes_total }} votos de {{ discussion.poll.members_total }} miembros - Cierra {% if discussion.poll.end_at %}{{ discussion.poll.end_at.strftime("%d/%m/%Y %H:%M") }}{% else %}Sin fecha{% endif %}
+                          </div>
+                        </div>
+                        <div class="commission-poll-status {{ 'commission-poll-status--voted' if discussion.poll.user_has_voted else 'commission-poll-status--pending' }}">
+                          {{ "Votado" if discussion.poll.user_has_voted else "Voto pendiente" }}
+                        </div>
+                      </a>
+                    {% endif %}
+                  </div>
+                {% endfor %}
               {% else %}
-                <span class="commission-meta-value muted">Sin agendar</span>
+                <div class="commission-empty-line">Sin discusiones todavia.</div>
+              {% endif %}
+
+              {% if commission_meetings %}
+                {% for meeting in commission_meetings %}
+                  <div class="commission-item commission-item--meeting">
+                    <img src="{{ icon_reunion }}" alt="" class="commission-item-icon" />
+                    <div>
+                      <div class="commission-item-title"><strong>Reunion:</strong> {{ meeting.title }}</div>
+                      <div class="commission-item-meta">
+                        <span>Fecha: {% if meeting.start_at %}{{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}{% else %}Sin fecha{% endif %}</span>
+                        {% if meeting.location %}
+                        <span>Lugar: {{ meeting.location }}</span>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                {% endfor %}
               {% endif %}
             </div>
           </div>
-        </a>
+
+          <div class="commission-block commission-block--projects">
+            <p class="commission-block-title">Proyectos</p>
+            <div class="commission-block-body commission-block-scroll">
+              {% if project_cards %}
+                {% for project in project_cards %}
+                  {% set project_href = url_for('members.commission_project_detail', slug=commission.slug, project_id=project.id) %}
+                  <div class="project-item project-item--project">
+                    <a class="project-title project-link" href="{{ project_href }}">
+                      <img src="{{ icon_proyecto }}" alt="" class="commission-item-icon" />
+                      <div><strong>Proyecto:</strong> {{ project.title }}</div>
+                    </a>
+                    <div class="project-body">
+                      {% if project.discussions %}
+                        {% for discussion in project.discussions %}
+                          {% set discussion_href = url_for('members.detalle_sugerencia', suggestion_id=discussion.id) %}
+                          {% set poll_href = None %}
+                          {% if discussion.poll %}
+                            {% set poll_href = url_for('members.detalle_sugerencia', suggestion_id=discussion.id, poll=discussion.poll.id) ~ '#poll-' ~ discussion.poll.id %}
+                          {% endif %}
+                          <div class="commission-thread">
+                            <a class="commission-item commission-item--discussion commission-item-link" href="{{ discussion_href }}">
+                              <img src="{{ icon_discusion }}" alt="" class="commission-item-icon" />
+                              <div>
+                                <div class="commission-item-title"><strong>Discusion:</strong> {{ discussion.title }}</div>
+                                <div class="commission-item-meta">
+                                  <span><strong>Ultimo mensaje: {% if discussion.last_message_at %}{{ discussion.last_message_at.strftime("%d/%m/%Y %H:%M") }}{% else %}Sin mensajes{% endif %}</strong></span>
+                                  <span class="commission-item-status {{ 'status-seen' if discussion.seen else 'status-unseen' }}">{{ "Visto" if discussion.seen else "No Visto" }}</span>
+                                </div>
+                              </div>
+                            </a>
+                            {% if discussion.poll %}
+                              <a class="commission-poll commission-poll--vote commission-poll-link" href="{{ poll_href }}">
+                                <img src="{{ icon_votacion }}" alt="" class="commission-item-icon" />
+                                <div>
+                                  <div class="commission-poll-title"><strong>Votacion:</strong> {{ discussion.poll.title }}</div>
+                                  <div class="commission-poll-meta">
+                                    {{ discussion.poll.votes_total }} votos de {{ discussion.poll.members_total }} miembros - Cierra {% if discussion.poll.end_at %}{{ discussion.poll.end_at.strftime("%d/%m/%Y %H:%M") }}{% else %}Sin fecha{% endif %}
+                                  </div>
+                                </div>
+                                <div class="commission-poll-status {{ 'commission-poll-status--voted' if discussion.poll.user_has_voted else 'commission-poll-status--pending' }}">
+                                  {{ "Votado" if discussion.poll.user_has_voted else "Voto pendiente" }}
+                                </div>
+                              </a>
+                            {% endif %}
+                          </div>
+                        {% endfor %}
+                      {% else %}
+                        <div class="commission-empty-line">Sin discusiones todavia.</div>
+                      {% endif %}
+
+                      {% if project.meetings %}
+                        {% for meeting in project.meetings %}
+                          <div class="commission-item commission-item--meeting">
+                            <img src="{{ icon_reunion }}" alt="" class="commission-item-icon" />
+                            <div>
+                              <div class="commission-item-title"><strong>Reunion:</strong> {{ meeting.title }}</div>
+                              <div class="commission-item-meta">
+                                <span>Fecha: {% if meeting.start_at %}{{ meeting.start_at.strftime("%d/%m/%Y %H:%M") }}{% else %}Sin fecha{% endif %}</span>
+                                {% if meeting.location %}
+                                <span>Lugar: {{ meeting.location }}</span>
+                                {% endif %}
+                              </div>
+                            </div>
+                          </div>
+                        {% endfor %}
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              {% else %}
+                <div class="commission-empty-line">Sin proyectos activos.</div>
+              {% endif %}
+            </div>
+          </div>
         {% if not is_member_view %}
         <a class="icon-square commission-edit-btn" onclick="event.stopPropagation();" href="{{ url_for('admin.commission_edit', commission_id=commission.id) }}" aria-label="Editar comisión">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">

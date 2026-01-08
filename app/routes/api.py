@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 import json
 import sqlalchemy as sa
+import pytz
 from sqlalchemy.exc import ProgrammingError
 
 from app.models import (
@@ -39,6 +40,29 @@ from app.services.drive_files_service import (
 from app.services.discussion_poll_service import get_latest_poll_activity_by_discussion
 
 api_bp = Blueprint("api", __name__)
+
+_LOCAL_TZ = pytz.timezone("Europe/Madrid")
+_UTC_TZ = pytz.UTC
+
+
+def _to_utc(dt):
+    if not dt:
+        return None
+    if getattr(dt, "tzinfo", None) is None:
+        dt = _LOCAL_TZ.localize(dt)
+    return dt.astimezone(_UTC_TZ).replace(tzinfo=None)
+
+
+def _normalize_seen_at(seen_at, latest_activity_at):
+    if not seen_at or not latest_activity_at:
+        return seen_at
+    seen_utc = seen_at
+    seen_local_to_utc = _to_utc(seen_at)
+    if not seen_local_to_utc:
+        return seen_at
+    delta_local = abs((seen_local_to_utc - latest_activity_at).total_seconds())
+    delta_utc = abs((seen_utc - latest_activity_at).total_seconds())
+    return seen_local_to_utc if delta_local < delta_utc else seen_utc
 
 
 def _get_latest_nine_post_ids() -> list[int]:
@@ -206,6 +230,10 @@ def me_unread_counts():
                 for discussion_id, seen_at in seen_at_by_discussion_id.items():
                     latest_comment_at = latest_comment_at_by_discussion_id.get(discussion_id)
                     latest_poll_at = latest_poll_at_by_discussion_id.get(discussion_id)
+                    latest_activity_at = latest_comment_at or latest_poll_at
+                    if latest_comment_at and latest_poll_at:
+                        latest_activity_at = max(latest_comment_at, latest_poll_at)
+                    seen_at = _normalize_seen_at(seen_at, latest_activity_at)
                     if latest_comment_at and seen_at and latest_comment_at > seen_at:
                         updated_discussion_ids.add(discussion_id)
                         continue
@@ -434,7 +462,7 @@ def me_mark_seen():
         else:
             return jsonify({"ok": False, "error": "Archivo no encontrado"}), 404
 
-    now_dt = get_local_now()
+    now_expr = sa.func.now()
     try:
         existing = UserSeenItem.query.filter_by(
             user_id=current_user.id,
@@ -442,14 +470,14 @@ def me_mark_seen():
             item_id=item_id_int,
         ).first()
         if existing:
-            existing.seen_at = now_dt
+            existing.seen_at = now_expr
         else:
             db.session.add(
                 UserSeenItem(
                     user_id=current_user.id,
                     item_type=item_type,
                     item_id=item_id_int,
-                    seen_at=now_dt,
+                    seen_at=now_expr,
                 )
             )
         db.session.commit()

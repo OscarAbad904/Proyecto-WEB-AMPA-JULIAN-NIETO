@@ -41,6 +41,7 @@ from app.services.mail_service import (
 )
 from app.services.calendar_service import sync_commission_meeting_to_calendar
 from app.services.discussion_poll_service import get_latest_poll_activity_by_discussion
+from app.services.commission_cards_service import build_commission_cards
 from app.services.commission_drive_service import (
     ensure_commission_drive_folder,
     ensure_project_drive_folder,
@@ -759,6 +760,16 @@ def commissions_index():
             "proxima_reunion": next_meeting,
         }
 
+    members_count_by_commission_id = {
+        commission.id: int(stats.get(commission.id, {}).get("miembros", 0))
+        for commission in commissions
+    }
+    commission_cards = build_commission_cards(
+        commissions,
+        user_id=current_user.id,
+        members_count_by_commission_id=members_count_by_commission_id,
+    )
+
     return render_template(
         "admin/comisiones.html",
         commissions=commissions,
@@ -766,6 +777,7 @@ def commissions_index():
         scope=scope,
         can_view_all=True,
         is_new_by_commission_id=is_new_by_commission_id,
+        commission_cards=commission_cards,
     )
 
 

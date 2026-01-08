@@ -69,6 +69,7 @@ from app.services.discussion_poll_service import (
     get_user_poll_votes,
     resolve_discussion_scope,
 )
+from app.services.commission_cards_service import build_commission_cards
 
 members_bp = Blueprint("members", __name__, template_folder="../../templates/members")
 
@@ -1871,6 +1872,16 @@ def commissions():
             "proxima_reunion": next_meeting,
         }
 
+    members_count_by_commission_id = {
+        commission.id: int(stats.get(commission.id, {}).get("miembros", 0))
+        for commission in commissions
+    }
+    commission_cards = build_commission_cards(
+        commissions,
+        user_id=current_user.id,
+        members_count_by_commission_id=members_count_by_commission_id,
+    )
+
     # Determinar cuáles comisiones deben mostrar chip "Nuevo" para el usuario.
     # Regla: "Nuevo" permanece mientras exista algún elemento hijo nuevo (proyecto/discusión/archivo).
     is_new_by_commission_id: dict[int, bool] = {}
@@ -2028,6 +2039,7 @@ def commissions():
         scope=scope,
         can_view_all=can_view_all,
         is_new_by_commission_id=is_new_by_commission_id,
+        commission_cards=commission_cards,
         is_member_view=True,
         header_kicker="Área privada",
         header_title="Comisiones del AMPA",
