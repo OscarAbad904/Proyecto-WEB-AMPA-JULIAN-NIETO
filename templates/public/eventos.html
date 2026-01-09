@@ -84,7 +84,7 @@
     <div class="events-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
       <button class="events-modal-close" type="button" aria-label="Cerrar" data-event-modal-close>×</button>
       <figure class="events-modal-cover" id="event-modal-cover">
-        <img id="event-modal-image" class="modal-zoomable" src="" alt="Imagen del evento" referrerpolicy="no-referrer" />
+        <img id="event-modal-image" src="" alt="Imagen del evento" referrerpolicy="no-referrer" />
       </figure>
       <div class="events-modal-body">
         <p class="events-modal-meta" id="event-modal-meta"></p>
@@ -111,6 +111,7 @@
       const modalDialog = modal?.querySelector('.events-modal-dialog');
       const modalCover = document.getElementById('event-modal-cover');
       const modalImg = document.getElementById('event-modal-image');
+      const pinchState = { active: false };
 
       function extractDriveId(url) {
         if (!url) return null;
@@ -230,7 +231,7 @@
         tryPrimary();
       }
 
-      function setupZoomableImage(imgEl, coverEl, modalEl) {
+      function setupZoomableImage(imgEl, coverEl, modalEl, pinch) {
         if (!imgEl || !coverEl || !modalEl) return () => {};
         const state = {
           scale: 1,
@@ -275,6 +276,7 @@
           state.scale = 1;
           state.translateX = 0;
           state.translateY = 0;
+          if (pinch) pinch.active = false;
           applyTransform();
         }
 
@@ -293,6 +295,7 @@
             state.startScale = state.scale;
             state.startTranslateX = state.translateX;
             state.startTranslateY = state.translateY;
+            if (pinch) pinch.active = false;
             const mid = getMidpoint(t1, t2);
             const rect = coverEl.getBoundingClientRect();
             state.startMidX = mid.x - (rect.left + rect.width / 2);
@@ -314,6 +317,12 @@
             const t1 = e.touches[0];
             const t2 = e.touches[1];
             const distance = getDistance(t1, t2) || state.startDistance || 1;
+            const distanceDelta = Math.abs(distance - state.startDistance);
+            if (distanceDelta < 4) {
+              if (pinch) pinch.active = false;
+              return;
+            }
+            if (pinch) pinch.active = true;
             const nextScale = clamp(state.startScale * (distance / state.startDistance), minScale, maxScale);
             const scaleRatio = nextScale / state.startScale;
             const mid = getMidpoint(t1, t2);
@@ -330,6 +339,7 @@
         }
 
         function onTouchEnd() {
+          if (pinch) pinch.active = false;
           if (state.scale <= 1.01) reset();
         }
 
@@ -342,15 +352,13 @@
         return reset;
       }
 
-      function setupTwoFingerScroll(dialogEl, coverEl, getScrollContainer) {
+      function setupTwoFingerScroll(dialogEl, getScrollContainer, isPinching) {
         if (!dialogEl) return;
         const state = { startY: 0, startScrollTop: 0, container: null };
-        const isInCover = (target) => coverEl && coverEl.contains(target);
         const getAvgY = (touches) => (touches[0].clientY + touches[1].clientY) / 2;
 
         function onTouchStart(e) {
           if (!modal?.classList.contains('open')) return;
-          if (isInCover(e.target)) return;
           if (e.touches.length >= 2) {
             const container = getScrollContainer();
             if (!container) return;
@@ -362,7 +370,7 @@
 
         function onTouchMove(e) {
           if (!modal?.classList.contains('open')) return;
-          if (isInCover(e.target)) return;
+          if (isPinching && isPinching()) return;
           if (e.touches.length === 1) {
             e.preventDefault();
             return;
@@ -456,8 +464,8 @@
         });
       }
 
-      resetEventZoom = setupZoomableImage(modalImg, modalCover, modal);
-      setupTwoFingerScroll(modalDialog, modalCover, getEventScrollContainer);
+      resetEventZoom = setupZoomableImage(modalDialog, modal, modal, pinchState);
+      setupTwoFingerScroll(modalDialog, getEventScrollContainer, () => pinchState.active);
 
       window.openEventModalFromData = openEventModalFromData;
 
@@ -525,7 +533,7 @@
       display: flex;
       flex-direction: column;
       overscroll-behavior: contain;
-      touch-action: pan-x pan-y pinch-zoom;
+      touch-action: none;
       box-sizing: border-box;
     }
 
@@ -564,19 +572,12 @@
       display: block;
     }
 
-    .events-modal-cover img.modal-zoomable {
-      touch-action: none;
-      user-select: none;
-      -webkit-user-drag: none;
-      transform-origin: center;
-      will-change: transform;
-    }
 
     .events-modal-body {
       padding: 1.25rem;
       overflow: auto;
       -webkit-overflow-scrolling: touch;
-      touch-action: pan-x pan-y pinch-zoom;
+      touch-action: none;
     }
 
     .events-modal-meta {

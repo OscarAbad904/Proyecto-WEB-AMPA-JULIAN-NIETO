@@ -84,7 +84,7 @@
   <div class="news-modal-dialog">
     <button class="news-modal-close" type="button" aria-label="Cerrar" id="news-modal-close">×</button>
     <figure class="news-modal-cover">
-      <img id="modal-image" class="modal-zoomable" src="" alt="Imagen de portada" referrerpolicy="no-referrer" />
+      <img id="modal-image" src="" alt="Imagen de portada" referrerpolicy="no-referrer" />
     </figure>
     <div class="news-modal-body">
       <p class="news-modal-meta" id="modal-meta"></p>
@@ -247,7 +247,7 @@
     display: flex;
     flex-direction: column;
     overscroll-behavior: contain;
-    touch-action: pan-x pan-y pinch-zoom;
+    touch-action: none;
   }
 
   /* --- Modal Layouts (Desktop) --- */
@@ -342,13 +342,6 @@
     box-shadow: 0 8px 24px rgba(3, 7, 18, 0.45);
   }
 
-  .news-modal-cover img.modal-zoomable {
-    touch-action: none;
-    user-select: none;
-    -webkit-user-drag: none;
-    transform-origin: center;
-    will-change: transform;
-  }
 
   /* Expansión vertical completa en layouts left/right */
   @media (min-width: 769px) {
@@ -372,7 +365,7 @@
     flex: 1;
     scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.06);
     scrollbar-width: thin;
-    touch-action: pan-x pan-y pinch-zoom;
+    touch-action: none;
   }
 
   #modal-title {
@@ -477,12 +470,12 @@
     const modalContent = document.getElementById('modal-content');
     const closeBtn = document.getElementById('news-modal-close');
     const modalDialog = document.querySelector('.news-modal-dialog');
-    const modalCover = document.querySelector('.news-modal-cover');
     const newsSection = document.querySelector('[data-can-reorder]');
     const canReorder = newsSection ? newsSection.getAttribute('data-can-reorder') === 'true' : false;
     const featuredOrderEndpoint = "{{ url_for('admin.update_featured_order') }}";
     let isDraggingCard = false;
     let resetNewsZoom = () => {};
+    const pinchState = { active: false };
     const defaultImage = "{{ style_urls.placeholder }}";
 
     // Apply transition delay to news cards
@@ -554,7 +547,7 @@
       modalDialog.classList.add(`layout-${mode}`);
     }
 
-    function setupZoomableImage(imgEl, coverEl, modalEl) {
+    function setupZoomableImage(imgEl, coverEl, modalEl, pinch) {
       if (!imgEl || !coverEl || !modalEl) return () => {};
       const state = {
         scale: 1,
@@ -599,6 +592,7 @@
         state.scale = 1;
         state.translateX = 0;
         state.translateY = 0;
+        if (pinch) pinch.active = false;
         applyTransform();
       }
 
@@ -617,6 +611,7 @@
           state.startScale = state.scale;
           state.startTranslateX = state.translateX;
           state.startTranslateY = state.translateY;
+          if (pinch) pinch.active = false;
           const mid = getMidpoint(t1, t2);
           const rect = coverEl.getBoundingClientRect();
           state.startMidX = mid.x - (rect.left + rect.width / 2);
@@ -638,6 +633,12 @@
           const t1 = e.touches[0];
           const t2 = e.touches[1];
           const distance = getDistance(t1, t2) || state.startDistance || 1;
+          const distanceDelta = Math.abs(distance - state.startDistance);
+          if (distanceDelta < 4) {
+            if (pinch) pinch.active = false;
+            return;
+          }
+          if (pinch) pinch.active = true;
           const nextScale = clamp(state.startScale * (distance / state.startDistance), minScale, maxScale);
           const scaleRatio = nextScale / state.startScale;
           const mid = getMidpoint(t1, t2);
@@ -654,6 +655,7 @@
       }
 
       function onTouchEnd() {
+        if (pinch) pinch.active = false;
         if (state.scale <= 1.01) reset();
       }
 
@@ -666,15 +668,13 @@
       return reset;
     }
 
-    function setupTwoFingerScroll(dialogEl, coverEl, getScrollContainer) {
+    function setupTwoFingerScroll(dialogEl, getScrollContainer, isPinching) {
       if (!dialogEl) return;
       const state = { startY: 0, startScrollTop: 0, container: null };
-      const isInCover = (target) => coverEl && coverEl.contains(target);
       const getAvgY = (touches) => (touches[0].clientY + touches[1].clientY) / 2;
 
       function onTouchStart(e) {
         if (!modal?.classList.contains('open')) return;
-        if (isInCover(e.target)) return;
         if (e.touches.length >= 2) {
           const container = getScrollContainer();
           if (!container) return;
@@ -686,7 +686,7 @@
 
       function onTouchMove(e) {
         if (!modal?.classList.contains('open')) return;
-        if (isInCover(e.target)) return;
+        if (isPinching && isPinching()) return;
         if (e.touches.length === 1) {
           e.preventDefault();
           return;
@@ -846,8 +846,8 @@
 
     enableReorder();
 
-    resetNewsZoom = setupZoomableImage(modalImg, modalCover, modal);
-    setupTwoFingerScroll(modalDialog, modalCover, getNewsScrollContainer);
+    resetNewsZoom = setupZoomableImage(modalDialog, modal, modal, pinchState);
+    setupTwoFingerScroll(modalDialog, getNewsScrollContainer, () => pinchState.active);
 
     closeBtn?.addEventListener('click', closeModal);
     modal?.addEventListener('click', (e) => { if (e.target === modal || e.target === modal.querySelector('.news-modal-backdrop')) closeModal(); });
