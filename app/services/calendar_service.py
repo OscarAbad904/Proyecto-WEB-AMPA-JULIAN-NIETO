@@ -11,7 +11,7 @@ import base64
 import json
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date as date_class
 from pathlib import Path
 from typing import Any
 from html import unescape
@@ -24,6 +24,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
+import pytz
 
 from config import unwrap_fernet_json_layers
 
@@ -405,6 +406,30 @@ def _get_calendar_timezone() -> str | None:
     tz_value = str(tz).strip()
     return tz_value or "Europe/Madrid"
 
+def _build_event_datetime_payload(value: datetime | date_class | None) -> dict:
+    """Construye el payload de fecha/hora con timezone para Calendar API."""
+    if not value:
+        return {}
+
+    tz_name = _get_calendar_timezone()
+    dt_value: datetime
+    if isinstance(value, datetime):
+        dt_value = value
+    elif isinstance(value, date_class):
+        dt_value = datetime.combine(value, datetime.min.time())
+    else:
+        return {}
+
+    if dt_value.tzinfo is None and tz_name:
+        try:
+            dt_value = pytz.timezone(tz_name).localize(dt_value)
+        except Exception:
+            pass
+
+    payload = {"dateTime": dt_value.isoformat()}
+    if tz_name:
+        payload["timeZone"] = tz_name
+    return payload
 
 def _build_commission_meeting_payload(meeting, commission) -> dict:
     description = _clean_html(getattr(meeting, "description_html", None))
@@ -426,8 +451,8 @@ def _build_commission_meeting_payload(meeting, commission) -> dict:
         "summary": getattr(meeting, "title", "") or "Reunion",
         "description": description or "",
         "location": getattr(meeting, "location", None) or "",
-        "start": {"dateTime": start_at.isoformat()} if start_at else {},
-        "end": {"dateTime": end_at.isoformat()} if end_at else {},
+        "start": _build_event_datetime_payload(start_at),
+        "end": _build_event_datetime_payload(end_at),
         "visibility": "private",
         "extendedProperties": {
             "private": {
@@ -438,12 +463,6 @@ def _build_commission_meeting_payload(meeting, commission) -> dict:
             }
         },
     }
-    tz = _get_calendar_timezone()
-    if tz:
-        if payload["start"]:
-            payload["start"]["timeZone"] = tz
-        if payload["end"]:
-            payload["end"]["timeZone"] = tz
     return payload
 
 
@@ -455,8 +474,8 @@ def _build_general_event_payload(event) -> dict:
         "summary": getattr(event, "title", "") or "Evento",
         "description": description or "",
         "location": getattr(event, "location", None) or "",
-        "start": {"dateTime": start_at.isoformat()} if start_at else {},
-        "end": {"dateTime": end_at.isoformat()} if end_at else {},
+        "start": _build_event_datetime_payload(start_at),
+        "end": _build_event_datetime_payload(end_at),
         "extendedProperties": {
             "private": {
                 "type": "ampa_event",
@@ -465,12 +484,6 @@ def _build_general_event_payload(event) -> dict:
             }
         },
     }
-    tz = _get_calendar_timezone()
-    if tz:
-        if payload["start"]:
-            payload["start"]["timeZone"] = tz
-        if payload["end"]:
-            payload["end"]["timeZone"] = tz
     return payload
 
 

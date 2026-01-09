@@ -84,7 +84,7 @@
   <div class="news-modal-dialog">
     <button class="news-modal-close" type="button" aria-label="Cerrar" id="news-modal-close">×</button>
     <figure class="news-modal-cover">
-      <img id="modal-image" src="" alt="Imagen de portada" referrerpolicy="no-referrer" />
+      <img id="modal-image" class="modal-zoomable" src="" alt="Imagen de portada" referrerpolicy="no-referrer" />
     </figure>
     <div class="news-modal-body">
       <p class="news-modal-meta" id="modal-meta"></p>
@@ -312,7 +312,7 @@
   .news-modal-cover {
     margin: 0;
     width: 100%;
-    overflow: visible;
+    overflow: hidden;
     background: transparent;
     flex: 0 0 auto;
     display: flex;
@@ -340,6 +340,14 @@
     border-radius: 0.8rem;
     border: 2px solid rgba(100, 116, 139, 0.5);
     box-shadow: 0 8px 24px rgba(3, 7, 18, 0.45);
+  }
+
+  .news-modal-cover img.modal-zoomable {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    transform-origin: center;
+    will-change: transform;
   }
 
   /* Expansión vertical completa en layouts left/right */
@@ -469,10 +477,12 @@
     const modalContent = document.getElementById('modal-content');
     const closeBtn = document.getElementById('news-modal-close');
     const modalDialog = document.querySelector('.news-modal-dialog');
+    const modalCover = document.querySelector('.news-modal-cover');
     const newsSection = document.querySelector('[data-can-reorder]');
     const canReorder = newsSection ? newsSection.getAttribute('data-can-reorder') === 'true' : false;
     const featuredOrderEndpoint = "{{ url_for('admin.update_featured_order') }}";
     let isDraggingCard = false;
+    let resetNewsZoom = () => {};
     const defaultImage = "{{ style_urls.placeholder }}";
 
     // Apply transition delay to news cards
@@ -544,6 +554,176 @@
       modalDialog.classList.add(`layout-${mode}`);
     }
 
+    function setupZoomableImage(imgEl, coverEl, modalEl) {
+      if (!imgEl || !coverEl || !modalEl) return () => {};
+      const state = {
+        scale: 1,
+        translateX: 0,
+        translateY: 0,
+        startX: 0,
+        startY: 0,
+        startTranslateX: 0,
+        startTranslateY: 0,
+        startDistance: 0,
+        startScale: 1,
+        startMidX: 0,
+        startMidY: 0,
+      };
+      const minScale = 1;
+      const maxScale = 3;
+
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+      const getDistance = (a, b) => Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+      const getMidpoint = (a, b) => ({
+        x: (a.clientX + b.clientX) / 2,
+        y: (a.clientY + b.clientY) / 2,
+      });
+
+      function applyTransform() {
+        const baseWidth = imgEl.offsetWidth;
+        const baseHeight = imgEl.offsetHeight;
+        const containerWidth = coverEl.clientWidth;
+        const containerHeight = coverEl.clientHeight;
+        if (baseWidth && baseHeight && containerWidth && containerHeight) {
+          const scaledWidth = baseWidth * state.scale;
+          const scaledHeight = baseHeight * state.scale;
+          const maxX = Math.max(0, (scaledWidth - containerWidth) / 2);
+          const maxY = Math.max(0, (scaledHeight - containerHeight) / 2);
+          state.translateX = clamp(state.translateX, -maxX, maxX);
+          state.translateY = clamp(state.translateY, -maxY, maxY);
+        }
+        imgEl.style.transform = `translate3d(${state.translateX}px, ${state.translateY}px, 0) scale(${state.scale})`;
+      }
+
+      function reset() {
+        state.scale = 1;
+        state.translateX = 0;
+        state.translateY = 0;
+        applyTransform();
+      }
+
+      function onTouchStart(e) {
+        if (!modalEl.classList.contains('open')) return;
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          state.startX = touch.clientX;
+          state.startY = touch.clientY;
+          state.startTranslateX = state.translateX;
+          state.startTranslateY = state.translateY;
+        } else if (e.touches.length >= 2) {
+          const t1 = e.touches[0];
+          const t2 = e.touches[1];
+          state.startDistance = getDistance(t1, t2) || 1;
+          state.startScale = state.scale;
+          state.startTranslateX = state.translateX;
+          state.startTranslateY = state.translateY;
+          const mid = getMidpoint(t1, t2);
+          const rect = coverEl.getBoundingClientRect();
+          state.startMidX = mid.x - (rect.left + rect.width / 2);
+          state.startMidY = mid.y - (rect.top + rect.height / 2);
+        }
+        e.stopPropagation();
+      }
+
+      function onTouchMove(e) {
+        if (!modalEl.classList.contains('open')) return;
+        if (e.touches.length === 1) {
+          if (state.scale <= 1) return;
+          const touch = e.touches[0];
+          state.translateX = state.startTranslateX + (touch.clientX - state.startX);
+          state.translateY = state.startTranslateY + (touch.clientY - state.startY);
+          applyTransform();
+          e.preventDefault();
+        } else if (e.touches.length >= 2) {
+          const t1 = e.touches[0];
+          const t2 = e.touches[1];
+          const distance = getDistance(t1, t2) || state.startDistance || 1;
+          const nextScale = clamp(state.startScale * (distance / state.startDistance), minScale, maxScale);
+          const scaleRatio = nextScale / state.startScale;
+          const mid = getMidpoint(t1, t2);
+          const rect = coverEl.getBoundingClientRect();
+          const midX = mid.x - (rect.left + rect.width / 2);
+          const midY = mid.y - (rect.top + rect.height / 2);
+          state.scale = nextScale;
+          state.translateX = state.startTranslateX + (midX - state.startMidX) + (1 - scaleRatio) * state.startMidX;
+          state.translateY = state.startTranslateY + (midY - state.startMidY) + (1 - scaleRatio) * state.startMidY;
+          applyTransform();
+          e.preventDefault();
+        }
+        e.stopPropagation();
+      }
+
+      function onTouchEnd() {
+        if (state.scale <= 1.01) reset();
+      }
+
+      imgEl.addEventListener('touchstart', onTouchStart, { passive: true });
+      imgEl.addEventListener('touchmove', onTouchMove, { passive: false });
+      imgEl.addEventListener('touchend', onTouchEnd);
+      imgEl.addEventListener('touchcancel', onTouchEnd);
+      imgEl.addEventListener('load', reset);
+
+      return reset;
+    }
+
+    function setupTwoFingerScroll(dialogEl, coverEl, getScrollContainer) {
+      if (!dialogEl) return;
+      const state = { startY: 0, startScrollTop: 0, container: null };
+      const isInCover = (target) => coverEl && coverEl.contains(target);
+      const getAvgY = (touches) => (touches[0].clientY + touches[1].clientY) / 2;
+
+      function onTouchStart(e) {
+        if (!modal?.classList.contains('open')) return;
+        if (isInCover(e.target)) return;
+        if (e.touches.length >= 2) {
+          const container = getScrollContainer();
+          if (!container) return;
+          state.container = container;
+          state.startY = getAvgY(e.touches);
+          state.startScrollTop = container.scrollTop;
+        }
+      }
+
+      function onTouchMove(e) {
+        if (!modal?.classList.contains('open')) return;
+        if (isInCover(e.target)) return;
+        if (e.touches.length === 1) {
+          e.preventDefault();
+          return;
+        }
+        if (e.touches.length >= 2) {
+          const container = state.container || getScrollContainer();
+          if (!container) return;
+          const currentY = getAvgY(e.touches);
+          container.scrollTop = state.startScrollTop + (state.startY - currentY);
+          e.preventDefault();
+        }
+      }
+
+      function onTouchEnd(e) {
+        if (e.touches.length < 2) {
+          state.container = null;
+        }
+      }
+
+      dialogEl.addEventListener('touchstart', onTouchStart, { passive: true });
+      dialogEl.addEventListener('touchmove', onTouchMove, { passive: false });
+      dialogEl.addEventListener('touchend', onTouchEnd);
+      dialogEl.addEventListener('touchcancel', onTouchEnd);
+    }
+
+    function getNewsScrollContainer() {
+      if (!modalDialog) return null;
+      const body = modalDialog.querySelector('.news-modal-body');
+      if (body) {
+        const style = getComputedStyle(body);
+        if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && body.scrollHeight > body.clientHeight) {
+          return body;
+        }
+      }
+      return modalDialog;
+    }
+
     function openModal(data) {
       const modalCover = data.modalcover || data.cover || defaultImage;
       setImageWithFallback(modalImg, modalCover);
@@ -551,6 +731,7 @@
       modalMeta.textContent = `${data.category || 'General'} · ${data.date || 'Sin fecha'}`;
       modalContent.innerHTML = data.content || '';
       setModalLayout(data.layout);
+      resetNewsZoom();
       modal.classList.add('open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('modal-open');
@@ -581,6 +762,7 @@
       modal.classList.remove('open');
       modal.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('modal-open');
+      resetNewsZoom();
     }
 
     document.querySelectorAll('.news-open-modal, .news-item').forEach((el) => {
@@ -663,6 +845,9 @@
     }
 
     enableReorder();
+
+    resetNewsZoom = setupZoomableImage(modalImg, modalCover, modal);
+    setupTwoFingerScroll(modalDialog, modalCover, getNewsScrollContainer);
 
     closeBtn?.addEventListener('click', closeModal);
     modal?.addEventListener('click', (e) => { if (e.target === modal || e.target === modal.querySelector('.news-modal-backdrop')) closeModal(); });

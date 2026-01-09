@@ -657,7 +657,7 @@
 
               {% if commission_meetings %}
                 {% for meeting in commission_meetings %}
-                  <div class="commission-item commission-item--meeting">
+                  <a class="commission-item commission-item--meeting commission-item-link" href="{{ commission_href }}">
                     <img src="{{ icon_reunion }}" alt="" class="commission-item-icon" />
                     <div>
                       <div class="commission-item-title"><strong>Reunion:</strong> {{ meeting.title }}</div>
@@ -668,7 +668,7 @@
                         {% endif %}
                       </div>
                     </div>
-                  </div>
+                  </a>
                 {% endfor %}
               {% endif %}
             </div>
@@ -741,7 +741,7 @@
 
                       {% if project.meetings %}
                         {% for meeting in project.meetings %}
-                          <div class="commission-item commission-item--meeting">
+                          <a class="commission-item commission-item--meeting commission-item-link" href="{{ project_href }}">
                             <img src="{{ icon_reunion }}" alt="" class="commission-item-icon" />
                             <div>
                               <div class="commission-item-title"><strong>Reunion:</strong> {{ meeting.title }}</div>
@@ -752,7 +752,7 @@
                                 {% endif %}
                               </div>
                             </div>
-                          </div>
+                          </a>
                         {% endfor %}
                       {% endif %}
                     </div>

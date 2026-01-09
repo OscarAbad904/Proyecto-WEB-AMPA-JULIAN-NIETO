@@ -84,7 +84,7 @@
     <div class="events-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
       <button class="events-modal-close" type="button" aria-label="Cerrar" data-event-modal-close>×</button>
       <figure class="events-modal-cover" id="event-modal-cover">
-        <img id="event-modal-image" src="" alt="Imagen del evento" referrerpolicy="no-referrer" />
+        <img id="event-modal-image" class="modal-zoomable" src="" alt="Imagen del evento" referrerpolicy="no-referrer" />
       </figure>
       <div class="events-modal-body">
         <p class="events-modal-meta" id="event-modal-meta"></p>
@@ -106,6 +106,11 @@
         /https?:\/\/drive\.googleusercontent\.com\/d\/([^/]+)/,
         /https?:\/\/drive\.google\.com\/uc\?export=view&?id=([^&]+)/,
       ];
+      let resetEventZoom = () => {};
+      const modal = document.getElementById('event-details-modal');
+      const modalDialog = modal?.querySelector('.events-modal-dialog');
+      const modalCover = document.getElementById('event-modal-cover');
+      const modalImg = document.getElementById('event-modal-image');
 
       function extractDriveId(url) {
         if (!url) return null;
@@ -182,7 +187,7 @@
 
       function setModalImage(imgEl, rawUrl) {
         if (!imgEl) return;
-        const coverFigure = document.getElementById('event-modal-cover');
+        const coverFigure = modalCover;
 
         if (!rawUrl) {
           imgEl.removeAttribute('src');
@@ -225,19 +230,188 @@
         tryPrimary();
       }
 
+      function setupZoomableImage(imgEl, coverEl, modalEl) {
+        if (!imgEl || !coverEl || !modalEl) return () => {};
+        const state = {
+          scale: 1,
+          translateX: 0,
+          translateY: 0,
+          startX: 0,
+          startY: 0,
+          startTranslateX: 0,
+          startTranslateY: 0,
+          startDistance: 0,
+          startScale: 1,
+          startMidX: 0,
+          startMidY: 0,
+        };
+        const minScale = 1;
+        const maxScale = 3;
+
+        const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+        const getDistance = (a, b) => Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+        const getMidpoint = (a, b) => ({
+          x: (a.clientX + b.clientX) / 2,
+          y: (a.clientY + b.clientY) / 2,
+        });
+
+        function applyTransform() {
+          const baseWidth = imgEl.offsetWidth;
+          const baseHeight = imgEl.offsetHeight;
+          const containerWidth = coverEl.clientWidth;
+          const containerHeight = coverEl.clientHeight;
+          if (baseWidth && baseHeight && containerWidth && containerHeight) {
+            const scaledWidth = baseWidth * state.scale;
+            const scaledHeight = baseHeight * state.scale;
+            const maxX = Math.max(0, (scaledWidth - containerWidth) / 2);
+            const maxY = Math.max(0, (scaledHeight - containerHeight) / 2);
+            state.translateX = clamp(state.translateX, -maxX, maxX);
+            state.translateY = clamp(state.translateY, -maxY, maxY);
+          }
+          imgEl.style.transform = `translate3d(${state.translateX}px, ${state.translateY}px, 0) scale(${state.scale})`;
+        }
+
+        function reset() {
+          state.scale = 1;
+          state.translateX = 0;
+          state.translateY = 0;
+          applyTransform();
+        }
+
+        function onTouchStart(e) {
+          if (!modalEl.classList.contains('open')) return;
+          if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            state.startX = touch.clientX;
+            state.startY = touch.clientY;
+            state.startTranslateX = state.translateX;
+            state.startTranslateY = state.translateY;
+          } else if (e.touches.length >= 2) {
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            state.startDistance = getDistance(t1, t2) || 1;
+            state.startScale = state.scale;
+            state.startTranslateX = state.translateX;
+            state.startTranslateY = state.translateY;
+            const mid = getMidpoint(t1, t2);
+            const rect = coverEl.getBoundingClientRect();
+            state.startMidX = mid.x - (rect.left + rect.width / 2);
+            state.startMidY = mid.y - (rect.top + rect.height / 2);
+          }
+          e.stopPropagation();
+        }
+
+        function onTouchMove(e) {
+          if (!modalEl.classList.contains('open')) return;
+          if (e.touches.length === 1) {
+            if (state.scale <= 1) return;
+            const touch = e.touches[0];
+            state.translateX = state.startTranslateX + (touch.clientX - state.startX);
+            state.translateY = state.startTranslateY + (touch.clientY - state.startY);
+            applyTransform();
+            e.preventDefault();
+          } else if (e.touches.length >= 2) {
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            const distance = getDistance(t1, t2) || state.startDistance || 1;
+            const nextScale = clamp(state.startScale * (distance / state.startDistance), minScale, maxScale);
+            const scaleRatio = nextScale / state.startScale;
+            const mid = getMidpoint(t1, t2);
+            const rect = coverEl.getBoundingClientRect();
+            const midX = mid.x - (rect.left + rect.width / 2);
+            const midY = mid.y - (rect.top + rect.height / 2);
+            state.scale = nextScale;
+            state.translateX = state.startTranslateX + (midX - state.startMidX) + (1 - scaleRatio) * state.startMidX;
+            state.translateY = state.startTranslateY + (midY - state.startMidY) + (1 - scaleRatio) * state.startMidY;
+            applyTransform();
+            e.preventDefault();
+          }
+          e.stopPropagation();
+        }
+
+        function onTouchEnd() {
+          if (state.scale <= 1.01) reset();
+        }
+
+        imgEl.addEventListener('touchstart', onTouchStart, { passive: true });
+        imgEl.addEventListener('touchmove', onTouchMove, { passive: false });
+        imgEl.addEventListener('touchend', onTouchEnd);
+        imgEl.addEventListener('touchcancel', onTouchEnd);
+        imgEl.addEventListener('load', reset);
+
+        return reset;
+      }
+
+      function setupTwoFingerScroll(dialogEl, coverEl, getScrollContainer) {
+        if (!dialogEl) return;
+        const state = { startY: 0, startScrollTop: 0, container: null };
+        const isInCover = (target) => coverEl && coverEl.contains(target);
+        const getAvgY = (touches) => (touches[0].clientY + touches[1].clientY) / 2;
+
+        function onTouchStart(e) {
+          if (!modal?.classList.contains('open')) return;
+          if (isInCover(e.target)) return;
+          if (e.touches.length >= 2) {
+            const container = getScrollContainer();
+            if (!container) return;
+            state.container = container;
+            state.startY = getAvgY(e.touches);
+            state.startScrollTop = container.scrollTop;
+          }
+        }
+
+        function onTouchMove(e) {
+          if (!modal?.classList.contains('open')) return;
+          if (isInCover(e.target)) return;
+          if (e.touches.length === 1) {
+            e.preventDefault();
+            return;
+          }
+          if (e.touches.length >= 2) {
+            const container = state.container || getScrollContainer();
+            if (!container) return;
+            const currentY = getAvgY(e.touches);
+            container.scrollTop = state.startScrollTop + (state.startY - currentY);
+            e.preventDefault();
+          }
+        }
+
+        function onTouchEnd(e) {
+          if (e.touches.length < 2) {
+            state.container = null;
+          }
+        }
+
+        dialogEl.addEventListener('touchstart', onTouchStart, { passive: true });
+        dialogEl.addEventListener('touchmove', onTouchMove, { passive: false });
+        dialogEl.addEventListener('touchend', onTouchEnd);
+        dialogEl.addEventListener('touchcancel', onTouchEnd);
+      }
+
+      function getEventScrollContainer() {
+        const body = modalDialog?.querySelector('.events-modal-body');
+        if (body) {
+          const style = getComputedStyle(body);
+          if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && body.scrollHeight > body.clientHeight) {
+            return body;
+          }
+        }
+        return modalDialog || null;
+      }
+
       function toggleEventModal(show) {
-        const modal = document.getElementById('event-details-modal');
         if (!modal) return;
         modal.classList.toggle('open', show);
         modal.setAttribute('aria-hidden', show ? 'false' : 'true');
         document.body.classList.toggle('modal-open', show);
+        resetEventZoom();
       }
 
       function openEventModalFromData(payload) {
         const titleEl = document.getElementById('event-modal-title');
         const metaEl = document.getElementById('event-modal-meta');
         const contentEl = document.getElementById('event-modal-content');
-        const imgEl = document.getElementById('event-modal-image');
+        const imgEl = modalImg;
 
         const title = (payload && payload.title) ? String(payload.title) : '';
         const category = (payload && payload.category) ? String(payload.category) : 'Evento';
@@ -281,6 +455,9 @@
           contentHtml: html,
         });
       }
+
+      resetEventZoom = setupZoomableImage(modalImg, modalCover, modal);
+      setupTwoFingerScroll(modalDialog, modalCover, getEventScrollContainer);
 
       window.openEventModalFromData = openEventModalFromData;
 
@@ -385,6 +562,14 @@
       height: 100%;
       object-fit: contain;
       display: block;
+    }
+
+    .events-modal-cover img.modal-zoomable {
+      touch-action: none;
+      user-select: none;
+      -webkit-user-drag: none;
+      transform-origin: center;
+      will-change: transform;
     }
 
     .events-modal-body {
