@@ -613,7 +613,8 @@
                         <div>
                           <div class="commission-poll-title"><strong>Votacion:</strong> {{ discussion.poll.title }}</div>
                           <div class="commission-poll-meta">
-                            {{ discussion.poll.votes_total }} votos de {{ discussion.poll.members_total }} miembros - Cierra {% if discussion.poll.end_at %}{{ discussion.poll.end_at.strftime("%d/%m/%Y %H:%M") }}{% else %}Sin fecha{% endif %}
+                            {{ discussion.poll.votes_total }} votos de {{ discussion.poll.members_total }} miembros<br />
+                            La Votacion finaliza el {% if discussion.poll.end_at %}{{ discussion.poll.end_at.strftime("%d/%m/%Y a las %H:%M") }}{% else %}Sin fecha{% endif %}
                           </div>
                         </div>
                         <div class="commission-poll-status {{ 'commission-poll-status--voted' if discussion.poll.user_has_voted else 'commission-poll-status--pending' }}">
@@ -682,7 +683,8 @@
                                 <div>
                                   <div class="commission-poll-title"><strong>Votacion:</strong> {{ discussion.poll.title }}</div>
                                   <div class="commission-poll-meta">
-                                    {{ discussion.poll.votes_total }} votos de {{ discussion.poll.members_total }} miembros - Cierra {% if discussion.poll.end_at %}{{ discussion.poll.end_at.strftime("%d/%m/%Y %H:%M") }}{% else %}Sin fecha{% endif %}
+                                    {{ discussion.poll.votes_total }} votos de {{ discussion.poll.members_total }} miembros<br />
+                                    La Votacion finaliza el {% if discussion.poll.end_at %}{{ discussion.poll.end_at.strftime("%d/%m/%Y a las %H:%M") }}{% else %}Sin fecha{% endif %}
                                   </div>
                                 </div>
                                 <div class="commission-poll-status {{ 'commission-poll-status--voted' if discussion.poll.user_has_voted else 'commission-poll-status--pending' }}">
