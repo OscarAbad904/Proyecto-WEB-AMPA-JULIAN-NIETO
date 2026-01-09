@@ -214,13 +214,52 @@ def ensure_google_drive_token_file(root_path: Path | str) -> str | None:
     try:
         token_json = unwrap_fernet_json_layers(encrypted_token)
         if not token_json:
+            # Fallback: usar archivo existente si lo hay
+            if token_path.exists():
+                return str(token_path)
             return None
-        
-        # Crear el archivo si no existe o si el contenido cambió
-        if not token_path.exists() or token_path.read_text(encoding="utf-8") != token_json:
-            token_path.parent.mkdir(parents=True, exist_ok=True)
-            token_path.write_text(token_json, encoding="utf-8")
-        
+
+        # El contenido del token (access_token/expiry) puede cambiar en cada refresh.
+        # Para evitar reescrituras en cada arranque (y bucles de invalid_grant),
+        # comparamos principalmente por refresh_token.
+        token_env_obj: dict | None = None
+        try:
+            token_env_obj = json.loads(token_json)
+        except Exception:
+            token_env_obj = None
+
+        if token_path.exists():
+            try:
+                existing_text = token_path.read_text(encoding="utf-8")
+                existing_obj = json.loads(existing_text)
+
+                env_refresh = (token_env_obj or {}).get("refresh_token")
+                file_refresh = (existing_obj or {}).get("refresh_token")
+
+                # Si ambos refresh_token coinciden, no tocar el archivo aunque cambie el access_token.
+                if env_refresh and file_refresh and str(env_refresh) == str(file_refresh):
+                    return str(token_path)
+
+                # Si el archivo ya tiene un refresh_token, normalmente es el estado más reciente
+                # (por ejemplo, tras reautenticación interactiva). Para evitar que el arranque
+                # lo pise con un token viejo del .env y obligue a reautorizar cada vez,
+                # conservamos el archivo salvo que se fuerce explícitamente.
+                if file_refresh:
+                    force_env = str(os.getenv("GOOGLE_DRIVE_TOKEN_FORCE_ENV") or "").lower() in {
+                        "1",
+                        "true",
+                        "yes",
+                        "on",
+                    }
+                    if not force_env:
+                        return str(token_path)
+            except Exception:
+                # Archivo existente inválido: lo regeneramos desde el entorno.
+                pass
+
+        # Crear el archivo si no existe o si cambió el refresh_token (o el archivo era inválido)
+        token_path.parent.mkdir(parents=True, exist_ok=True)
+        token_path.write_text(token_json, encoding="utf-8")
         return str(token_path)
     except Exception as e:
         print(f"Error al desencriptar GOOGLE_DRIVE_TOKEN_JSON: {e}")

@@ -199,8 +199,9 @@ def sync_style_to_static(style_name: str) -> Dict[str, Any]:
         except Exception as exc:
             errors.append(f"No se pudo copiar {name}: {exc}")
 
-    # 2) Asegurar al menos los archivos clave
-    required = set(STYLE_KEY_FILES.values())
+    # 2) Asegurar al menos los archivos clave (solo assets de imagen).
+    # El CSS se gestiona aparte y se escribe en assets/css/style.css.
+    required = set(STYLE_KEY_FILES.values()) - {STYLE_CSS_FILENAME}
     for filename in required:
         if filename in desired_assets:
             continue
@@ -932,6 +933,21 @@ def download_style_file(style_name: str, filename: str) -> Optional[Tuple[bytes,
 
 def _download_local_style_file(style_name: str, filename: str) -> Optional[Tuple[bytes, str]]:
     """Descarga un archivo de estilo local (fallback)."""
+    # 1) Prioridad: cache local del propio estilo (cache/styles/<Estilo>/...)
+    # Esto permite seguir sirviendo estilos incluso si Drive no está disponible.
+    try:
+        cache_path = _get_style_cache_dir(style_name) / filename
+        if cache_path.exists():
+            content = cache_path.read_bytes()
+            mime_type, _ = mimetypes.guess_type(str(cache_path))
+            if filename == STYLE_CSS_FILENAME and (not mime_type or mime_type == "application/octet-stream"):
+                mime_type = "text/css; charset=utf-8"
+            return content, mime_type or "application/octet-stream"
+    except Exception:
+        # Si el caché no está accesible, continuar con fallback a assets/.
+        pass
+
+    # 2) Fallback: assets empaquetados (assets/images/<style>/...)
     folder_name = style_name.lower()
     file_path = Path(current_app.static_folder) / "images" / folder_name / filename
     
@@ -960,6 +976,19 @@ def _download_local_style_file(style_name: str, filename: str) -> Optional[Tuple
 
 def _download_local_style_file_strict(style_name: str, filename: str) -> Optional[Tuple[bytes, str]]:
     """Descarga un archivo de estilo local SOLO del estilo indicado (sin fallbacks a otros estilos)."""
+    # 1) Cache local del estilo (cache/styles/<Estilo>/...)
+    try:
+        cache_path = _get_style_cache_dir(style_name) / filename
+        if cache_path.exists():
+            content = cache_path.read_bytes()
+            mime_type, _ = mimetypes.guess_type(str(cache_path))
+            if filename == STYLE_CSS_FILENAME and (not mime_type or mime_type == "application/octet-stream"):
+                mime_type = "text/css; charset=utf-8"
+            return content, mime_type or "application/octet-stream"
+    except Exception:
+        pass
+
+    # 2) Fallback: assets empaquetados (assets/images/<style>/...), sin alternativos
     folder_name = style_name.lower()
     file_path = Path(current_app.static_folder) / "images" / folder_name / filename
     if not file_path.exists():
@@ -967,6 +996,8 @@ def _download_local_style_file_strict(style_name: str, filename: str) -> Optiona
     try:
         content = file_path.read_bytes()
         mime_type, _ = mimetypes.guess_type(str(file_path))
+        if filename == STYLE_CSS_FILENAME and (not mime_type or mime_type == "application/octet-stream"):
+            mime_type = "text/css; charset=utf-8"
         return content, mime_type or "application/octet-stream"
     except Exception:
         return None

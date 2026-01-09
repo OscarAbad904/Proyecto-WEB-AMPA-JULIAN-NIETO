@@ -90,8 +90,18 @@ def _get_user_drive_service():
 
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
+                try:
+                    creds.refresh(Request())
+                except Exception as exc:  # noqa: BLE001
+                    # Caso típico: invalid_grant (token revocado/expirado).
+                    # Permitimos reautenticación interactiva en desarrollo o si se habilita explícitamente.
+                    current_app.logger.warning(
+                        "Token de Google Drive inválido o revocado (%s). Requiere reautenticación.",
+                        exc,
+                    )
+                    creds = None
+
+            if not creds or not creds.valid:
                 if not credentials_path.exists():
                     current_app.logger.warning(
                         "No se encontro el archivo de credenciales de OAuth de Drive. "
@@ -108,6 +118,17 @@ def _get_user_drive_service():
                     )
                     return None
                     
+                allow_interactive = bool(current_app.debug) or str(
+                    current_app.config.get("GOOGLE_DRIVE_ALLOW_INTERACTIVE_OAUTH", "")
+                ).lower() in {"1", "true", "yes", "on"}
+
+                if not allow_interactive:
+                    current_app.logger.warning(
+                        "OAuth interactivo de Google Drive deshabilitado. "
+                        "Activa DEBUG o GOOGLE_DRIVE_ALLOW_INTERACTIVE_OAUTH para reautenticar."
+                    )
+                    return None
+
                 flow = InstalledAppFlow.from_client_secrets_file(
                     current_app.config["GOOGLE_DRIVE_OAUTH_CREDENTIALS_FILE"],
                     SCOPES,
