@@ -237,6 +237,7 @@ def build_commission_cards(
                 "votes_total": votes_total,
                 "members_total": members_total,
                 "user_has_voted": poll.id in user_votes,
+                "user_vote_value": user_votes.get(poll.id),
             }
 
     def build_discussion_info(discussion: Suggestion) -> dict[str, object]:
