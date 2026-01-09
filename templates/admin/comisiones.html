@@ -13,9 +13,9 @@
 {% set show_create_button = show_create_button if show_create_button is defined else (not is_member_view) %}
 {% set show_empty_action = show_empty_action if show_empty_action is defined else (not is_member_view) %}
 {% set commission_cards = commission_cards|default({}) %}
-{% set icon_discusion = url_for('static', filename='images/png/Discusion.png') %}
+{% set icon_discusion = url_for('static', filename='images/png/discusion.png') %}
 {% set icon_proyecto = url_for('static', filename='images/png/Proyecto.png') %}
-{% set icon_votacion = url_for('static', filename='images/png/Votacion.png') %}
+{% set icon_votacion = url_for('static', filename='images/png/votacion.png') %}
 {% set icon_reunion = url_for('static', filename='images/png/Reunion.png') %}
 {% set icon_vote_like = url_for('static', filename='images/png/Like.png') %}
 {% set icon_vote_dislike = url_for('static', filename='images/png/DisLike.png') %}
